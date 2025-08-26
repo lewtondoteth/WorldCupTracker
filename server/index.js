@@ -16,8 +16,22 @@ import {
   initTables,
   getAllAssignments,
   addCompetitor,
-  assignPlayer
+  assignPlayer,
+  deleteCompetitor
 } from "./competitor_db.js";
+// API: Delete a competitor and their assignments for a year
+app.delete("/api/competitors/:year", express.json(), (req, res) => {
+  const year = Number(req.params.year);
+  const { competitor } = req.body;
+  if (!competitor) return res.status(400).json({ error: "Missing competitor name" });
+  deleteCompetitor(competitor, year, (err) => {
+    if (err) {
+      console.error("Error in deleteCompetitor:", err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ ok: true });
+  });
+});
 
 // Ensure tables exist before handling any requests
 initTables();
@@ -47,32 +61,17 @@ app.post("/api/competitors/:year", express.json(), async (req, res) => {
     return res.status(400).json({ error: "Missing competitor or players array" });
   }
   // Add competitor if not exists
-  addCompetitor(competitor, (err, competitor_id) => {
-    if (err && !/UNIQUE/.test(err.message)) return res.status(500).json({ error: err.message });
-    // If already exists, get its id
-    if (!competitor_id) {
-      // Query for id
-      playerDb.get('SELECT id FROM competitor WHERE name = ?', [competitor], (err2, row) => {
-        if (err2 || !row) return res.status(500).json({ error: err2?.message || 'Competitor not found' });
-        competitor_id = row.id;
-        assignAll();
-      });
-    } else {
-      assignAll();
+  // Check if competitor with same name and year exists
+  playerDb.get('SELECT id FROM competitor WHERE name = ? AND year = ?', [competitor, year], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (row) {
+      // Already exists, skip adding
+      return res.json({ ok: true, competitor_id: row.id, assigned: 0 });
     }
-    function assignAll() {
-      let done = 0, failed = [];
-      if (!players.length) return res.json({ ok: true, competitor_id, assigned: 0 });
-      players.forEach(pid => {
-        assignPlayer(competitor_id, pid, year, (err3) => {
-          if (err3 && !/UNIQUE/.test(err3.message)) failed.push({ pid, error: err3.message });
-          done++;
-          if (done === players.length) {
-            res.json({ ok: true, competitor_id, assigned: players.length - failed.length, failed });
-          }
-        });
-      });
-    }
+    addCompetitor(competitor, year, (err2, competitor_id) => {
+      if (err2) return res.status(500).json({ error: err2.message });
+      res.json({ ok: true, competitor_id, assigned: 0 });
+    });
   });
 });
 

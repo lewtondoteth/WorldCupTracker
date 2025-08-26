@@ -11,6 +11,43 @@ export default function Config() {
   const [editMode, setEditMode] = useState(false);
   const [editTarget, setEditTarget] = useState("");
   const [playersList, setPlayersList] = useState([]);
+  // Add competitor form state
+  const [addName, setAddName] = useState("");
+  const [adding, setAdding] = useState(false);
+  async function handleAddCompetitor(e) {
+    e.preventDefault();
+    setAdding(true);
+    setResult(null);
+    if (!addName) {
+      setResult({ error: "Competitor name required." });
+      setAdding(false);
+      return;
+    }
+    const r = await fetch(`http://localhost:5174/api/competitors/${year}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ competitor: addName, players: [] })
+      });
+    const data = await r.json();
+    setResult(data);
+    setAddName("");
+    setAdding(false);
+    fetchCompetitors();
+  }
+
+  async function handleDeleteCompetitor(name) {
+    if (!window.confirm(`Delete competitor '${name}' and all assignments?`)) return;
+    setResult(null);
+    const r = await fetch(`http://localhost:5174/api/competitors/${year}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ competitor: name })
+    });
+    const data = await r.json();
+    setResult(data);
+    fetchCompetitors();
+  }
 
   useEffect(() => {
     fetchCompetitors();
@@ -102,6 +139,15 @@ export default function Config() {
         </div>
       )}
       <h2 style={{ marginTop: 32 }}>Competitors for {year}</h2>
+      {/* Add Competitor Form */}
+      <form onSubmit={handleAddCompetitor} style={{ margin: '16px 0', padding: 12, border: '1px solid #ddd', borderRadius: 8, maxWidth: 600 }}>
+        <h3>Add Competitor</h3>
+        <div style={{ marginBottom: 8 }}>
+          <label>Name: </label>
+          <input value={addName} onChange={e => setAddName(e.target.value)} style={{ width: 200 }} required />
+        </div>
+        <button type="submit" disabled={adding}>Add Competitor</button>
+      </form>
       {competitors && competitors.error ? (
         <div style={{ color: 'red', marginTop: 16 }}>Error loading competitors: {competitors.error}</div>
       ) : (
@@ -110,7 +156,8 @@ export default function Config() {
             <tr style={{ background: '#eee' }}>
               <th style={{ textAlign: 'left', padding: 6 }}>Competitor</th>
               <th style={{ textAlign: 'left', padding: 6 }}>Players</th>
-              <th></th>
+            <th></th>
+            <th></th>
             </tr>
           </thead>
           <tbody>
@@ -120,6 +167,9 @@ export default function Config() {
                 <td style={{ padding: 6 }}>{Array.isArray(players) ? players.join(", ") : "-"}</td>
                 <td style={{ padding: 6 }}>
                   <button onClick={() => startEdit(name)}>Edit</button>
+                </td>
+                <td style={{ padding: 6 }}>
+                  <button onClick={() => handleDeleteCompetitor(name)} style={{ color: 'red' }}>Delete</button>
                 </td>
               </tr>
             ))}
