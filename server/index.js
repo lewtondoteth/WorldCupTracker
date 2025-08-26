@@ -1,17 +1,125 @@
 console.log('=== SERVER STARTED: index.js loaded ===');
 
-
 import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
+
+const app = express();
+app.use(cors()); // front-end on a different port during dev
+
 import { filterLast32 } from "./last32.js";
 import path from "path";
 import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { cacheLast32, getCachedLast32 } from "./sqlite_cache.mjs";
+import {
+  initTables,
+  getAllAssignments,
+  addCompetitor,
+  assignPlayer
+} from "./competitor_db.js";
 
-const app = express();
-app.use(cors()); // front-end on a different port during dev
+// Ensure tables exist before handling any requests
+initTables();
+// API: Get all competitors and their players for a year
+app.get("/api/competitors/:year", (req, res) => {
+  const year = Number(req.params.year);
+  getAllAssignments(year, (err, rows) => {
+    if (err) {
+      console.error("Error in getAllAssignments:", err);
+      return res.status(500).json({ error: err.message });
+    }
+    // Group by competitor
+    const competitors = {};
+    for (const row of rows) {
+      if (!competitors[row.competitor]) competitors[row.competitor] = [];
+      competitors[row.competitor].push(row.player);
+    }
+    res.json(competitors);
+  });
+});
+
+// API: Add or update a competitor and their player assignments for a year
+app.post("/api/competitors/:year", express.json(), async (req, res) => {
+  const year = Number(req.params.year);
+  const { competitor, players } = req.body;
+  if (!competitor || !Array.isArray(players)) {
+    return res.status(400).json({ error: "Missing competitor or players array" });
+  }
+  // Add competitor if not exists
+  addCompetitor(competitor, (err, competitor_id) => {
+    if (err && !/UNIQUE/.test(err.message)) return res.status(500).json({ error: err.message });
+    // If already exists, get its id
+    if (!competitor_id) {
+      // Query for id
+      playerDb.get('SELECT id FROM competitor WHERE name = ?', [competitor], (err2, row) => {
+        if (err2 || !row) return res.status(500).json({ error: err2?.message || 'Competitor not found' });
+        competitor_id = row.id;
+        assignAll();
+      });
+    } else {
+      assignAll();
+    }
+    function assignAll() {
+      let done = 0, failed = [];
+      if (!players.length) return res.json({ ok: true, competitor_id, assigned: 0 });
+      players.forEach(pid => {
+        assignPlayer(competitor_id, pid, year, (err3) => {
+          if (err3 && !/UNIQUE/.test(err3.message)) failed.push({ pid, error: err3.message });
+          done++;
+          if (done === players.length) {
+            res.json({ ok: true, competitor_id, assigned: players.length - failed.length, failed });
+          }
+        });
+      });
+    }
+  });
+});
+
+// Helper: upsert player into DB
+import sqlite3 from 'sqlite3';
+const dbPath = path.join(__dirname, 'snooker_cache.db');
+const playerDb = new sqlite3.Database(dbPath);
+
+function upsertPlayer(id, name) {
+  return new Promise((resolve, reject) => {
+    playerDb.run(
+      'INSERT INTO player (id, name) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name',
+      [id, name],
+      function (err) {
+        if (err) reject(err);
+        else resolve();
+      }
+    );
+  });
+}
+// API: Sync last 32 players to DB for a given year
+app.post("/api/players/last32-to-db/:year", async (req, res) => {
+  const year = Number(req.params.year);
+  try {
+    // Get last 32 players (from cache or fetch)
+    let players = getCachedLast32(year);
+    if (!players) {
+      const r = await fetch(`http://localhost:${PORT}/api/players/${year}`);
+      if (!r.ok) throw new Error(await r.text());
+      players = await r.json();
+    }
+    // Upsert each player into the DB
+    let added = 0, updated = 0, errors = [];
+    for (const p of players) {
+      try {
+        await upsertPlayer(p.ID, p.Name || `${p.FirstName ?? ''} ${p.LastName ?? ''}`.trim());
+        added++;
+      } catch (e) {
+        errors.push({ id: p.ID, name: p.Name, error: e.message });
+      }
+    }
+    res.json({ ok: true, added, errors });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 
 const SN_API = "https://api.snooker.org";
 const SN_HEADER = { "X-Requested-By": "NicholasAndroidApp" };

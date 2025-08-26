@@ -2,7 +2,11 @@
 // Handles player and competitor tables for the snooker competition
 
 import sqlite3 from 'sqlite3';
-const db = new sqlite3.Database('./server/snooker_cache.db');
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const dbPath = path.join(__dirname, 'snooker_cache.db');
+const db = new sqlite3.Database(dbPath);
 
 // Create tables if they don't exist
 export function initTables() {
