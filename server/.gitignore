@@ -1,0 +1,5 @@
+# Ignore SQLite database and cache files
+/server/snooker_cache.db
+/server/snooker_cache.sqlite
+*.sqlite
+*.db

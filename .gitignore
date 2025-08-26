@@ -1,0 +1,36 @@
+# Ignore node_modules and build artifacts
+node_modules/
+dist/
+build/
+.env
+.DS_Store
+*.log
+
+# Ignore SQLite database and cache files
+server/snooker_cache.db
+server/snooker_cache.sqlite
+*.sqlite
+*.db
+
+# Ignore OS and editor files
+*.swp
+*.swo
+*.tmp
+.vscode/
+.idea/
+
+# Ignore client build and cache
+client/node_modules/
+client/dist/
+client/build/
+client/.env
+client/.DS_Store
+client/*.log
+
+# Ignore server build and cache
+server/node_modules/
+server/dist/
+server/build/
+server/.env
+server/.DS_Store
+server/*.log
