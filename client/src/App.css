@@ -1,3 +1,217 @@
+.competitor-name-cell {
+  transition: background 0.15s;
+}
+.competitor-name-cell:hover {
+  background: #f3f4fa;
+}
+.config-page {
+  max-width: 700px;
+  margin: 2.5rem auto;
+  background: var(--config-bg, #fff);
+  color: var(--config-fg, #222);
+  border-radius: 18px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+  padding: 1.5rem 1.5rem 1.2rem 1.5rem;
+}
+.config-title {
+  font-size: 2rem;
+  margin-bottom: 0.2rem;
+}
+.config-desc {
+  color: #666;
+  margin-bottom: 1.1rem;
+  font-size: 1.05rem;
+}
+.config-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  margin-bottom: 1.1rem;
+}
+.config-controls input[type="number"] {
+  width: 70px;
+  font-size: 1rem;
+  padding: 0.2em 0.5em;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+.sync-btn {
+  background: #646cff;
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0.4rem 1.1rem;
+  border-radius: 8px;
+  border: none;
+  transition: background 0.2s;
+}
+.sync-btn:disabled {
+  background: #bbb;
+  color: #eee;
+}
+.sync-btn:hover:not(:disabled) {
+  background: #535bf2;
+}
+.config-result {
+  margin-top: 1rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  display: inline-block;
+}
+.config-result.success {
+  background: #e6ffe6;
+  color: #1a7f1a;
+  border: 1px solid #b2e6b2;
+}
+.config-result.error {
+  background: #ffeaea;
+  color: #b30000;
+  border: 1px solid #ffb2b2;
+}
+.config-subtitle {
+  margin-top: 1.2rem;
+  margin-bottom: 0.7rem;
+  font-size: 1.15rem;
+  display: inline-block;
+}
+.competitors-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-bottom: 0.2rem;
+}
+.add-competitor-form {
+  margin: 1.5rem 0;
+  padding: 1.2rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  max-width: 500px;
+  background: #fafbff;
+}
+.add-competitor-form h3 {
+  margin-top: 0;
+}
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.form-row label {
+  min-width: 90px;
+  font-weight: 500;
+}
+.form-row input {
+  flex: 1;
+  padding: 0.4em 0.8em;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+}
+.competitors-table-wrapper {
+  overflow-x: auto;
+  margin-top: 0.5rem;
+}
+.competitors-table {
+  width: 100%;
+  max-width: 700px;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+  font-size: 1rem;
+}
+.competitors-table th, .competitors-table td {
+  padding: 0.5em 0.7em;
+  text-align: left;
+}
+.competitors-table th {
+  background: #f3f4fa;
+  font-weight: 600;
+  border-bottom: 1px solid #e0e0e0;
+}
+.competitors-table tr:nth-child(even) {
+  background: #fafbff;
+}
+.icon-btn {
+  background: none;
+  border: none;
+  padding: 0.2em 0.5em;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn.edit {
+  color: #2a2a7f;
+}
+.icon-btn.edit:hover {
+  background: #e6eaff;
+}
+.icon-btn.delete {
+  color: #b30000;
+}
+.icon-btn.delete:hover {
+  background: #ffeaea;
+}
+.icon-btn.add {
+  color: #646cff;
+  font-size: 1.5rem;
+  margin-left: 0.2em;
+}
+.icon-btn.add:hover {
+  background: #e6eaff;
+}
+.config-error {
+  color: #b30000;
+  margin-top: 1rem;
+  font-weight: 500;
+}
+.edit-dialog {
+  margin-top: 2rem;
+  border: 1px solid #b2b2b2;
+  padding: 1.5rem;
+  border-radius: 12px;
+  max-width: 500px;
+  background: #f7f7fa;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.edit-dialog-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.save-btn {
+  background: #1a7f1a;
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5em 1.2em;
+  font-size: 1em;
+  transition: background 0.2s;
+}
+.save-btn:hover {
+  background: #146014;
+}
+.cancel-btn {
+  background: #e0e0e0;
+  color: #333;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5em 1.2em;
+  font-size: 1em;
+  margin-left: 0.5em;
+  transition: background 0.2s;
+}
+.cancel-btn:hover {
+  background: #c0c0c0;
+}
 #root {
   max-width: 1280px;
   margin: 0 auto;

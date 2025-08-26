@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import '../material-icons.css';
 
 export default function Config() {
   const [syncing, setSyncing] = useState(false);
@@ -14,6 +15,7 @@ export default function Config() {
   // Add competitor form state
   const [addName, setAddName] = useState("");
   const [adding, setAdding] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   async function handleAddCompetitor(e) {
     e.preventDefault();
     setAdding(true);
@@ -85,7 +87,11 @@ export default function Config() {
     setEditName(name);
     setEditPlayers((competitors[name] || []).join(", "));
     setEditMode(true);
+    setEditingNameInline(true);
   }
+
+  // For in-place editing
+  const [editingNameInline, setEditingNameInline] = useState(false);
 
   function cancelEdit() {
     setEditMode(false);
@@ -94,7 +100,24 @@ export default function Config() {
     setEditPlayers("");
   }
 
-  async function saveEdit() {
+  // Save only the name (in-place edit)
+  async function saveEditName() {
+    // Keep the same players as before
+    const players = competitors[editTarget] || [];
+    const r = await fetch(`http://localhost:5174/api/competitors/${year}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ competitor: editName, players })
+    });
+    const data = await r.json();
+    setResult(data);
+    setEditMode(false);
+    setEditingNameInline(false);
+    fetchCompetitors();
+  }
+
+  // Save only the players (modal edit)
+  async function saveEditPlayers() {
     const playerNames = editPlayers.split(",").map(s => s.trim()).filter(Boolean);
     // Map player names to IDs
     const nameToId = {};
@@ -120,75 +143,116 @@ export default function Config() {
 
   return (
     <div className="config-page">
-      <h1>Competition Config</h1>
-      <p>Manage competitors and player assignments for each year here.</p>
-      <div style={{ margin: '1rem 0' }}>
-        <label>Year: </label>
-        <input type="number" value={year} onChange={e => setYear(Number(e.target.value))} min={2000} max={2100} style={{ width: 80 }} />
+      <h1 className="config-title">Competition Config</h1>
+      <p className="config-desc">Manage competitors and player assignments for each year here.</p>
+      <div className="config-controls">
+        <label htmlFor="year-input">Year: </label>
+        <input id="year-input" type="number" value={year} onChange={e => setYear(Number(e.target.value))} min={2000} max={2100} />
+        <button className="sync-btn" onClick={syncLast32ToDb} disabled={syncing}>
+          {syncing ? 'Syncing…' : `Sync Last 32 Players (${year}) to DB`}
+        </button>
       </div>
-      <button onClick={syncLast32ToDb} disabled={syncing} style={{ margin: '1rem 0', padding: '0.5rem 1.5rem', fontSize: '1rem' }}>
-        {syncing ? 'Syncing…' : `Sync Last 32 Players (${year}) to DB`}
-      </button>
       {result && (
-        <div style={{ marginTop: 16 }}>
+        <div className={`config-result ${result.error ? "error" : "success"}`}>
           {result.error ? (
-            <span style={{ color: 'red' }}>Error: {result.error}</span>
+            <span>Error: {result.error}</span>
           ) : (
-            <span style={{ color: 'green' }}>Success.</span>
+            <span>Success.</span>
           )}
         </div>
       )}
-      <h2 style={{ marginTop: 32 }}>Competitors for {year}</h2>
-      {/* Add Competitor Form */}
-      <form onSubmit={handleAddCompetitor} style={{ margin: '16px 0', padding: 12, border: '1px solid #ddd', borderRadius: 8, maxWidth: 600 }}>
-        <h3>Add Competitor</h3>
-        <div style={{ marginBottom: 8 }}>
-          <label>Name: </label>
-          <input value={addName} onChange={e => setAddName(e.target.value)} style={{ width: 200 }} required />
-        </div>
-        <button type="submit" disabled={adding}>Add Competitor</button>
-      </form>
+      <div className="competitors-header-row">
+        <h2 className="config-subtitle" style={{ marginBottom: 0 }}>Competitors for {year}</h2>
+        <button className="icon-btn add" title="Add Competitor" onClick={() => setShowAdd(true)} style={{ marginLeft: 12, marginTop: 2 }}>
+          <span className="material-icons">add</span>
+        </button>
+      </div>
       {competitors && competitors.error ? (
-        <div style={{ color: 'red', marginTop: 16 }}>Error loading competitors: {competitors.error}</div>
+        <div className="config-error">Error loading competitors: {competitors.error}</div>
       ) : (
-        <table style={{ width: '100%', maxWidth: 700, borderCollapse: 'collapse', marginTop: 12 }}>
-          <thead>
-            <tr style={{ background: '#eee' }}>
-              <th style={{ textAlign: 'left', padding: 6 }}>Competitor</th>
-              <th style={{ textAlign: 'left', padding: 6 }}>Players</th>
-            <th></th>
-            <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(competitors).map(([name, players]) => (
-              <tr key={name}>
-                <td style={{ padding: 6 }}>{name}</td>
-                <td style={{ padding: 6 }}>{Array.isArray(players) ? players.join(", ") : "-"}</td>
-                <td style={{ padding: 6 }}>
-                  <button onClick={() => startEdit(name)}>Edit</button>
-                </td>
-                <td style={{ padding: 6 }}>
-                  <button onClick={() => handleDeleteCompetitor(name)} style={{ color: 'red' }}>Delete</button>
-                </td>
+        <div className="competitors-table-wrapper">
+          <table className="competitors-table">
+            <thead>
+              <tr>
+                <th>Competitor</th>
+                <th>Players</th>
+                <th style={{ textAlign: 'right' }} colSpan={2}>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {Object.entries(competitors).map(([name, players]) => (
+                <tr key={name}>
+                  <td className="competitor-name-cell" style={{ display: 'flex', alignItems: 'center', gap: '0.5em' }}>
+                    {editMode && editingNameInline && editTarget === name ? (
+                      <>
+                        <input
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          style={{ fontSize: '1rem', padding: '0.2em 0.5em', borderRadius: 4, border: '1px solid #bbb', minWidth: 60 }}
+                          autoFocus
+                          onBlur={() => setEditingNameInline(false)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveEditName();
+                            if (e.key === 'Escape') cancelEdit();
+                          }}
+                        />
+                        <button className="icon-btn edit" title="Save" style={{ marginLeft: 2 }} onClick={saveEditName}>
+                          <span className="material-icons">check</span>
+                        </button>
+                        <button className="icon-btn delete" title="Cancel" style={{ marginLeft: 2 }} onClick={cancelEdit}>
+                          <span className="material-icons">close</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span onClick={() => { setEditTarget(name); setEditName(name); setEditPlayers((competitors[name] || []).join(", ")); setEditMode(true); setEditingNameInline(true); }} style={{ cursor: 'pointer' }}>{name}</span>
+                        <button
+                          className="icon-btn delete"
+                          title="Delete"
+                          tabIndex={-1}
+                          style={{ marginLeft: 2 }}
+                          onClick={e => { e.stopPropagation(); handleDeleteCompetitor(name); }}
+                        >
+                          <span className="material-icons">delete</span>
+                        </button>
+                      </>
+                    )}
+                  </td>
+                  <td>{Array.isArray(players) ? players.join(", ") : "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-      {editMode && (
-        <div style={{ marginTop: 24, border: '1px solid #ccc', padding: 16, borderRadius: 8, maxWidth: 500 }}>
+      {/* Add Competitor Modal */}
+      {showAdd && (
+        <div className="edit-dialog" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 200, background: '#fff', boxShadow: '0 4px 32px rgba(0,0,0,0.18)' }}>
+          <h3>Add Competitor</h3>
+          <form onSubmit={e => { handleAddCompetitor(e); setShowAdd(false); }}>
+            <div className="form-row">
+              <label htmlFor="add-name">Name: </label>
+              <input id="add-name" value={addName} onChange={e => setAddName(e.target.value)} required autoFocus />
+            </div>
+            <div className="edit-dialog-actions">
+              <button className="save-btn" type="submit" disabled={adding}>Add</button>
+              <button className="cancel-btn" type="button" onClick={() => { setShowAdd(false); setAddName(""); }}>Cancel</button>
+            </div>
+          </form>
+        </div>
+      )}
+      {/* Edit Competitor Modal (for players only, not name) */}
+      {editMode && !editingNameInline && (
+        <div className="edit-dialog" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 200, background: '#fff', boxShadow: '0 4px 32px rgba(0,0,0,0.18)' }}>
           <h3>Edit Competitor</h3>
-          <div style={{ marginBottom: 8 }}>
-            <label>Name: </label>
-            <input value={editName} onChange={e => setEditName(e.target.value)} style={{ width: 200 }} />
+          <div className="form-row">
+            <label htmlFor="edit-players">Players (comma separated): </label>
+            <input id="edit-players" value={editPlayers} onChange={e => setEditPlayers(e.target.value)} />
           </div>
-          <div style={{ marginBottom: 8 }}>
-            <label>Players (comma separated): </label>
-            <input value={editPlayers} onChange={e => setEditPlayers(e.target.value)} style={{ width: 300 }} />
+          <div className="edit-dialog-actions">
+            <button className="save-btn" onClick={saveEditPlayers}>Save</button>
+            <button className="cancel-btn" onClick={cancelEdit}>Cancel</button>
           </div>
-          <button onClick={saveEdit} style={{ marginRight: 8 }}>Save</button>
-          <button onClick={cancelEdit}>Cancel</button>
         </div>
       )}
     </div>
