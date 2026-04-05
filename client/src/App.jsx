@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, Navigate, Route, Routes } from "react-router-dom";
 import dogsPlayingPool from "../../res/dogsplayingpool.jpeg";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:5174";
 const YEAR = 2025;
+const ADMIN_PASSWORD = "painting";
+const ADMIN_SESSION_KEY = "snooker-admin-authenticated";
 
 async function fetchPool() {
   const response = await fetch(`${API_BASE}/api/pool/${YEAR}`);
@@ -50,11 +53,19 @@ function PickList({ title, players }) {
   );
 }
 
-function SectionToggle({ expanded, onToggle, label, summary }) {
+function ChevronToggle({ expanded, onToggle, label, className = "" }) {
   return (
-    <button type="button" className="section-toggle" onClick={onToggle} aria-expanded={expanded}>
-      <span>{expanded ? `Hide ${label}` : `Show ${label}`}</span>
-      <strong>{summary}</strong>
+    <button
+      type="button"
+      className={className ? `chevron-toggle ${className}` : "chevron-toggle"}
+      onClick={onToggle}
+      aria-expanded={expanded}
+      aria-label={expanded ? `Collapse ${label}` : `Expand ${label}`}
+      title={expanded ? `Collapse ${label}` : `Expand ${label}`}
+    >
+      <span className={expanded ? "chevron-icon expanded" : "chevron-icon"} aria-hidden="true">
+        ▾
+      </span>
     </button>
   );
 }
@@ -79,13 +90,12 @@ function MatchCard({ match }) {
   );
 }
 
-export default function App() {
+function HomePage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("Using the generated demo pool file.");
   const [selectedRoundKey, setSelectedRoundKey] = useState("");
+  const [competitorsSectionExpanded, setCompetitorsSectionExpanded] = useState(true);
   const [expandedCompetitors, setExpandedCompetitors] = useState({});
   const [matchesExpanded, setMatchesExpanded] = useState(true);
 
@@ -127,28 +137,6 @@ export default function App() {
       setSelectedRoundKey(data.snapshot.rounds[0].key);
     }
   }, [data, selectedRoundKey]);
-
-  async function handleUpload(event) {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    try {
-      const text = await file.text();
-      const payload = JSON.parse(text);
-      setUploading(true);
-      setError("");
-      const nextData = await uploadPool(payload);
-      setData(nextData);
-      setStatus(`Loaded ${file.name} into the backend.`);
-    } catch (uploadError) {
-      setError(uploadError.message || "That file could not be uploaded.");
-    } finally {
-      setUploading(false);
-      event.target.value = "";
-    }
-  }
 
   function toggleCompetitor(name) {
     setExpandedCompetitors((current) => ({
@@ -233,8 +221,8 @@ export default function App() {
     return <main className="app-shell"><p className="status-banner error">{error || "Pool data is unavailable."}</p></main>;
   }
 
-  const { snapshot, sourceFile } = data;
-  const { selectedRound, aliveEntrants, decoratedCompetitors } = derived;
+  const { snapshot } = data;
+  const { selectedRound, decoratedCompetitors } = derived;
   const isLive = snapshot.dataSource === "live";
   const sourceLabel = isLive ? "Live data" : "Cached fallback";
 
@@ -244,10 +232,13 @@ export default function App() {
         <div className="hero-orbit hero-orbit-one" />
         <div className="hero-orbit hero-orbit-two" />
         <div className="hero-grid" />
-        <h1>
-          World Championship
-          <span>{YEAR}</span>
-        </h1>
+        <div className="hero-header">
+          <h1>
+            World Championship
+            <span>{YEAR}</span>
+          </h1>
+          <Link className="admin-link" to="/admin">Admin</Link>
+        </div>
         <div className="hero-image-shell">
           <img className="hero-image" src={dogsPlayingPool} alt="Dogs playing pool" />
         </div>
@@ -263,105 +254,105 @@ export default function App() {
           </div>
           <div>
             <p className="toolbar-label">Selected round</p>
-            <p className="toolbar-value">{selectedRound.name}</p>
+            <label className="toolbar-select-shell">
+              <select
+                className="toolbar-select"
+                value={selectedRound.key}
+                onChange={(event) => setSelectedRoundKey(event.target.value)}
+                aria-label="Select round"
+              >
+                {snapshot.rounds.map((round) => (
+                  <option key={round.key} value={round.key}>
+                    {round.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <div>
             <p className="toolbar-label">Players alive</p>
-            <p className="toolbar-value">{aliveEntrants.length}</p>
+            <p className="toolbar-value">{selectedRound.entrantsLeft}</p>
           </div>
           <div>
             <p className="toolbar-label">Matches this round</p>
             <p className="toolbar-value">{selectedRound.matchCount}</p>
           </div>
-          <div>
-          <p className="toolbar-label">Pool file</p>
-          <p className="toolbar-value">{sourceFile}</p>
-          </div>
         </div>
-        <label className="upload-button">
-          <input type="file" accept="application/json" onChange={handleUpload} disabled={uploading} />
-          {uploading ? "Uploading..." : "Upload a new picks file"}
-        </label>
-      </section>
-
-      <section className="round-selector-card">
-        <div className="round-selector-header">
-          <div>
-            <p className="eyebrow">Rounds</p>
-            <h2>Choose the stage to view</h2>
-          </div>
-        </div>
-        <div className="round-selector-buttons">
-          {snapshot.rounds.map((round) => (
-            <button
-              key={round.key}
-              type="button"
-              className={round.key === selectedRound.key ? "round-button active" : "round-button"}
-              onClick={() => setSelectedRoundKey(round.key)}
-            >
-              <span>{round.shortLabel}</span>
-              <strong>{round.name}</strong>
-            </button>
-          ))}
+        <div className="toolbar-action">
+          <p className="toolbar-label">Uploads</p>
+          <Link className="admin-pill-link" to="/admin">Manage in admin</Link>
         </div>
       </section>
 
-      <p className={error ? "status-banner error" : "status-banner"}>{error || status}</p>
+      {error ? <p className="status-banner error">{error}</p> : null}
 
       <section className="section-heading">
-        <div>
-          <p className="eyebrow">Competitors</p>
-          <h2>Picks alive after {selectedRound.name}</h2>
+        <div className="collapsible-title-row">
+          <div>
+            <p className="eyebrow">Competitors</p>
+            <h2>Picks alive after {selectedRound.name}</h2>
+          </div>
+          <ChevronToggle
+            expanded={competitorsSectionExpanded}
+            onToggle={() => setCompetitorsSectionExpanded((current) => !current)}
+            label={`Picks alive after ${selectedRound.name}`}
+            className="section-heading-toggle"
+          />
         </div>
       </section>
 
-      <section className="competitor-grid">
-        {decoratedCompetitors.map((competitor) => {
-          const liveCount = [...competitor.seeds, ...competitor.qualifiers].filter((player) => !player.eliminated).length;
-          const totalCount = competitor.seeds.length + competitor.qualifiers.length;
-          const isExpanded = expandedCompetitors[competitor.name] ?? true;
-          return (
-            <article key={competitor.name} className="competitor-card">
-              <div className="competitor-header">
-                <div>
-                  <p className="eyebrow">Pool entrant</p>
-                  <h2>{competitor.name}</h2>
+      {competitorsSectionExpanded ? (
+        <section className="competitor-grid">
+          {decoratedCompetitors.map((competitor) => {
+            const liveCount = [...competitor.seeds, ...competitor.qualifiers].filter((player) => !player.eliminated).length;
+            const totalCount = competitor.seeds.length + competitor.qualifiers.length;
+            const isExpanded = expandedCompetitors[competitor.name] ?? true;
+            return (
+              <article key={competitor.name} className="competitor-card">
+                <div className="competitor-header">
+                  <div className="competitor-heading">
+                    <p className="eyebrow">Pool entrant</p>
+                    <div className="collapsible-title-row">
+                      <h2>{competitor.name}</h2>
+                      <ChevronToggle
+                        expanded={isExpanded}
+                        onToggle={() => toggleCompetitor(competitor.name)}
+                        label={`${competitor.name} picks`}
+                      />
+                    </div>
+                  </div>
+                  <div className="live-pill">{liveCount} alive</div>
                 </div>
-                <div className="live-pill">{liveCount} alive</div>
-              </div>
-              <SectionToggle
-                expanded={isExpanded}
-                onToggle={() => toggleCompetitor(competitor.name)}
-                label="players"
-                summary={`${totalCount} picks`}
-              />
-              {isExpanded ? (
-                <div className="pick-columns">
-                  <PickList title="Seeds" players={competitor.seeds} />
-                  <PickList title="Qualifiers" players={competitor.qualifiers} />
-                </div>
-              ) : (
-                <div className="collapsed-summary">
-                  <span>{competitor.seeds.filter((player) => !player.eliminated).length} seed picks still alive</span>
-                  <span>{competitor.qualifiers.filter((player) => !player.eliminated).length} qualifier picks still alive</span>
-                </div>
-              )}
-            </article>
-          );
-        })}
-      </section>
+                {isExpanded ? (
+                  <div className="pick-columns">
+                    <PickList title="Seeds" players={competitor.seeds} />
+                    <PickList title="Qualifiers" players={competitor.qualifiers} />
+                  </div>
+                ) : (
+                  <div className="collapsed-summary">
+                    <span>{competitor.seeds.filter((player) => !player.eliminated).length} seed picks still alive</span>
+                    <span>{competitor.qualifiers.filter((player) => !player.eliminated).length} qualifier picks still alive</span>
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </section>
+      ) : null}
 
       <section className="section-heading draw-heading">
-        <div>
+        <div className="collapsible-title-row">
+          <div>
           <p className="eyebrow">{selectedRound.shortLabel}</p>
           <h2>{selectedRound.name} results</h2>
+          </div>
+          <ChevronToggle
+            expanded={matchesExpanded}
+            onToggle={() => setMatchesExpanded((current) => !current)}
+            label={`${selectedRound.name} results`}
+            className="section-heading-toggle"
+          />
         </div>
-        <SectionToggle
-          expanded={matchesExpanded}
-          onToggle={() => setMatchesExpanded((current) => !current)}
-          label="matches"
-          summary={`${selectedRound.matchCount} listed`}
-        />
       </section>
 
       {matchesExpanded ? (
@@ -392,5 +383,128 @@ export default function App() {
         </section>
       )}
     </main>
+  );
+}
+
+function AdminPage() {
+  const [authenticated, setAuthenticated] = useState(() => window.sessionStorage.getItem(ADMIN_SESSION_KEY) === "true");
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [status, setStatus] = useState("Upload a picks JSON file for the World Championship pool.");
+  const [error, setError] = useState("");
+
+  function handlePasswordSubmit(event) {
+    event.preventDefault();
+    if (password === ADMIN_PASSWORD) {
+      window.sessionStorage.setItem(ADMIN_SESSION_KEY, "true");
+      setAuthenticated(true);
+      setPassword("");
+      setPasswordError("");
+      return;
+    }
+
+    setPasswordError("Incorrect password.");
+  }
+
+  function handleLogout() {
+    window.sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    setAuthenticated(false);
+    setPassword("");
+    setPasswordError("");
+  }
+
+  async function handleUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const payload = JSON.parse(text);
+      setUploading(true);
+      setError("");
+      await uploadPool(payload);
+      setStatus(`Loaded ${file.name} into the backend.`);
+    } catch (uploadError) {
+      setError(uploadError.message || "That file could not be uploaded.");
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
+  }
+
+  if (!authenticated) {
+    return (
+      <main className="app-shell admin-shell">
+        <section className="admin-card admin-login-card">
+          <p className="eyebrow">Protected Area</p>
+          <h1>Admin</h1>
+          <p className="admin-copy">Enter the password to manage picks uploads.</p>
+          <form className="admin-form" onSubmit={handlePasswordSubmit}>
+            <label className="admin-field" htmlFor="admin-password">
+              Password
+            </label>
+            <input
+              id="admin-password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+            />
+            {passwordError ? <p className="admin-error">{passwordError}</p> : null}
+            <div className="admin-actions">
+              <button className="admin-submit" type="submit">Unlock admin</button>
+              <Link className="admin-secondary-link" to="/">Back to pool</Link>
+            </div>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="app-shell admin-shell">
+      <section className="admin-card">
+        <div className="admin-topbar">
+          <div>
+            <p className="eyebrow">Protected Area</p>
+            <h1>Admin</h1>
+            <p className="admin-copy">Upload a replacement picks file for the World Championship pool.</p>
+          </div>
+          <button type="button" className="admin-secondary-button" onClick={handleLogout}>Lock admin</button>
+        </div>
+
+        <div className="admin-upload-panel">
+          <p className="toolbar-label">Picks upload</p>
+          <label className="upload-button">
+            <input type="file" accept="application/json" onChange={handleUpload} disabled={uploading} />
+            {uploading ? "Uploading..." : "Upload a new picks file"}
+          </label>
+          <p className={error ? "status-banner error" : "status-banner"}>{error || status}</p>
+        </div>
+
+        <div className="admin-actions">
+          <Link className="admin-secondary-link" to="/">Back to pool</Link>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function ProtectedAdminRoute() {
+  const authenticated = window.sessionStorage.getItem(ADMIN_SESSION_KEY) === "true";
+  return authenticated ? <AdminPage /> : <Navigate to="/admin/login" replace />;
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/admin" element={<ProtectedAdminRoute />} />
+      <Route path="/admin/login" element={<AdminPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

@@ -73,11 +73,14 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 13px;
+  padding: 10px 16px;
   border-radius: 999px;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   font-weight: 800;
   letter-spacing: 0.05em;
+  box-shadow:
+    0 12px 26px rgba(10, 41, 28, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 
 .source-indicator::before {
@@ -90,32 +93,40 @@
 }
 
 .source-indicator.live {
-  background: rgba(124, 255, 188, 0.12);
-  color: #b5f8cf;
-  border: 1px solid rgba(124, 255, 188, 0.22);
+  background: linear-gradient(180deg, rgba(95, 242, 159, 0.24), rgba(42, 182, 107, 0.18));
+  color: #10633e;
+  border: 1px solid rgba(42, 182, 107, 0.26);
 }
 
 .source-indicator.cached {
-  background: rgba(222, 247, 161, 0.12);
-  color: #e2f5b3;
-  border: 1px solid rgba(222, 247, 161, 0.2);
+  background: linear-gradient(180deg, rgba(239, 241, 167, 0.34), rgba(207, 210, 108, 0.22));
+  color: #5e5600;
+  border: 1px solid rgba(170, 160, 34, 0.24);
 }
 
 .hero-card h1,
 .section-heading h2,
 .competitor-card h2,
-.round-selector-header h2 {
+.round-selector-header h2,
+.admin-card h1 {
   margin: 0;
   font-family: "Baskerville", "Palatino Linotype", serif;
   font-weight: 700;
 }
 
-.hero-card h1 {
+.hero-header {
   position: relative;
   z-index: 1;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.hero-card h1 {
   display: grid;
   gap: 10px;
-  margin-bottom: 24px;
   font-size: clamp(2.8rem, 4.8vw, 5rem);
   line-height: 0.9;
   color: #f5fff9;
@@ -131,18 +142,36 @@
   position: relative;
   z-index: 1;
   overflow: hidden;
+  padding: 14px;
   border-radius: 28px;
   border: 1px solid rgba(214, 246, 229, 0.22);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(158, 221, 192, 0.08)),
+    radial-gradient(circle at top right, rgba(157, 255, 211, 0.16), transparent 42%);
   box-shadow:
     0 24px 50px rgba(5, 28, 20, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
+.hero-image-shell::after {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border-radius: 22px;
+  pointer-events: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -30px 60px rgba(8, 32, 23, 0.1);
+}
+
 .hero-image {
   display: block;
   width: 100%;
-  max-height: 360px;
+  height: clamp(260px, 33vw, 420px);
+  border-radius: 22px;
   object-fit: cover;
+  object-position: center 30%;
+  transform: scale(1.015);
 }
 
 .toolbar-card,
@@ -160,13 +189,13 @@
   padding: 18px 22px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: start;
   gap: 16px;
 }
 
 .toolbar-meta {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   flex: 1;
   min-width: 0;
@@ -204,6 +233,39 @@
   word-break: break-all;
 }
 
+.toolbar-select-shell {
+  position: relative;
+  display: inline-flex;
+  min-width: 180px;
+}
+
+.toolbar-select-shell::after {
+  content: "▾";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #126344;
+  font-size: 0.95rem;
+  pointer-events: none;
+}
+
+.toolbar-select {
+  width: 100%;
+  appearance: none;
+  padding: 10px 38px 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(18, 99, 68, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(235, 247, 240, 0.9));
+  color: #123125;
+  font-weight: 700;
+  box-shadow: 0 10px 22px rgba(15, 67, 46, 0.08);
+}
+
+.toolbar-action {
+  min-width: 180px;
+}
+
 .upload-button {
   position: relative;
   display: inline-flex;
@@ -220,6 +282,35 @@
   box-shadow: 0 14px 30px rgba(18, 99, 68, 0.22);
 }
 
+.admin-link,
+.admin-pill-link,
+.admin-secondary-link,
+.admin-secondary-button,
+.admin-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.admin-link {
+  padding: 12px 18px;
+  border: 1px solid rgba(214, 246, 229, 0.28);
+  background: rgba(255, 255, 255, 0.12);
+  color: #f3fff8;
+  box-shadow: 0 14px 30px rgba(7, 31, 22, 0.18);
+}
+
+.admin-pill-link {
+  min-width: 160px;
+  padding: 13px 18px;
+  background: rgba(18, 99, 68, 0.08);
+  border: 1px solid rgba(18, 99, 68, 0.14);
+  color: #126344;
+}
+
 .upload-button input {
   position: absolute;
   inset: 0;
@@ -227,80 +318,10 @@
   cursor: pointer;
 }
 
-.round-selector-card {
-  margin-top: 18px;
-  padding: 20px 22px 22px;
-}
-
 .round-selector-header h2,
 .section-heading h2,
 .competitor-card h2 {
   color: #123125;
-}
-
-.round-selector-buttons {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.round-button {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 5px;
-  padding: 16px 16px 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(22, 83, 58, 0.12);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(228, 244, 235, 0.82));
-  color: #2d5342;
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.round-button::after {
-  content: "";
-  position: absolute;
-  inset: auto 16px 0 16px;
-  height: 4px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, rgba(18, 99, 68, 0.16), rgba(100, 196, 152, 0.18));
-}
-
-.round-button:hover {
-  transform: translateY(-2px);
-  border-color: rgba(18, 99, 68, 0.22);
-  box-shadow: 0 14px 24px rgba(15, 67, 46, 0.08);
-}
-
-.round-button span {
-  font-size: 0.76rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: #4f8d6a;
-}
-
-.round-button strong {
-  font-size: 1rem;
-  color: #123125;
-}
-
-.round-button.active {
-  background:
-    linear-gradient(180deg, rgba(18, 99, 68, 0.98), rgba(7, 58, 39, 0.94));
-  border-color: rgba(36, 137, 92, 0.42);
-  box-shadow: 0 18px 32px rgba(18, 99, 68, 0.2);
-}
-
-.round-button.active span,
-.round-button.active strong {
-  color: #fff4ed;
-}
-
-.round-button.active::after {
-  background: linear-gradient(90deg, #bdf1d3, #6fd3a0);
 }
 
 .status-banner {
@@ -324,11 +345,22 @@
   margin-bottom: 14px;
 }
 
-.section-toggle {
+.collapsible-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.competitor-heading {
+  min-width: 0;
+}
+
+.chevron-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 11px 14px;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
   border: 1px solid rgba(22, 83, 58, 0.12);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(235, 247, 240, 0.92));
@@ -336,14 +368,22 @@
   box-shadow: 0 10px 22px rgba(15, 67, 46, 0.08);
 }
 
-.section-toggle span {
-  font-size: 0.84rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+.chevron-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  transition: transform 0.18s ease;
 }
 
-.section-toggle strong {
-  font-size: 0.92rem;
+.chevron-icon.expanded {
+  transform: rotate(0deg);
+}
+
+.chevron-toggle:not([aria-expanded="true"]) .chevron-icon {
+  transform: rotate(-90deg);
+}
+
+.section-heading-toggle {
+  flex: 0 0 auto;
 }
 
 .competitor-grid {
@@ -518,6 +558,129 @@
 
 .draw-heading {
   margin-top: 38px;
+}
+
+.admin-shell {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
+
+.admin-card {
+  width: min(720px, 100%);
+  padding: 34px;
+  border-radius: 34px;
+  background:
+    linear-gradient(180deg, rgba(248, 255, 251, 0.96), rgba(231, 245, 238, 0.92));
+  border: 1px solid rgba(22, 83, 58, 0.14);
+  box-shadow:
+    0 28px 70px rgba(10, 41, 28, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.admin-login-card {
+  width: min(480px, 100%);
+}
+
+.admin-copy {
+  margin: 12px 0 0;
+  color: #466556;
+}
+
+.admin-topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+
+.admin-form,
+.admin-upload-panel {
+  margin-top: 24px;
+}
+
+.admin-form {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-field {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #244a39;
+}
+
+.admin-form input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(22, 83, 58, 0.16);
+  background: rgba(255, 255, 255, 0.9);
+  color: #123125;
+}
+
+.admin-error {
+  margin: 0;
+  color: #a1442d;
+  font-weight: 700;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.admin-submit {
+  border: 0;
+  padding: 13px 20px;
+  background: linear-gradient(135deg, #126344, #34a06f);
+  color: #f4fff8;
+  box-shadow: 0 14px 30px rgba(18, 99, 68, 0.22);
+}
+
+.admin-secondary-link,
+.admin-secondary-button {
+  padding: 13px 20px;
+  border: 1px solid rgba(18, 99, 68, 0.14);
+  background: rgba(255, 255, 255, 0.76);
+  color: #126344;
+}
+
+.admin-secondary-button {
+  cursor: pointer;
+}
+
+.admin-upload-panel {
+  padding: 22px;
+  border-radius: 24px;
+  border: 1px solid rgba(22, 83, 58, 0.1);
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.admin-upload-panel .status-banner {
+  margin-bottom: 0;
+}
+
+@media (max-width: 900px) {
+  .toolbar-card,
+  .hero-header,
+  .admin-topbar {
+    flex-direction: column;
+  }
+
+  .section-heading,
+  .competitor-header {
+    align-items: start;
+  }
+
+  .toolbar-meta,
+  .round-selector-buttons,
+  .competitor-grid,
+  .pick-columns {
+    grid-template-columns: 1fr;
+  }
 }
 
 .matches-grid {
