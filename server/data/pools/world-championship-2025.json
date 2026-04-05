@@ -3,7 +3,8 @@
   "eventName": "World Championship 2025",
   "competitors": [
     {
-      "name": "Alex Turner",
+      "entrantId": "d705546d-2c2b-4b69-a85b-030c40ba3f96",
+      "name": "Add",
       "seedIds": [
         39,
         12,
@@ -11,29 +12,47 @@
         17
       ],
       "qualifierIds": [
-        2498,
-        946,
-        1044,
-        1417
+        666,
+        1257,
+        1038,
+        906
       ]
     },
     {
-      "name": "Brooke Patel",
+      "entrantId": "febcac99-3d3e-4af5-8625-423fbaf157c8",
+      "name": "Bob",
       "seedIds": [
         5,
         1,
-        101,
-        202
+        97,
+        90
       ],
       "qualifierIds": [
         158,
-        1257,
-        118,
-        19
+        1044,
+        2469,
+        118
       ]
     },
     {
-      "name": "Charlie Hughes",
+      "entrantId": "b48adbb1-4d41-4b3f-89a4-f61fad969b87",
+      "name": "Miko",
+      "seedIds": [
+        101,
+        202,
+        1982,
+        24
+      ],
+      "qualifierIds": [
+        2498,
+        32,
+        89,
+        946
+      ]
+    },
+    {
+      "entrantId": "e5b77e18-bd12-41ac-b9e1-f84b7fe47311",
+      "name": "Miles",
       "seedIds": [
         154,
         224,
@@ -41,25 +60,10 @@
         81
       ],
       "qualifierIds": [
-        1038,
         47,
-        666,
-        2469
-      ]
-    },
-    {
-      "name": "Dana Morgan",
-      "seedIds": [
-        1982,
-        24,
-        97,
-        90
-      ],
-      "qualifierIds": [
         68,
-        89,
-        32,
-        906
+        19,
+        1417
       ]
     }
   ]

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
+import crownIcon from "../../res/crown.png";
 import dogsPlayingPool from "../../res/dogsplayingpool.webp";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:5174";
@@ -174,7 +175,18 @@ function AdminPlayerLane({
   onDragStart,
   onDragEnd,
   onRemove,
+  assignablePlayers,
+  onAssign,
+  assignLabel,
 }) {
+  const [selectedPlayerId, setSelectedPlayerId] = useState("");
+
+  useEffect(() => {
+    if (!assignablePlayers?.some((player) => String(player.id) === selectedPlayerId)) {
+      setSelectedPlayerId("");
+    }
+  }, [assignablePlayers, selectedPlayerId]);
+
   return (
     <section
       className={players.length ? "admin-player-lane" : "admin-player-lane empty"}
@@ -185,6 +197,39 @@ function AdminPlayerLane({
         <h3>{title}</h3>
         <span>{players.length}</span>
       </div>
+      {assignablePlayers?.length && onAssign ? (
+        <div className="admin-lane-assign">
+          <label className="toolbar-select-shell admin-select-shell">
+            <select
+              className="toolbar-select"
+              value={selectedPlayerId}
+              onChange={(event) => setSelectedPlayerId(event.target.value)}
+              aria-label={assignLabel || `Add player to ${title}`}
+            >
+              <option value="">{assignLabel || "Add player"}</option>
+              {assignablePlayers.map((player) => (
+                <option key={player.id} value={player.id}>
+                  {player.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="admin-secondary-button admin-inline-add-button"
+            onClick={() => {
+              if (!selectedPlayerId) {
+                return;
+              }
+              onAssign(Number(selectedPlayerId), bucket);
+              setSelectedPlayerId("");
+            }}
+            disabled={!selectedPlayerId}
+          >
+            Add
+          </button>
+        </div>
+      ) : null}
       {players.length ? (
         <ul className="admin-player-list">
           {players.map((player) => (
@@ -349,11 +394,15 @@ function HomePage() {
       seeds: competitor.seeds.map((player) => entrantsById.get(player.id)),
       qualifiers: competitor.qualifiers.map((player) => entrantsById.get(player.id)),
     }));
+    const aliveEntrantsCount = Array.from(entrantsById.values()).filter((entry) => !entry.eliminated).length;
+    const openMatchCount = selectedRound.matches.filter((match) => match.unfinished || !match.winnerId).length;
 
     return {
       selectedRound,
       nextRound,
       nextRoundInPlay,
+      aliveEntrantsCount,
+      openMatchCount,
       decoratedCompetitors,
     };
   }, [data, selectedRoundKey]);
@@ -367,7 +416,7 @@ function HomePage() {
   }
 
   const { snapshot } = data;
-  const { selectedRound, nextRound, nextRoundInPlay, decoratedCompetitors } = derived;
+  const { selectedRound, nextRound, nextRoundInPlay, aliveEntrantsCount, openMatchCount, decoratedCompetitors } = derived;
   const poolConfigured = data.poolConfigured !== false;
 
   return (
@@ -425,11 +474,11 @@ function HomePage() {
           </div>
           <div>
             <p className="toolbar-label">Players alive</p>
-            <p className="toolbar-value">{selectedRound.entrantsLeft}</p>
+            <p className="toolbar-value">{aliveEntrantsCount}</p>
           </div>
           <div>
             <p className="toolbar-label">Matches this round</p>
-            <p className="toolbar-value">{selectedRound.matchCount}</p>
+            <p className="toolbar-value">{openMatchCount}</p>
           </div>
         </div>
       </section>
@@ -470,7 +519,23 @@ function HomePage() {
                       <div className="competitor-heading">
                         <p className="eyebrow">Pool entrant</p>
                         <div className="collapsible-title-row">
-                          <h2>{competitor.name}</h2>
+                          <div className="competitor-title-wrap">
+                            <h2>{competitor.name}</h2>
+                            {(competitor.winningYears || []).length ? (
+                              <div className="competitor-crowns" aria-label={`${competitor.winningYears.length} wins`}>
+                                {competitor.winningYears.map((year) => (
+                                  <img
+                                    key={year}
+                                    className="competitor-crown"
+                                    src={crownIcon}
+                                    alt=""
+                                    aria-hidden="true"
+                                    title={`Winner ${year}`}
+                                  />
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
                           <ChevronToggle
                             expanded={isExpanded}
                             onToggle={() => toggleCompetitor(competitor.name)}
@@ -908,6 +973,10 @@ function AdminPage() {
     movePlayer(playerId, bucket, { type: "pool" });
   }
 
+  function handleAssignAvailablePlayer(entrantId, bucket, playerId) {
+    movePlayer(playerId, bucket, { type: "competitor", entrantId, bucket });
+  }
+
   async function handleSaveBuilder() {
     if (!builder?.poolData) {
       return;
@@ -995,24 +1064,26 @@ function AdminPage() {
           </button>
         </div>
 
-        <div className="admin-builder-toolbar">
-          <div className="admin-stat-card">
-            <p className="toolbar-label">Builder year</p>
-            <label className="toolbar-select-shell admin-select-shell">
-              <select
-                className="toolbar-select"
-                value={selectedAdminYear}
-                onChange={(event) => setSelectedAdminYear(Number(event.target.value))}
-                aria-label="Select admin year"
-              >
-                {ADMIN_YEAR_OPTIONS.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+        <div className={adminView === "builder" ? "admin-builder-toolbar" : "admin-builder-toolbar entrants-view"}>
+          {adminView === "builder" ? (
+            <div className="admin-stat-card">
+              <p className="toolbar-label">Builder year</p>
+              <label className="toolbar-select-shell admin-select-shell">
+                <select
+                  className="toolbar-select"
+                  value={selectedAdminYear}
+                  onChange={(event) => setSelectedAdminYear(Number(event.target.value))}
+                  aria-label="Select admin year"
+                >
+                  {ADMIN_YEAR_OPTIONS.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          ) : null}
           <div className="admin-stat-card">
             <p className="toolbar-label">Available seeds</p>
             <p className="toolbar-value">{builderDerived?.availableSeeds.length ?? 0}</p>
@@ -1125,6 +1196,9 @@ function AdminPage() {
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
                           onRemove={handleRemoveAssignedPlayer}
+                          assignablePlayers={builderDerived.availableSeeds}
+                          onAssign={(playerId, bucket) => handleAssignAvailablePlayer(competitor.entrantId, bucket, playerId)}
+                          assignLabel="Add available seed"
                         />
                         <AdminPlayerLane
                           title="Qualifier picks"
@@ -1135,6 +1209,9 @@ function AdminPage() {
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
                           onRemove={handleRemoveAssignedPlayer}
+                          assignablePlayers={builderDerived.availableQualifiers}
+                          onAssign={(playerId, bucket) => handleAssignAvailablePlayer(competitor.entrantId, bucket, playerId)}
+                          assignLabel="Add available qualifier"
                         />
                       </div>
                     </article>

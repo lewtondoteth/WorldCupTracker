@@ -436,6 +436,27 @@
   min-width: 0;
 }
 
+.competitor-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.competitor-crowns {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.competitor-crown {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 8px rgba(122, 97, 0, 0.22));
+}
+
 .chevron-toggle {
   display: inline-flex;
   align-items: center;
@@ -803,6 +824,10 @@
   background: rgba(255, 255, 255, 0.56);
 }
 
+.admin-builder-toolbar.entrants-view {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .admin-stat-card {
   padding: 14px 16px;
   border-radius: 18px;
@@ -924,6 +949,22 @@
   margin: 14px 0 0;
   display: grid;
   gap: 10px;
+}
+
+.admin-lane-assign {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.admin-lane-assign .toolbar-select-shell {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-inline-add-button {
+  min-width: 88px;
 }
 
 .admin-player-card {

@@ -4,6 +4,26 @@
       "id": "d705546d-2c2b-4b69-a85b-030c40ba3f96",
       "name": "Add",
       "winningYears": []
+    },
+    {
+      "id": "febcac99-3d3e-4af5-8625-423fbaf157c8",
+      "name": "Bob",
+      "winningYears": []
+    },
+    {
+      "id": "b48adbb1-4d41-4b3f-89a4-f61fad969b87",
+      "name": "Miko",
+      "winningYears": []
+    },
+    {
+      "id": "1c58c2af-e484-47b2-bb29-58b6926f4bf9",
+      "name": "Nick",
+      "winningYears": []
+    },
+    {
+      "id": "e5b77e18-bd12-41ac-b9e1-f84b7fe47311",
+      "name": "Miles",
+      "winningYears": []
     }
   ]
 }

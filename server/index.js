@@ -518,7 +518,7 @@ function normaliseIds(ids, allowed, label) {
   return parsed;
 }
 
-function buildPoolResponse(snapshot, poolData, filePath) {
+function buildPoolResponse(snapshot, poolData, filePath, entrantRegistry = []) {
   if (!Array.isArray(poolData?.competitors) || poolData.competitors.length === 0) {
     return {
       snapshot,
@@ -531,6 +531,8 @@ function buildPoolResponse(snapshot, poolData, filePath) {
   const entrantsById = new Map(snapshot.entrants.map((entry) => [entry.id, entry]));
   const validSeedIds = new Set(snapshot.seeds.map((entry) => entry.id));
   const validQualifierIds = new Set(snapshot.qualifiers.map((entry) => entry.id));
+  const registryById = new Map(entrantRegistry.map((entrant) => [String(entrant.id), entrant]));
+  const registryByName = new Map(entrantRegistry.map((entrant) => [entrant.name.toLowerCase(), entrant]));
 
   const competitors = poolData.competitors.map((competitor) => {
     if (!competitor?.name) {
@@ -539,10 +541,14 @@ function buildPoolResponse(snapshot, poolData, filePath) {
 
     const seedIds = normaliseIds(competitor.seedIds, validSeedIds, `${competitor.name} seedIds`);
     const qualifierIds = normaliseIds(competitor.qualifierIds, validQualifierIds, `${competitor.name} qualifierIds`);
+    const registryEntrant = competitor.entrantId
+      ? registryById.get(String(competitor.entrantId))
+      : registryByName.get(String(competitor.name).toLowerCase());
 
     return {
       entrantId: competitor.entrantId ? String(competitor.entrantId) : null,
       name: competitor.name,
+      winningYears: registryEntrant?.winningYears || [],
       seeds: seedIds.map((playerId) => entrantsById.get(playerId)),
       qualifiers: qualifierIds.map((playerId) => entrantsById.get(playerId)),
     };
@@ -556,9 +562,9 @@ function buildPoolResponse(snapshot, poolData, filePath) {
   };
 }
 
-function buildPublicPoolResponse(snapshot, poolData, filePath) {
+function buildPublicPoolResponse(snapshot, poolData, filePath, entrantRegistry = []) {
   try {
-    return buildPoolResponse(snapshot, poolData, filePath);
+    return buildPoolResponse(snapshot, poolData, filePath, entrantRegistry);
   } catch (error) {
     return {
       snapshot,
@@ -640,8 +646,12 @@ app.get("/api/world-championship/:year/round-one", async (req, res) => {
 app.get("/api/pool/:year", async (req, res) => {
   try {
     const year = Number(req.params.year);
-    const [snapshot, poolFile] = await Promise.all([getTournamentSnapshot(year), readPoolFileOptional(year)]);
-    res.json(buildPublicPoolResponse(snapshot, poolFile.data, poolFile.filePath));
+    const [snapshot, poolFile, entrantRegistry] = await Promise.all([
+      getTournamentSnapshot(year),
+      readPoolFileOptional(year),
+      readEntrantRegistry(),
+    ]);
+    res.json(buildPublicPoolResponse(snapshot, poolFile.data, poolFile.filePath, entrantRegistry));
   } catch (error) {
     res.status(500).json({ error: String(error.message || error) });
   }
