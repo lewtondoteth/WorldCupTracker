@@ -1,251 +1,368 @@
-console.log('=== SERVER STARTED: index.js loaded ===');
-
 import express from "express";
-import fetch from "node-fetch";
 import cors from "cors";
-
-const app = express();
-app.use(cors()); // front-end on a different port during dev
-
-import { filterLast32 } from "./last32.js";
+import fetch from "node-fetch";
+import { promises as fs } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { cacheLast32, getCachedLast32 } from "./sqlite_cache.mjs";
-import {
-  initTables,
-  getAllAssignments,
-  addCompetitor,
-  assignPlayer,
-  deleteCompetitor
-} from "./competitor_db.js";
-// API: Delete a competitor and their assignments for a year
-app.delete("/api/competitors/:year", express.json(), (req, res) => {
-  const year = Number(req.params.year);
-  const { competitor } = req.body;
-  if (!competitor) return res.status(400).json({ error: "Missing competitor name" });
-  deleteCompetitor(competitor, year, (err) => {
-    if (err) {
-      console.error("Error in deleteCompetitor:", err);
-      return res.status(500).json({ error: err.message });
-    }
-    res.json({ ok: true });
-  });
-});
 
-// Ensure tables exist before handling any requests
-initTables();
-// API: Get all competitors and their players for a year
-app.get("/api/competitors/:year", (req, res) => {
-  const year = Number(req.params.year);
-  getAllAssignments(year, (err, rows) => {
-    if (err) {
-      console.error("Error in getAllAssignments:", err);
-      return res.status(500).json({ error: err.message });
-    }
-    // Group by competitor
-    const competitors = {};
-    for (const row of rows) {
-      if (!competitors[row.competitor]) competitors[row.competitor] = [];
-      competitors[row.competitor].push(row.player);
-    }
-    res.json(competitors);
-  });
-});
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const app = express();
 
-// API: Add or update a competitor and their player assignments for a year
-app.post("/api/competitors/:year", express.json(), async (req, res) => {
-  const year = Number(req.params.year);
-  const { competitor, players } = req.body;
-  if (!competitor || !Array.isArray(players)) {
-    return res.status(400).json({ error: "Missing competitor or players array" });
-  }
-  // Add competitor if not exists
-  // Check if competitor with same name and year exists
-  playerDb.get('SELECT id FROM competitor WHERE name = ? AND year = ?', [competitor, year], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (row) {
-      // Already exists, skip adding
-      return res.json({ ok: true, competitor_id: row.id, assigned: 0 });
-    }
-    addCompetitor(competitor, year, (err2, competitor_id) => {
-      if (err2) return res.status(500).json({ error: err2.message });
-      res.json({ ok: true, competitor_id, assigned: 0 });
-    });
-  });
-});
+app.use(cors());
+app.use(express.json({ limit: "1mb" }));
 
-// Helper: upsert player into DB
-import sqlite3 from 'sqlite3';
-const dbPath = path.join(__dirname, 'snooker_cache.db');
-const playerDb = new sqlite3.Database(dbPath);
-
-function upsertPlayer(id, name) {
-  return new Promise((resolve, reject) => {
-    playerDb.run(
-      'INSERT INTO player (id, name) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name',
-      [id, name],
-      function (err) {
-        if (err) reject(err);
-        else resolve();
-      }
-    );
-  });
-}
-// API: Sync last 32 players to DB for a given year
-app.post("/api/players/last32-to-db/:year", async (req, res) => {
-  const year = Number(req.params.year);
-  try {
-    // Get last 32 players (from cache or fetch)
-    let players = getCachedLast32(year);
-    if (!players) {
-      const r = await fetch(`http://localhost:${PORT}/api/players/${year}`);
-      if (!r.ok) throw new Error(await r.text());
-      players = await r.json();
-    }
-    // Upsert each player into the DB
-    let added = 0, updated = 0, errors = [];
-    for (const p of players) {
-      try {
-        await upsertPlayer(p.ID, p.Name || `${p.FirstName ?? ''} ${p.LastName ?? ''}`.trim());
-        added++;
-      } catch (e) {
-        errors.push({ id: p.ID, name: p.Name, error: e.message });
-      }
-    }
-    res.json({ ok: true, added, errors });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
-
-
+const PORT = Number(process.env.PORT || 5174);
 const SN_API = "https://api.snooker.org";
-const SN_HEADER = { "X-Requested-By": "NicholasAndroidApp" };
+const SN_REQUESTED_BY = process.env.SNOOKER_ORG_REQUESTED_BY || "";
+const WORLD_CHAMPIONSHIP_EVENT_IDS = {
+  2025: 1942,
+  2024: 1460,
+};
+const ROUND_ONE_SIZE = 32;
+const POOL_DIR = path.join(__dirname, "data", "pools");
+const STATIC_DIR = path.join(__dirname, "data", "static");
 
-/**
- * Option A: use the known 2024 WC event id (1460)
- * GET /api/players/2024
- */
+function getPoolFilePath(year) {
+  return path.join(POOL_DIR, `world-championship-${year}.json`);
+}
 
-// Generalized endpoint for any year (default event id for 2024 is 1460)
-app.get("/api/players/:year", async (req, res) => {
-  const year = Number(req.params.year);
-  console.log(`[API] /api/players/${year} called`);
-  if (!year || year < 2000 || year > 2100) {
-    console.log(`[API] Invalid year: ${year}`);
-    return res.status(400).json({ error: "Invalid year" });
+function getStaticSnapshotPath(year) {
+  return path.join(STATIC_DIR, `world-championship-${year}-round-one.json`);
+}
+
+function playerLabel(player) {
+  return (player.Name || `${player.FirstName ?? ""} ${player.LastName ?? ""}`).replace(/\s+/g, " ").trim();
+}
+
+async function fetchJson(url) {
+  const headers = SN_REQUESTED_BY ? { "X-Requested-By": SN_REQUESTED_BY } : {};
+  const response = await fetch(url, { headers });
+
+  if (!response.ok) {
+    const body = await response.text();
+    const guidance = response.status === 403
+      ? " Set SNOOKER_ORG_REQUESTED_BY in the server environment to your approved snooker.org header value."
+      : "";
+    throw new Error(`snooker.org request failed (${response.status}).${guidance}`);
   }
 
-  // Try cache first
-  console.log(`[API] Checking cache for year ${year}`);
-  const cached = getCachedLast32(year);
-  if (cached) {
-    console.log(`[API] Serving last 32 for ${year} from cache`);
-    return res.json(cached);
+  return response.json();
+}
+
+async function resolveWorldChampionshipEventId(year) {
+  if (WORLD_CHAMPIONSHIP_EVENT_IDS[year]) {
+    return WORLD_CHAMPIONSHIP_EVENT_IDS[year];
   }
 
-  // Map year to event id (2024: 1460, 2023: 1422, etc.)
-  // For now, hardcode 2024, fallback to 2024 if unknown
-  const eventIds = { 2024: 1460, 2023: 1422, 2022: 1377, 2021: 1322, 2020: 1262 };
-  const eventId = eventIds[year] || 1460;
+  const season = year - 1;
+  const events = await fetchJson(`${SN_API}/?t=5&s=${season}&tr=main`);
+  const event = events.find((item) => {
+    const name = item.Name || item.Event || "";
+    return /World Championship/i.test(name) && item.Stage === "F" && String(item.StartDate || "").startsWith(String(year));
+  });
+
+  if (!event?.ID) {
+    throw new Error(`World Championship event id not found for ${year}`);
+  }
+
+  return Number(event.ID);
+}
+
+async function fetchLast32Players(year, eventId) {
   try {
-    console.log(`[API] Fetching players for eventId ${eventId}`);
-    // 1. Get all players in the event
-    const playersUrl = `${SN_API}/?t=9&e=${eventId}`;
-    const playersRes = await fetch(playersUrl, { headers: SN_HEADER });
-    if (!playersRes.ok) {
-      const errorText = await playersRes.text();
-      console.log(`[API] Error fetching players: ${playersRes.status} - ${errorText}`);
-      return res.status(playersRes.status).send(errorText);
-    }
-    const allPlayers = await playersRes.json();
+    const [allPlayers, rounds, matches] = await Promise.all([
+      fetchJson(`${SN_API}/?t=9&e=${eventId}`),
+      fetchJson(`${SN_API}/?t=12&e=${eventId}`),
+      fetchJson(`${SN_API}/?t=6&e=${eventId}`),
+    ]);
 
-    // 2. Get round info for the event
-    console.log(`[API] Fetching rounds for eventId ${eventId}`);
-    const roundsUrl = `${SN_API}/?t=12&e=${eventId}`;
-    const roundsRes = await fetch(roundsUrl, { headers: SN_HEADER });
-    if (!roundsRes.ok) {
-      console.log(`[API] Error fetching rounds: ${roundsRes.status}`);
-      return res.status(roundsRes.status).send(await roundsRes.text());
-    }
-    const rounds = await roundsRes.json();
-    // Find the round with 32 players left (main draw/last 32)
-    const last32Round = rounds.find(r => Number(r.NumLeft) === 32 && r.EventID == eventId);
-    if (!last32Round) {
-      console.log(`[API] Last 32 round not found for eventId ${eventId}`);
-      return res.status(404).json({ error: "Last 32 round (NumLeft=32) not found" });
+    const round = rounds.find((item) => Number(item.EventID) === eventId && Number(item.NumLeft) === ROUND_ONE_SIZE);
+    if (!round) {
+      throw new Error(`Round-of-32 not found for event ${eventId}`);
     }
 
-    // 3. Get all matches for the event
-    console.log(`[API] Fetching matches for eventId ${eventId}`);
-    const matchesUrl = `${SN_API}/?t=6&e=${eventId}`;
-    const matchesRes = await fetch(matchesUrl, { headers: SN_HEADER });
-    if (!matchesRes.ok) {
-      console.log(`[API] Error fetching matches: ${matchesRes.status}`);
-      return res.status(matchesRes.status).send(await matchesRes.text());
+    const ids = new Set();
+    for (const match of matches) {
+      if (String(match.Round) !== String(round.Round)) {
+        continue;
+      }
+      ids.add(Number(match.Player1ID));
+      ids.add(Number(match.Player2ID));
     }
-    const matches = await matchesRes.json();
 
-    // 4. Filter matches for the last 32 round
-    const last32Matches = matches.filter(m => String(m.Round) === String(last32Round.Round));
-    console.log(`[API] Found ${last32Matches.length} last32 matches`);
+    const filtered = allPlayers.filter((player) => ids.has(Number(player.ID)));
+    if (filtered.length === ROUND_ONE_SIZE) {
+      cacheLast32(year, filtered);
+    }
+    return filtered;
+  } catch (error) {
+    const cached = getCachedLast32(year);
+    if (cached?.length === ROUND_ONE_SIZE) {
+      return cached;
+    }
+    throw error;
+  }
+}
 
-    // 5. Extract player IDs from those matches
-    const playerIDs = new Set();
-    last32Matches.forEach(m => {
-      if (m.Player1ID) playerIDs.add(String(m.Player1ID));
-      if (m.Player2ID) playerIDs.add(String(m.Player2ID));
-    });
-    console.log(`[API] Extracted ${playerIDs.size} player IDs for last32`);
+async function buildLiveRoundOneSnapshot(year) {
+  const eventId = await resolveWorldChampionshipEventId(year);
+  const [players, rounds, matches, seedings] = await Promise.all([
+    fetchLast32Players(year, eventId),
+    fetchJson(`${SN_API}/?t=12&e=${eventId}`),
+    fetchJson(`${SN_API}/?t=6&e=${eventId}`),
+    fetchJson(`${SN_API}/?t=13&e=${eventId}`),
+  ]);
 
-    // 6. Filter players to only those in the last 32 (compare as strings)
-    const filtered = allPlayers.filter(p => playerIDs.has(String(p.ID)));
-    console.log(`[API] Filtered to ${filtered.length} players for last32`);
+  const round = rounds.find((item) => Number(item.EventID) === eventId && Number(item.NumLeft) === ROUND_ONE_SIZE);
+  if (!round) {
+    throw new Error(`Round-of-32 metadata missing for ${year}`);
+  }
 
-    // Cache the result
-    cacheLast32(year, filtered);
-    console.log(`[API] Cached last 32 for ${year}`);
-    res.json(filtered);
-  } catch (err) {
-    console.log(`[API] Error in handler:`, err);
-    res.status(500).json({ error: String(err) });
+  const roundMatches = matches
+    .filter((item) => String(item.Round) === String(round.Round))
+    .sort((a, b) => Number(a.Number) - Number(b.Number));
+
+  if (roundMatches.length !== 16) {
+    throw new Error(`Expected 16 round-one matches for ${year}, found ${roundMatches.length}`);
+  }
+
+  const playersById = new Map(
+    players.map((player) => [
+      Number(player.ID),
+      {
+        id: Number(player.ID),
+        name: playerLabel(player),
+        nationality: player.Nationality || "",
+        photo: player.Photo || "",
+      },
+    ]),
+  );
+
+  const seedingById = new Map(seedings.map((item) => [Number(item.PlayerID), Number(item.Seeding)]));
+  const entrantsById = new Map();
+
+  const enrichedMatches = roundMatches.map((match) => {
+    const player1 = playersById.get(Number(match.Player1ID));
+    const player2 = playersById.get(Number(match.Player2ID));
+
+    if (!player1 || !player2) {
+      throw new Error(`Missing player details for match ${match.ID}`);
+    }
+
+    const winnerId = Number(match.WinnerID);
+    const loserId = winnerId === player1.id ? player2.id : player1.id;
+
+    const side1 = {
+      ...player1,
+      seedNumber: seedingById.get(player1.id) || null,
+      isSeed: (seedingById.get(player1.id) || 99) <= 16,
+      score: Number(match.Score1),
+    };
+    const side2 = {
+      ...player2,
+      seedNumber: seedingById.get(player2.id) || null,
+      isSeed: (seedingById.get(player2.id) || 99) <= 16,
+      score: Number(match.Score2),
+    };
+
+    for (const side of [side1, side2]) {
+      entrantsById.set(side.id, {
+        ...side,
+        roundOneResult: side.id === winnerId ? "won" : "lost",
+      });
+    }
+
+    return {
+      id: Number(match.ID),
+      number: Number(match.Number),
+      scheduledDate: match.ScheduledDate || match.StartDate || "",
+      winnerId,
+      loserId,
+      player1: side1,
+      player2: side2,
+    };
+  });
+
+  const entrants = Array.from(entrantsById.values()).sort((a, b) => {
+    const seedA = a.seedNumber || 999;
+    const seedB = b.seedNumber || 999;
+    if (seedA !== seedB) {
+      return seedA - seedB;
+    }
+    return a.name.localeCompare(b.name);
+  });
+
+  return {
+    year,
+    eventId,
+    eventName: `World Championship ${year}`,
+    eventDates: {
+      start: `${year}-04-19`,
+      end: `${year}-05-05`,
+    },
+    round: {
+      id: Number(round.Round),
+      name: round.RoundName,
+      matchCount: roundMatches.length,
+    },
+    entrants,
+    seeds: entrants.filter((entry) => entry.isSeed),
+    qualifiers: entrants.filter((entry) => !entry.isSeed),
+    matches: enrichedMatches,
+    dataSource: "live",
+    liveError: null,
+  };
+}
+
+async function readStaticSnapshot(year) {
+  const filePath = getStaticSnapshotPath(year);
+  const raw = await fs.readFile(filePath, "utf8");
+  const snapshot = JSON.parse(raw);
+  return {
+    ...snapshot,
+    dataSource: "static-fallback",
+  };
+}
+
+async function getRoundOneSnapshot(year) {
+  try {
+    return await buildLiveRoundOneSnapshot(year);
+  } catch (error) {
+    const fallback = await readStaticSnapshot(year);
+    return {
+      ...fallback,
+      liveError: String(error.message || error),
+    };
+  }
+}
+
+async function readPoolFile(year) {
+  const filePath = getPoolFilePath(year);
+  const raw = await fs.readFile(filePath, "utf8");
+  return {
+    filePath,
+    data: JSON.parse(raw),
+  };
+}
+
+async function writePoolFile(year, payload) {
+  await fs.mkdir(POOL_DIR, { recursive: true });
+  const filePath = getPoolFilePath(year);
+  await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  return filePath;
+}
+
+function normaliseIds(ids, allowed, label) {
+  if (!Array.isArray(ids)) {
+    throw new Error(`${label} must be an array of player ids`);
+  }
+
+  const parsed = ids.map((value) => Number(value));
+  if (parsed.some((value) => Number.isNaN(value))) {
+    throw new Error(`${label} contains a non-numeric player id`);
+  }
+  if (parsed.length !== 8) {
+    throw new Error(`${label} must contain exactly 8 players`);
+  }
+  if (new Set(parsed).size !== parsed.length) {
+    throw new Error(`${label} contains duplicate players`);
+  }
+  if (parsed.some((value) => !allowed.has(value))) {
+    throw new Error(`${label} includes a player outside the 2025 round-one field`);
+  }
+  return parsed;
+}
+
+function buildPoolResponse(snapshot, poolData, filePath) {
+  if (!Array.isArray(poolData?.competitors) || poolData.competitors.length === 0) {
+    throw new Error("Pool file must contain a non-empty competitors array");
+  }
+
+  const entrantsById = new Map(snapshot.entrants.map((entry) => [entry.id, entry]));
+  const validSeedIds = new Set(snapshot.seeds.map((entry) => entry.id));
+  const validQualifierIds = new Set(snapshot.qualifiers.map((entry) => entry.id));
+
+  const competitors = poolData.competitors.map((competitor) => {
+    if (!competitor?.name) {
+      throw new Error("Each competitor needs a name");
+    }
+
+    const seedIds = normaliseIds(competitor.seedIds, validSeedIds, `${competitor.name} seedIds`);
+    const qualifierIds = normaliseIds(competitor.qualifierIds, validQualifierIds, `${competitor.name} qualifierIds`);
+
+    const decorate = (playerId) => {
+      const player = entrantsById.get(playerId);
+      return {
+        ...player,
+        eliminated: player.roundOneResult === "lost",
+      };
+    };
+
+    const seeds = seedIds.map(decorate);
+    const qualifiers = qualifierIds.map(decorate);
+
+    return {
+      name: competitor.name,
+      seeds,
+      qualifiers,
+      liveCount: [...seeds, ...qualifiers].filter((player) => !player.eliminated).length,
+    };
+  });
+
+  return {
+    snapshot,
+    competitors,
+    sourceFile: filePath,
+  };
+}
+
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true });
+});
+
+app.get("/api/world-championship/:year/round-one", async (req, res) => {
+  try {
+    const year = Number(req.params.year);
+    const snapshot = await getRoundOneSnapshot(year);
+    res.json(snapshot);
+  } catch (error) {
+    res.status(500).json({ error: String(error.message || error) });
   }
 });
 
-/**
- * Option B: resolve the event id programmatically
- * - find World Championship in season 2023 (i.e., 2023/2024)
- * - then list players (t=9)
- * GET /api/players/by-discovery
- */
-app.get("/api/players/by-discovery", async (_req, res) => {
+app.get("/api/pool/:year", async (req, res) => {
   try {
-    // list events in 2023/24 main tour
-    const eventsUrl = `${SN_API}/?t=5&s=2023&tr=main`;
-    const eventsRes = await fetch(eventsUrl, { headers: SN_HEADER });
-    if (!eventsRes.ok) return res.status(eventsRes.status).send(await eventsRes.text());
-    const events = await eventsRes.json();
-
-    // find the event whose name contains "World Championship" and year 2024
-    const wc = events.find(ev =>
-      /World Championship/i.test(ev.Name ?? ev.Event) &&
-      /2024/.test(ev.Name ?? ev.Event)
-    );
-    if (!wc?.ID) return res.status(404).json({ error: "World Championship 2024 not found" });
-
-    const playersUrl = `${SN_API}/?t=9&e=${wc.ID}`;
-    const playersRes = await fetch(playersUrl, { headers: SN_HEADER });
-    if (!playersRes.ok) return res.status(playersRes.status).send(await playersRes.text());
-    const players = await playersRes.json();
-
-    res.json({ event: wc, players });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
+    const year = Number(req.params.year);
+    const [snapshot, poolFile] = await Promise.all([getRoundOneSnapshot(year), readPoolFile(year)]);
+    res.json(buildPoolResponse(snapshot, poolFile.data, poolFile.filePath));
+  } catch (error) {
+    res.status(500).json({ error: String(error.message || error) });
   }
 });
 
-const PORT = process.env.PORT || 5174; // pick a port not used by Vite
+app.post("/api/pool/:year/upload", async (req, res) => {
+  try {
+    const year = Number(req.params.year);
+    const snapshot = await getRoundOneSnapshot(year);
+    const payload = req.body;
+
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({ error: "Upload body must be JSON" });
+    }
+
+    const filePath = await writePoolFile(year, payload);
+    res.json(buildPoolResponse(snapshot, payload, filePath));
+  } catch (error) {
+    res.status(400).json({ error: String(error.message || error) });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
+  console.log(`Snooker pool server listening on http://localhost:${PORT}`);
+  if (SN_REQUESTED_BY) {
+    console.log("snooker.org live mode enabled via SNOOKER_ORG_REQUESTED_BY");
+  } else {
+    console.log("snooker.org live mode disabled. Using static fallback until SNOOKER_ORG_REQUESTED_BY is set.");
+  }
 });

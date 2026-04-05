@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+impopc not loadingrt { useState, useEffect } from 'react';
 import '../material-icons.css';
 
 export default function Config() {

@@ -1,0 +1,1062 @@
+{
+  "year": 2025,
+  "eventId": 1942,
+  "eventName": "World Championship 2025",
+  "eventDates": {
+    "start": "2025-04-19",
+    "end": "2025-05-05"
+  },
+  "round": {
+    "id": 7,
+    "name": "Round 1",
+    "matchCount": 16
+  },
+  "entrants": [
+    {
+      "id": 39,
+      "name": "Kyren Wilson",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Kyren Wilson.png",
+      "seedNumber": 1,
+      "isSeed": true,
+      "score": 9,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 12,
+      "name": "Judd Trump",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/jtrump.jpg",
+      "seedNumber": 2,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 237,
+      "name": "John Higgins",
+      "nationality": "Scotland",
+      "photo": "https://snooker.org/img/players/jhiggins.jpg",
+      "seedNumber": 3,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 17,
+      "name": "Mark Selby",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/mselby.jpg",
+      "seedNumber": 4,
+      "isSeed": true,
+      "score": 8,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 5,
+      "name": "Ronnie O'Sullivan",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/rosullivan.jpg",
+      "seedNumber": 5,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 1,
+      "name": "Mark Williams",
+      "nationality": "Wales",
+      "photo": "https://snooker.org/img/players/MarkWilliams.png",
+      "seedNumber": 6,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 101,
+      "name": "Luca Brecel",
+      "nationality": "Belgium",
+      "photo": "https://snooker.org/img/players/Brecel.png",
+      "seedNumber": 7,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 202,
+      "name": "Mark Allen",
+      "nationality": "Northern Ireland",
+      "photo": "https://snooker.org/img/players/MarkAllen.png",
+      "seedNumber": 8,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 154,
+      "name": "Neil Robertson",
+      "nationality": "Australia",
+      "photo": "https://snooker.org/img/players/NRobertson.png",
+      "seedNumber": 9,
+      "isSeed": true,
+      "score": 8,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 224,
+      "name": "Junhui Ding",
+      "nationality": "China",
+      "photo": "https://snooker.org/img/players/Dingjunhui.jpg",
+      "seedNumber": 10,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 16,
+      "name": "Barry Hawkins",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/bhawkins.jpg",
+      "seedNumber": 11,
+      "isSeed": true,
+      "score": 9,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 81,
+      "name": "Anda Zhang",
+      "nationality": "China",
+      "photo": "https://snooker.org/img/players/Anda.png",
+      "seedNumber": 12,
+      "isSeed": true,
+      "score": 7,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 1982,
+      "name": "Jiahui Si",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 13,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 24,
+      "name": "Guodong Xiao",
+      "nationality": "China",
+      "photo": "https://snooker.org/img/players/Xiao.png",
+      "seedNumber": 14,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 97,
+      "name": "Shaun Murphy",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Murphy.png",
+      "seedNumber": 15,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 90,
+      "name": "Jak Jones",
+      "nationality": "Wales",
+      "photo": "",
+      "seedNumber": 16,
+      "isSeed": true,
+      "score": 4,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 158,
+      "name": "Ali Carter",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/carter.png",
+      "seedNumber": 18,
+      "isSeed": false,
+      "score": 4,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 1044,
+      "name": "Chris Wakelin",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Wakelin.png",
+      "seedNumber": 20,
+      "isSeed": false,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 2469,
+      "name": "Yize Wu",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 22,
+      "isSeed": false,
+      "score": 8,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 118,
+      "name": "David Gilbert",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Gilbert.png",
+      "seedNumber": 23,
+      "isSeed": false,
+      "score": 6,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 666,
+      "name": "Hossein Vafaei",
+      "nationality": "Iran",
+      "photo": "https://snooker.org/img/players/Hossein.png",
+      "seedNumber": 24,
+      "isSeed": false,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 1257,
+      "name": "Junxu Pang",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 27,
+      "isSeed": false,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 1038,
+      "name": "Joe O'Connor",
+      "nationality": "England",
+      "photo": "",
+      "seedNumber": 30,
+      "isSeed": false,
+      "score": 7,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 906,
+      "name": "Yuelong Zhou",
+      "nationality": "China",
+      "photo": "https://snooker.org/img/players/Yuelong.png",
+      "seedNumber": 32,
+      "isSeed": false,
+      "score": 4,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 47,
+      "name": "Matthew Selt",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Selt.png",
+      "seedNumber": 34,
+      "isSeed": false,
+      "score": 4,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 68,
+      "name": "Ryan Day",
+      "nationality": "Wales",
+      "photo": "https://snooker.org/img/players/Ryan Day.png",
+      "seedNumber": 36,
+      "isSeed": false,
+      "score": 7,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 2498,
+      "name": "Peifan Lei",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 39,
+      "isSeed": false,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 19,
+      "name": "Ben Woollaston",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Woollaston.png",
+      "seedNumber": 44,
+      "isSeed": false,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 1417,
+      "name": "Zhengyi Fan",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 46,
+      "isSeed": false,
+      "score": 6,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 32,
+      "name": "Daniel Wells",
+      "nationality": "Wales",
+      "photo": "https://snooker.org/img/players/Wells.png",
+      "seedNumber": 49,
+      "isSeed": false,
+      "score": 4,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 89,
+      "name": "Zak Surety",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Zak.png",
+      "seedNumber": 72,
+      "isSeed": false,
+      "score": 7,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 946,
+      "name": "Xintong Zhao",
+      "nationality": "China",
+      "photo": "https://snooker.org/Img/players/Zhao Xintong.JPG",
+      "seedNumber": null,
+      "isSeed": false,
+      "score": 10,
+      "roundOneResult": "won"
+    }
+  ],
+  "seeds": [
+    {
+      "id": 39,
+      "name": "Kyren Wilson",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Kyren Wilson.png",
+      "seedNumber": 1,
+      "isSeed": true,
+      "score": 9,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 12,
+      "name": "Judd Trump",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/jtrump.jpg",
+      "seedNumber": 2,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 237,
+      "name": "John Higgins",
+      "nationality": "Scotland",
+      "photo": "https://snooker.org/img/players/jhiggins.jpg",
+      "seedNumber": 3,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 17,
+      "name": "Mark Selby",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/mselby.jpg",
+      "seedNumber": 4,
+      "isSeed": true,
+      "score": 8,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 5,
+      "name": "Ronnie O'Sullivan",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/rosullivan.jpg",
+      "seedNumber": 5,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 1,
+      "name": "Mark Williams",
+      "nationality": "Wales",
+      "photo": "https://snooker.org/img/players/MarkWilliams.png",
+      "seedNumber": 6,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 101,
+      "name": "Luca Brecel",
+      "nationality": "Belgium",
+      "photo": "https://snooker.org/img/players/Brecel.png",
+      "seedNumber": 7,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 202,
+      "name": "Mark Allen",
+      "nationality": "Northern Ireland",
+      "photo": "https://snooker.org/img/players/MarkAllen.png",
+      "seedNumber": 8,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 154,
+      "name": "Neil Robertson",
+      "nationality": "Australia",
+      "photo": "https://snooker.org/img/players/NRobertson.png",
+      "seedNumber": 9,
+      "isSeed": true,
+      "score": 8,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 224,
+      "name": "Junhui Ding",
+      "nationality": "China",
+      "photo": "https://snooker.org/img/players/Dingjunhui.jpg",
+      "seedNumber": 10,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 16,
+      "name": "Barry Hawkins",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/bhawkins.jpg",
+      "seedNumber": 11,
+      "isSeed": true,
+      "score": 9,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 81,
+      "name": "Anda Zhang",
+      "nationality": "China",
+      "photo": "https://snooker.org/img/players/Anda.png",
+      "seedNumber": 12,
+      "isSeed": true,
+      "score": 7,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 1982,
+      "name": "Jiahui Si",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 13,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 24,
+      "name": "Guodong Xiao",
+      "nationality": "China",
+      "photo": "https://snooker.org/img/players/Xiao.png",
+      "seedNumber": 14,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 97,
+      "name": "Shaun Murphy",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Murphy.png",
+      "seedNumber": 15,
+      "isSeed": true,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 90,
+      "name": "Jak Jones",
+      "nationality": "Wales",
+      "photo": "",
+      "seedNumber": 16,
+      "isSeed": true,
+      "score": 4,
+      "roundOneResult": "lost"
+    }
+  ],
+  "qualifiers": [
+    {
+      "id": 158,
+      "name": "Ali Carter",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/carter.png",
+      "seedNumber": 18,
+      "isSeed": false,
+      "score": 4,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 1044,
+      "name": "Chris Wakelin",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Wakelin.png",
+      "seedNumber": 20,
+      "isSeed": false,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 2469,
+      "name": "Yize Wu",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 22,
+      "isSeed": false,
+      "score": 8,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 118,
+      "name": "David Gilbert",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Gilbert.png",
+      "seedNumber": 23,
+      "isSeed": false,
+      "score": 6,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 666,
+      "name": "Hossein Vafaei",
+      "nationality": "Iran",
+      "photo": "https://snooker.org/img/players/Hossein.png",
+      "seedNumber": 24,
+      "isSeed": false,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 1257,
+      "name": "Junxu Pang",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 27,
+      "isSeed": false,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 1038,
+      "name": "Joe O'Connor",
+      "nationality": "England",
+      "photo": "",
+      "seedNumber": 30,
+      "isSeed": false,
+      "score": 7,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 906,
+      "name": "Yuelong Zhou",
+      "nationality": "China",
+      "photo": "https://snooker.org/img/players/Yuelong.png",
+      "seedNumber": 32,
+      "isSeed": false,
+      "score": 4,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 47,
+      "name": "Matthew Selt",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Selt.png",
+      "seedNumber": 34,
+      "isSeed": false,
+      "score": 4,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 68,
+      "name": "Ryan Day",
+      "nationality": "Wales",
+      "photo": "https://snooker.org/img/players/Ryan Day.png",
+      "seedNumber": 36,
+      "isSeed": false,
+      "score": 7,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 2498,
+      "name": "Peifan Lei",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 39,
+      "isSeed": false,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 19,
+      "name": "Ben Woollaston",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Woollaston.png",
+      "seedNumber": 44,
+      "isSeed": false,
+      "score": 10,
+      "roundOneResult": "won"
+    },
+    {
+      "id": 1417,
+      "name": "Zhengyi Fan",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 46,
+      "isSeed": false,
+      "score": 6,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 32,
+      "name": "Daniel Wells",
+      "nationality": "Wales",
+      "photo": "https://snooker.org/img/players/Wells.png",
+      "seedNumber": 49,
+      "isSeed": false,
+      "score": 4,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 89,
+      "name": "Zak Surety",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Zak.png",
+      "seedNumber": 72,
+      "isSeed": false,
+      "score": 7,
+      "roundOneResult": "lost"
+    },
+    {
+      "id": 946,
+      "name": "Xintong Zhao",
+      "nationality": "China",
+      "photo": "https://snooker.org/Img/players/Zhao Xintong.JPG",
+      "seedNumber": null,
+      "isSeed": false,
+      "score": 10,
+      "roundOneResult": "won"
+    }
+  ],
+  "matches": [
+    {
+      "id": 9379098,
+      "number": 1,
+      "scheduledDate": "2025-04-19T18:00:00Z",
+      "winnerId": 2498,
+      "loserId": 39,
+      "player1": {
+        "id": 39,
+        "name": "Kyren Wilson",
+        "nationality": "England",
+        "photo": "https://snooker.org/img/players/Kyren Wilson.png",
+        "seedNumber": 1,
+        "isSeed": true,
+        "score": 9
+      },
+      "player2": {
+        "id": 2498,
+        "name": "Peifan Lei",
+        "nationality": "China",
+        "photo": "",
+        "seedNumber": 39,
+        "isSeed": false,
+        "score": 10
+      }
+    },
+    {
+      "id": 9379099,
+      "number": 2,
+      "scheduledDate": "2025-04-21T09:00:00Z",
+      "winnerId": 946,
+      "loserId": 90,
+      "player1": {
+        "id": 90,
+        "name": "Jak Jones",
+        "nationality": "Wales",
+        "photo": "",
+        "seedNumber": 16,
+        "isSeed": true,
+        "score": 4
+      },
+      "player2": {
+        "id": 946,
+        "name": "Xintong Zhao",
+        "nationality": "China",
+        "photo": "https://snooker.org/Img/players/Zhao Xintong.JPG",
+        "seedNumber": null,
+        "isSeed": false,
+        "score": 10
+      }
+    },
+    {
+      "id": 9379100,
+      "number": 3,
+      "scheduledDate": "2025-04-20T18:00:00Z",
+      "winnerId": 1044,
+      "loserId": 154,
+      "player1": {
+        "id": 154,
+        "name": "Neil Robertson",
+        "nationality": "Australia",
+        "photo": "https://snooker.org/img/players/NRobertson.png",
+        "seedNumber": 9,
+        "isSeed": true,
+        "score": 8
+      },
+      "player2": {
+        "id": 1044,
+        "name": "Chris Wakelin",
+        "nationality": "England",
+        "photo": "https://snooker.org/img/players/Wakelin.png",
+        "seedNumber": 20,
+        "isSeed": false,
+        "score": 10
+      }
+    },
+    {
+      "id": 9379101,
+      "number": 4,
+      "scheduledDate": "2025-04-21T13:30:00Z",
+      "winnerId": 202,
+      "loserId": 1417,
+      "player1": {
+        "id": 202,
+        "name": "Mark Allen",
+        "nationality": "Northern Ireland",
+        "photo": "https://snooker.org/img/players/MarkAllen.png",
+        "seedNumber": 8,
+        "isSeed": true,
+        "score": 10
+      },
+      "player2": {
+        "id": 1417,
+        "name": "Zhengyi Fan",
+        "nationality": "China",
+        "photo": "",
+        "seedNumber": 46,
+        "isSeed": false,
+        "score": 6
+      }
+    },
+    {
+      "id": 9379102,
+      "number": 5,
+      "scheduledDate": "2025-04-23T13:30:00Z",
+      "winnerId": 5,
+      "loserId": 158,
+      "player1": {
+        "id": 5,
+        "name": "Ronnie O'Sullivan",
+        "nationality": "England",
+        "photo": "https://snooker.org/img/players/rosullivan.jpg",
+        "seedNumber": 5,
+        "isSeed": true,
+        "score": 10
+      },
+      "player2": {
+        "id": 158,
+        "name": "Ali Carter",
+        "nationality": "England",
+        "photo": "https://snooker.org/img/players/carter.png",
+        "seedNumber": 18,
+        "isSeed": false,
+        "score": 4
+      }
+    },
+    {
+      "id": 9379103,
+      "number": 6,
+      "scheduledDate": "2025-04-23T09:00:00Z",
+      "winnerId": 1257,
+      "loserId": 81,
+      "player1": {
+        "id": 81,
+        "name": "Anda Zhang",
+        "nationality": "China",
+        "photo": "https://snooker.org/img/players/Anda.png",
+        "seedNumber": 12,
+        "isSeed": true,
+        "score": 7
+      },
+      "player2": {
+        "id": 1257,
+        "name": "Junxu Pang",
+        "nationality": "China",
+        "photo": "",
+        "seedNumber": 27,
+        "isSeed": false,
+        "score": 10
+      }
+    },
+    {
+      "id": 9379104,
+      "number": 7,
+      "scheduledDate": "2025-04-22T18:00:00Z",
+      "winnerId": 1982,
+      "loserId": 118,
+      "player1": {
+        "id": 1982,
+        "name": "Jiahui Si",
+        "nationality": "China",
+        "photo": "",
+        "seedNumber": 13,
+        "isSeed": true,
+        "score": 10
+      },
+      "player2": {
+        "id": 118,
+        "name": "David Gilbert",
+        "nationality": "England",
+        "photo": "https://snooker.org/img/players/Gilbert.png",
+        "seedNumber": 23,
+        "isSeed": false,
+        "score": 6
+      }
+    },
+    {
+      "id": 9379105,
+      "number": 8,
+      "scheduledDate": "2025-04-24T18:00:00Z",
+      "winnerId": 19,
+      "loserId": 17,
+      "player1": {
+        "id": 17,
+        "name": "Mark Selby",
+        "nationality": "England",
+        "photo": "https://snooker.org/img/players/mselby.jpg",
+        "seedNumber": 4,
+        "isSeed": true,
+        "score": 8
+      },
+      "player2": {
+        "id": 19,
+        "name": "Ben Woollaston",
+        "nationality": "England",
+        "photo": "https://snooker.org/img/players/Woollaston.png",
+        "seedNumber": 44,
+        "isSeed": false,
+        "score": 10
+      }
+    },
+    {
+      "id": 9379106,
+      "number": 9,
+      "scheduledDate": "2025-04-21T18:00:00Z",
+      "winnerId": 237,
+      "loserId": 1038,
+      "player1": {
+        "id": 237,
+        "name": "John Higgins",
+        "nationality": "Scotland",
+        "photo": "https://snooker.org/img/players/jhiggins.jpg",
+        "seedNumber": 3,
+        "isSeed": true,
+        "score": 10
+      },
+      "player2": {
+        "id": 1038,
+        "name": "Joe O'Connor",
+        "nationality": "England",
+        "photo": "",
+        "seedNumber": 30,
+        "isSeed": false,
+        "score": 7
+      }
+    },
+    {
+      "id": 9379107,
+      "number": 10,
+      "scheduledDate": "2025-04-20T09:00:00Z",
+      "winnerId": 24,
+      "loserId": 47,
+      "player1": {
+        "id": 24,
+        "name": "Guodong Xiao",
+        "nationality": "China",
+        "photo": "https://snooker.org/img/players/Xiao.png",
+        "seedNumber": 14,
+        "isSeed": true,
+        "score": 10
+      },
+      "player2": {
+        "id": 47,
+        "name": "Matthew Selt",
+        "nationality": "England",
+        "photo": "https://snooker.org/img/players/Selt.png",
+        "seedNumber": 34,
+        "isSeed": false,
+        "score": 4
+      }
+    },
+    {
+      "id": 9379108,
+      "number": 11,
+      "scheduledDate": "2025-04-20T18:00:00Z",
+      "winnerId": 666,
+      "loserId": 16,
+      "player1": {
+        "id": 16,
+        "name": "Barry Hawkins",
+        "nationality": "England",
+        "photo": "https://snooker.org/img/players/bhawkins.jpg",
+        "seedNumber": 11,
+        "isSeed": true,
+        "score": 9
+      },
+      "player2": {
+        "id": 666,
+        "name": "Hossein Vafaei",
+        "nationality": "Iran",
+        "photo": "https://snooker.org/img/players/Hossein.png",
+        "seedNumber": 24,
+        "isSeed": false,
+        "score": 10
+      }
+    },
+    {
+      "id": 9379109,
+      "number": 12,
+      "scheduledDate": "2025-04-20T13:30:00Z",
+      "winnerId": 1,
+      "loserId": 2469,
+      "player1": {
+        "id": 1,
+        "name": "Mark Williams",
+        "nationality": "Wales",
+        "photo": "https://snooker.org/img/players/MarkWilliams.png",
+        "seedNumber": 6,
+        "isSeed": true,
+        "score": 10
+      },
+      "player2": {
+        "id": 2469,
+        "name": "Yize Wu",
+        "nationality": "China",
+        "photo": "",
+        "seedNumber": 22,
+        "isSeed": false,
+        "score": 8
+      }
+    },
+    {
+      "id": 9379110,
+      "number": 13,
+      "scheduledDate": "2025-04-24T12:00:00Z",
+      "winnerId": 101,
+      "loserId": 68,
+      "player1": {
+        "id": 101,
+        "name": "Luca Brecel",
+        "nationality": "Belgium",
+        "photo": "https://snooker.org/img/players/Brecel.png",
+        "seedNumber": 7,
+        "isSeed": true,
+        "score": 10
+      },
+      "player2": {
+        "id": 68,
+        "name": "Ryan Day",
+        "nationality": "Wales",
+        "photo": "https://snooker.org/img/players/Ryan Day.png",
+        "seedNumber": 36,
+        "isSeed": false,
+        "score": 7
+      }
+    },
+    {
+      "id": 9379111,
+      "number": 14,
+      "scheduledDate": "2025-04-22T13:30:00Z",
+      "winnerId": 224,
+      "loserId": 89,
+      "player1": {
+        "id": 224,
+        "name": "Junhui Ding",
+        "nationality": "China",
+        "photo": "https://snooker.org/img/players/Dingjunhui.jpg",
+        "seedNumber": 10,
+        "isSeed": true,
+        "score": 10
+      },
+      "player2": {
+        "id": 89,
+        "name": "Zak Surety",
+        "nationality": "England",
+        "photo": "https://snooker.org/img/players/Zak.png",
+        "seedNumber": 72,
+        "isSeed": false,
+        "score": 7
+      }
+    },
+    {
+      "id": 9379112,
+      "number": 15,
+      "scheduledDate": "2025-04-23T09:00:00Z",
+      "winnerId": 97,
+      "loserId": 32,
+      "player1": {
+        "id": 97,
+        "name": "Shaun Murphy",
+        "nationality": "England",
+        "photo": "https://snooker.org/img/players/Murphy.png",
+        "seedNumber": 15,
+        "isSeed": true,
+        "score": 10
+      },
+      "player2": {
+        "id": 32,
+        "name": "Daniel Wells",
+        "nationality": "Wales",
+        "photo": "https://snooker.org/img/players/Wells.png",
+        "seedNumber": 49,
+        "isSeed": false,
+        "score": 4
+      }
+    },
+    {
+      "id": 9379113,
+      "number": 16,
+      "scheduledDate": "2025-04-23T18:00:00Z",
+      "winnerId": 12,
+      "loserId": 906,
+      "player1": {
+        "id": 12,
+        "name": "Judd Trump",
+        "nationality": "England",
+        "photo": "https://snooker.org/img/players/jtrump.jpg",
+        "seedNumber": 2,
+        "isSeed": true,
+        "score": 10
+      },
+      "player2": {
+        "id": 906,
+        "name": "Yuelong Zhou",
+        "nationality": "China",
+        "photo": "https://snooker.org/img/players/Yuelong.png",
+        "seedNumber": 32,
+        "isSeed": false,
+        "score": 4
+      }
+    }
+  ]
+}
