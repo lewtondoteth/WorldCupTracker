@@ -122,6 +122,19 @@ function ChevronToggle({ expanded, onToggle, label, className = "" }) {
   );
 }
 
+function isPlaceholderMatchPlayer(player) {
+  const name = String(player?.name || "").trim();
+  return !name || /^tbd$/i.test(name);
+}
+
+function isActiveTournamentMatch(match) {
+  return !isPlaceholderMatchPlayer(match?.player1) && !isPlaceholderMatchPlayer(match?.player2);
+}
+
+function isOpenTournamentMatch(match) {
+  return isActiveTournamentMatch(match) && (match.unfinished || !match.winnerId);
+}
+
 function MatchCard({ match }) {
   const renderSide = (player, won) => (
     <div className={won ? "match-side winner" : "match-side loser"}>
@@ -134,7 +147,13 @@ function MatchCard({ match }) {
     <article className="match-card">
       <div className="match-meta">
         <span>Match {match.number}</span>
-        <span>{match.unfinished ? "In play" : match.scheduledDate.slice(0, 10)}</span>
+        <span>
+          {isPlaceholderMatchPlayer(match.player1) || isPlaceholderMatchPlayer(match.player2)
+            ? "Awaiting qualifier"
+            : match.unfinished
+              ? "In play"
+              : match.scheduledDate.slice(0, 10)}
+        </span>
       </div>
       {renderSide(match.player1, match.winnerId === match.player1.id)}
       {renderSide(match.player2, match.winnerId === match.player2.id)}
@@ -258,13 +277,13 @@ function getDefaultRoundKey(snapshot) {
 
   const firstIncompleteRound = rounds.find((round) => (
     round.matches.length > 0
-      && round.matches.some((match) => match.unfinished || !match.winnerId)
+      && round.matches.some((match) => isOpenTournamentMatch(match))
   ));
   if (firstIncompleteRound) {
     return firstIncompleteRound.key;
   }
 
-  const latestStartedRound = [...rounds].reverse().find((round) => round.matches.length > 0);
+  const latestStartedRound = [...rounds].reverse().find((round) => round.matches.some((match) => isActiveTournamentMatch(match)));
   return latestStartedRound?.key || rounds[0].key;
 }
 
@@ -346,7 +365,7 @@ function HomePage() {
     const selectedRound = snapshot.rounds.find((round) => round.key === selectedRoundKey) || snapshot.rounds[0];
     const nextRound = snapshot.rounds.find((round) => round.order === selectedRound.order + 1) || null;
     const nextRoundInPlay = Boolean(
-      nextRound?.matches.some((match) => match.unfinished || !match.winnerId),
+      nextRound?.matches.some((match) => isOpenTournamentMatch(match)),
     );
     const roundOrderById = new Map(snapshot.rounds.map((round) => [round.id, round.order]));
     const previousRound = snapshot.rounds.find((round) => round.order === selectedRound.order - 1) || null;
@@ -406,7 +425,7 @@ function HomePage() {
       qualifiers: competitor.qualifiers.map((player) => entrantsById.get(player.id)),
     }));
     const aliveEntrantsCount = Array.from(entrantsById.values()).filter((entry) => !entry.eliminated).length;
-    const openMatchCount = selectedRound.matches.filter((match) => match.unfinished || !match.winnerId).length;
+    const openMatchCount = selectedRound.matches.filter((match) => isOpenTournamentMatch(match)).length;
 
     return {
       selectedRound,
@@ -1360,14 +1379,6 @@ function AdminPage() {
           )}
         </section>
         )}
-
-        <div className="admin-upload-panel">
-          <p className="toolbar-label">Picks upload</p>
-          <label className="upload-button">
-            <input type="file" accept="application/json" onChange={handleUpload} disabled={uploading} />
-            {uploading ? "Uploading..." : "Upload a new picks file"}
-          </label>
-        </div>
 
         <div className="admin-actions">
           <Link className="admin-secondary-link" to="/">Back to pool</Link>

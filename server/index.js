@@ -506,8 +506,8 @@ function normaliseIds(ids, allowed, label) {
   if (parsed.some((value) => Number.isNaN(value))) {
     throw new Error(`${label} contains a non-numeric player id`);
   }
-  if (parsed.length < 1 || parsed.length > 8) {
-    throw new Error(`${label} must contain between 1 and 8 players`);
+  if (parsed.length > 8) {
+    throw new Error(`${label} must contain at most 8 players`);
   }
   if (new Set(parsed).size !== parsed.length) {
     throw new Error(`${label} contains duplicate players`);
