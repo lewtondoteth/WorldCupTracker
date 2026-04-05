@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
-import dogsPlayingPool from "../../res/dogsplayingpool.jpeg";
+import dogsPlayingPool from "../../res/dogsplayingpool.webp";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:5174";
 const PUBLIC_DEFAULT_YEAR = new Date().getFullYear();
