@@ -83,6 +83,61 @@ async function saveEntrants(payload) {
   return readJsonResponse(response, "Failed to save entrants");
 }
 
+const NATIONALITY_FLAGS = {
+  Australia: "AU",
+  Belgium: "BE",
+  China: "CN",
+  England: "GB",
+  HongKong: "HK",
+  "Hong Kong": "HK",
+  Iran: "IR",
+  Ireland: "IE",
+  "Northern Ireland": "GB",
+  Pakistan: "PK",
+  Scotland: "GB",
+  Thailand: "TH",
+  Ukraine: "UA",
+  Wales: "GB",
+};
+
+function getNationalityFlag(nationality) {
+  const code = NATIONALITY_FLAGS[String(nationality || "").trim()] || "";
+  if (!code || code.length !== 2) {
+    return "";
+  }
+  return code
+    .toUpperCase()
+    .split("")
+    .map((char) => String.fromCodePoint(127397 + char.charCodeAt(0)))
+    .join("");
+}
+
+function PlayerIdentity({ player, compact = false }) {
+  const flag = getNationalityFlag(player.nationality);
+  const identityClassName = `${compact ? "player-identity compact" : "player-identity"}${player.eliminated ? " eliminated" : ""}`;
+
+  return (
+    <div className={identityClassName}>
+      <div className="player-avatar-shell">
+        {player.photo ? (
+          <img className="player-avatar" src={player.photo} alt="" loading="lazy" />
+        ) : (
+          <div className="player-avatar fallback" aria-hidden="true">
+            {String(player.name || "?").trim().slice(0, 1)}
+          </div>
+        )}
+      </div>
+      <div className="player-text">
+        <strong>{player.name}</strong>
+        <small>
+          {flag ? <span className="player-flag" aria-hidden="true">{flag}</span> : null}
+          <span>{player.nationality || "Unknown"}</span>
+        </small>
+      </div>
+    </div>
+  );
+}
+
 function PickList({ title, players }) {
   return (
     <section className="pick-group">
@@ -93,10 +148,7 @@ function PickList({ title, players }) {
       <ul className="pick-list">
         {players.map((player) => (
           <li key={player.id} className={player.eliminated ? "pick-row eliminated" : "pick-row"}>
-            <div>
-              <strong>{player.name}</strong>
-              <small>{player.nationality || "Unknown"}</small>
-            </div>
+            <PlayerIdentity player={player} />
             <span className={`pick-status ${player.statusTone}`}>{player.roundStatusLabel}</span>
           </li>
         ))}
@@ -138,7 +190,7 @@ function isOpenTournamentMatch(match) {
 function MatchCard({ match }) {
   const renderSide = (player, won) => (
     <div className={won ? "match-side winner" : "match-side loser"}>
-      <span>{player.name}</span>
+      <PlayerIdentity player={player} compact />
       <strong>{player.score}</strong>
     </div>
   );
