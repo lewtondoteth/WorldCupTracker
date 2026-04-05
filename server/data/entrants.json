@@ -8,7 +8,10 @@
     {
       "id": "febcac99-3d3e-4af5-8625-423fbaf157c8",
       "name": "Bob",
-      "winningYears": []
+      "winningYears": [
+        2024,
+        2025
+      ]
     },
     {
       "id": "b48adbb1-4d41-4b3f-89a4-f61fad969b87",

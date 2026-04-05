@@ -270,6 +270,7 @@ function getDefaultRoundKey(snapshot) {
 
 function HomePage() {
   const [data, setData] = useState(null);
+  const [publicEntrants, setPublicEntrants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
@@ -286,9 +287,13 @@ function HomePage() {
       setLoading(true);
       setError("");
       try {
-        const nextData = await fetchPool(selectedYear);
+        const [nextData, entrantsResponse] = await Promise.all([
+          fetchPool(selectedYear),
+          fetchEntrants(),
+        ]);
         if (!cancelled) {
           setData(nextData);
+          setPublicEntrants(entrantsResponse.entrants || []);
           setExpandedCompetitors({});
         }
       } catch (loadError) {
@@ -336,6 +341,8 @@ function HomePage() {
     }
 
     const { snapshot, competitors } = data;
+    const registryById = new Map(publicEntrants.map((entrant) => [String(entrant.id), entrant]));
+    const registryByName = new Map(publicEntrants.map((entrant) => [entrant.name.toLowerCase(), entrant]));
     const selectedRound = snapshot.rounds.find((round) => round.key === selectedRoundKey) || snapshot.rounds[0];
     const nextRound = snapshot.rounds.find((round) => round.order === selectedRound.order + 1) || null;
     const nextRoundInPlay = Boolean(
@@ -391,6 +398,10 @@ function HomePage() {
 
     const decoratedCompetitors = competitors.map((competitor) => ({
       ...competitor,
+      winningYears: competitor.winningYears
+        || registryById.get(String(competitor.entrantId))?.winningYears
+        || registryByName.get(String(competitor.name).toLowerCase())?.winningYears
+        || [],
       seeds: competitor.seeds.map((player) => entrantsById.get(player.id)),
       qualifiers: competitor.qualifiers.map((player) => entrantsById.get(player.id)),
     }));
@@ -405,7 +416,7 @@ function HomePage() {
       openMatchCount,
       decoratedCompetitors,
     };
-  }, [data, selectedRoundKey]);
+  }, [data, publicEntrants, selectedRoundKey]);
 
   if (loading && !data) {
     return <main className="app-shell"><p className="status-banner">Loading {selectedYear} World Championship pool...</p></main>;
@@ -1066,43 +1077,67 @@ function AdminPage() {
 
         <div className={adminView === "builder" ? "admin-builder-toolbar" : "admin-builder-toolbar entrants-view"}>
           {adminView === "builder" ? (
-            <div className="admin-stat-card">
-              <p className="toolbar-label">Builder year</p>
-              <label className="toolbar-select-shell admin-select-shell">
-                <select
-                  className="toolbar-select"
-                  value={selectedAdminYear}
-                  onChange={(event) => setSelectedAdminYear(Number(event.target.value))}
-                  aria-label="Select admin year"
-                >
-                  {ADMIN_YEAR_OPTIONS.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          ) : null}
-          <div className="admin-stat-card">
-            <p className="toolbar-label">Available seeds</p>
-            <p className="toolbar-value">{builderDerived?.availableSeeds.length ?? 0}</p>
-          </div>
-          <div className="admin-stat-card">
-            <p className="toolbar-label">Available qualifiers</p>
-            <p className="toolbar-value">{builderDerived?.availableQualifiers.length ?? 0}</p>
-          </div>
-          <div className="admin-stat-card">
-            <p className="toolbar-label">Pool entrants</p>
-            <p className="toolbar-value">{builder?.poolData?.competitors?.length ?? 0}</p>
-          </div>
-          <div className="admin-stat-card">
-            <p className="toolbar-label">Tracked winners</p>
-            <p className="toolbar-value">{entrantRegistry.reduce((count, entrant) => count + (entrant.winningYears?.length || 0), 0)}</p>
-          </div>
+            <>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Builder year</p>
+                <label className="toolbar-select-shell admin-select-shell">
+                  <select
+                    className="toolbar-select"
+                    value={selectedAdminYear}
+                    onChange={(event) => setSelectedAdminYear(Number(event.target.value))}
+                    aria-label="Select admin year"
+                  >
+                    {ADMIN_YEAR_OPTIONS.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Available seeds</p>
+                <p className="toolbar-value">{builderDerived?.availableSeeds.length ?? 0}</p>
+              </div>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Available qualifiers</p>
+                <p className="toolbar-value">{builderDerived?.availableQualifiers.length ?? 0}</p>
+              </div>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Pool entrants</p>
+                <p className="toolbar-value">{builder?.poolData?.competitors?.length ?? 0}</p>
+              </div>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Tracked winners</p>
+                <p className="toolbar-value">{entrantRegistry.reduce((count, entrant) => count + (entrant.winningYears?.length || 0), 0)}</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Total entrants</p>
+                <p className="toolbar-value">{entrantRegistry.length}</p>
+              </div>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Entrants with wins</p>
+                <p className="toolbar-value">{entrantRegistry.filter((entrant) => (entrant.winningYears?.length || 0) > 0).length}</p>
+              </div>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Tracked winners</p>
+                <p className="toolbar-value">{entrantRegistry.reduce((count, entrant) => count + (entrant.winningYears?.length || 0), 0)}</p>
+              </div>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Open winner years</p>
+                <p className="toolbar-value">
+                  {WINNER_YEAR_OPTIONS.filter((year) => !entrantRegistry.some((entrant) => (entrant.winningYears || []).includes(year))).length}
+                </p>
+              </div>
+            </>
+          )}
         </div>
 
-        {error ? <p className="status-banner error">{error}</p> : <p className="status-banner">{status}</p>}
+        {error ? <p className="status-banner error">{error}</p> : null}
+        {adminView === "builder" ? <p className="status-banner">{status}</p> : null}
 
         {adminView === "builder" ? (
         <section className="admin-builder-panel">
@@ -1241,7 +1276,7 @@ function AdminPage() {
             </div>
           </div>
 
-          <form className="admin-add-form" onSubmit={handleAddRegistryEntrant}>
+          <form className="admin-add-form admin-entrant-form" onSubmit={handleAddRegistryEntrant}>
             <div className="admin-add-field">
               <label className="admin-field" htmlFor="new-registry-entrant-name">New entrant</label>
               <input
@@ -1262,8 +1297,15 @@ function AdminPage() {
             <div className="admin-entrants-editor">
               {entrantRegistry.map((entrant) => (
                 <article key={entrant.id} className="admin-entrant-row">
-                  <div>
-                    <label className="admin-field" htmlFor={`entrant-name-${entrant.id}`}>Entrant name</label>
+                  <div className="admin-entrant-main">
+                    <div className="admin-entrant-heading">
+                      <label className="admin-field" htmlFor={`entrant-name-${entrant.id}`}>Entrant name</label>
+                      <span className="admin-entrant-summary">
+                        {(entrant.winningYears || []).length
+                          ? `${entrant.winningYears.length} win${entrant.winningYears.length === 1 ? "" : "s"}`
+                          : "No wins yet"}
+                      </span>
+                    </div>
                     <input
                       id={`entrant-name-${entrant.id}`}
                       className="admin-competitor-input"
@@ -1271,7 +1313,7 @@ function AdminPage() {
                       onChange={(event) => handleRegistryNameChange(entrant.id, event.target.value)}
                     />
                   </div>
-                  <div>
+                  <div className="admin-entrant-wins">
                     <label className="admin-field" htmlFor={`entrant-years-${entrant.id}`}>Winning years</label>
                     <div className="admin-winning-years">
                       <div className="admin-winning-years-list">
