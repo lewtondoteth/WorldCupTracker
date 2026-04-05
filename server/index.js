@@ -14,11 +14,18 @@ app.use(express.json({ limit: "1mb" }));
 
 const PORT = Number(process.env.PORT || 5174);
 const SN_API = "https://api.snooker.org";
-const SN_REQUESTED_BY = process.env.SNOOKER_ORG_REQUESTED_BY || "";
+const SN_REQUESTED_BY = process.env.SNOOKER_ORG_REQUESTED_BY || "NicholasAndroidApp";
 const WORLD_CHAMPIONSHIP_EVENT_IDS = {
   2025: 1942,
   2024: 1460,
 };
+const MAIN_DRAW_ROUNDS = [
+  { key: "round-1", id: 7, name: "Round 1", shortLabel: "R1", entrantsLeft: 32 },
+  { key: "round-2", id: 8, name: "Round 2", shortLabel: "R2", entrantsLeft: 16 },
+  { key: "quarterfinals", id: 13, name: "Quarterfinals", shortLabel: "QF", entrantsLeft: 8 },
+  { key: "semifinals", id: 14, name: "Semifinals", shortLabel: "SF", entrantsLeft: 4 },
+  { key: "final", id: 15, name: "Final", shortLabel: "F", entrantsLeft: 2 },
+];
 const ROUND_ONE_SIZE = 32;
 const POOL_DIR = path.join(__dirname, "data", "pools");
 const STATIC_DIR = path.join(__dirname, "data", "static");
@@ -28,7 +35,7 @@ function getPoolFilePath(year) {
 }
 
 function getStaticSnapshotPath(year) {
-  return path.join(STATIC_DIR, `world-championship-${year}-round-one.json`);
+  return path.join(STATIC_DIR, `world-championship-${year}.json`);
 }
 
 function playerLabel(player) {
@@ -40,7 +47,6 @@ async function fetchJson(url) {
   const response = await fetch(url, { headers });
 
   if (!response.ok) {
-    const body = await response.text();
     const guidance = response.status === 403
       ? " Set SNOOKER_ORG_REQUESTED_BY in the server environment to your approved snooker.org header value."
       : "";
@@ -105,28 +111,7 @@ async function fetchLast32Players(year, eventId) {
   }
 }
 
-async function buildLiveRoundOneSnapshot(year) {
-  const eventId = await resolveWorldChampionshipEventId(year);
-  const [players, rounds, matches, seedings] = await Promise.all([
-    fetchLast32Players(year, eventId),
-    fetchJson(`${SN_API}/?t=12&e=${eventId}`),
-    fetchJson(`${SN_API}/?t=6&e=${eventId}`),
-    fetchJson(`${SN_API}/?t=13&e=${eventId}`),
-  ]);
-
-  const round = rounds.find((item) => Number(item.EventID) === eventId && Number(item.NumLeft) === ROUND_ONE_SIZE);
-  if (!round) {
-    throw new Error(`Round-of-32 metadata missing for ${year}`);
-  }
-
-  const roundMatches = matches
-    .filter((item) => String(item.Round) === String(round.Round))
-    .sort((a, b) => Number(a.Number) - Number(b.Number));
-
-  if (roundMatches.length !== 16) {
-    throw new Error(`Expected 16 round-one matches for ${year}, found ${roundMatches.length}`);
-  }
-
+function buildTournamentSnapshot({ year, eventId, players, matches, seedings }) {
   const playersById = new Map(
     players.map((player) => [
       Number(player.ID),
@@ -138,60 +123,84 @@ async function buildLiveRoundOneSnapshot(year) {
       },
     ]),
   );
-
   const seedingById = new Map(seedings.map((item) => [Number(item.PlayerID), Number(item.Seeding)]));
   const entrantsById = new Map();
 
-  const enrichedMatches = roundMatches.map((match) => {
-    const player1 = playersById.get(Number(match.Player1ID));
-    const player2 = playersById.get(Number(match.Player2ID));
+  const rounds = MAIN_DRAW_ROUNDS.map((round, index) => {
+    const roundMatches = matches
+      .filter((item) => Number(item.Round) === round.id)
+      .sort((a, b) => Number(a.Number) - Number(b.Number))
+      .map((match) => {
+        const player1 = playersById.get(Number(match.Player1ID));
+        const player2 = playersById.get(Number(match.Player2ID));
 
-    if (!player1 || !player2) {
-      throw new Error(`Missing player details for match ${match.ID}`);
-    }
+        if (!player1 || !player2) {
+          throw new Error(`Missing player details for match ${match.ID}`);
+        }
 
-    const winnerId = Number(match.WinnerID);
-    const loserId = winnerId === player1.id ? player2.id : player1.id;
+        const side1 = {
+          ...player1,
+          seedNumber: seedingById.get(player1.id) ?? null,
+          isSeed: (seedingById.get(player1.id) ?? 99) <= 16,
+          score: Number(match.Score1),
+        };
+        const side2 = {
+          ...player2,
+          seedNumber: seedingById.get(player2.id) ?? null,
+          isSeed: (seedingById.get(player2.id) ?? 99) <= 16,
+          score: Number(match.Score2),
+        };
+        const winnerId = Number(match.WinnerID);
+        const loserId = winnerId === side1.id ? side2.id : side1.id;
 
-    const side1 = {
-      ...player1,
-      seedNumber: seedingById.get(player1.id) || null,
-      isSeed: (seedingById.get(player1.id) || 99) <= 16,
-      score: Number(match.Score1),
-    };
-    const side2 = {
-      ...player2,
-      seedNumber: seedingById.get(player2.id) || null,
-      isSeed: (seedingById.get(player2.id) || 99) <= 16,
-      score: Number(match.Score2),
-    };
+        for (const side of [side1, side2]) {
+          const existing = entrantsById.get(side.id) || side;
+          entrantsById.set(side.id, {
+            ...existing,
+            ...side,
+            eliminatedInRoundId: existing.eliminatedInRoundId ?? null,
+          });
+        }
 
-    for (const side of [side1, side2]) {
-      entrantsById.set(side.id, {
-        ...side,
-        roundOneResult: side.id === winnerId ? "won" : "lost",
+        const loser = entrantsById.get(loserId);
+        entrantsById.set(loserId, {
+          ...loser,
+          eliminatedInRoundId: round.id,
+        });
+
+        return {
+          id: Number(match.ID),
+          number: Number(match.Number),
+          scheduledDate: match.ScheduledDate || match.StartDate || "",
+          winnerId,
+          loserId,
+          player1: side1,
+          player2: side2,
+        };
       });
-    }
 
     return {
-      id: Number(match.ID),
-      number: Number(match.Number),
-      scheduledDate: match.ScheduledDate || match.StartDate || "",
-      winnerId,
-      loserId,
-      player1: side1,
-      player2: side2,
+      ...round,
+      order: index + 1,
+      matchCount: roundMatches.length,
+      matches: roundMatches,
     };
   });
 
-  const entrants = Array.from(entrantsById.values()).sort((a, b) => {
-    const seedA = a.seedNumber || 999;
-    const seedB = b.seedNumber || 999;
-    if (seedA !== seedB) {
-      return seedA - seedB;
-    }
-    return a.name.localeCompare(b.name);
-  });
+  const entrants = Array.from(entrantsById.values())
+    .map((entry) => ({
+      ...entry,
+      eliminatedInRoundId: entry.eliminatedInRoundId ?? null,
+      isChampion: entry.eliminatedInRoundId === null,
+    }))
+    .sort((a, b) => {
+      const seedA = a.seedNumber ?? 999;
+      const seedB = b.seedNumber ?? 999;
+      if (seedA !== seedB) {
+        return seedA - seedB;
+      }
+      return a.name.localeCompare(b.name);
+    });
 
   return {
     year,
@@ -201,15 +210,23 @@ async function buildLiveRoundOneSnapshot(year) {
       start: `${year}-04-19`,
       end: `${year}-05-05`,
     },
-    round: {
-      id: Number(round.Round),
-      name: round.RoundName,
-      matchCount: roundMatches.length,
-    },
     entrants,
     seeds: entrants.filter((entry) => entry.isSeed),
     qualifiers: entrants.filter((entry) => !entry.isSeed),
-    matches: enrichedMatches,
+    rounds,
+  };
+}
+
+async function buildLiveTournamentSnapshot(year) {
+  const eventId = await resolveWorldChampionshipEventId(year);
+  const [players, matches, seedings] = await Promise.all([
+    fetchLast32Players(year, eventId),
+    fetchJson(`${SN_API}/?t=6&e=${eventId}`),
+    fetchJson(`${SN_API}/?t=13&e=${eventId}`),
+  ]);
+
+  return {
+    ...buildTournamentSnapshot({ year, eventId, players, matches, seedings }),
     dataSource: "live",
     liveError: null,
   };
@@ -225,9 +242,9 @@ async function readStaticSnapshot(year) {
   };
 }
 
-async function getRoundOneSnapshot(year) {
+async function getTournamentSnapshot(year) {
   try {
-    return await buildLiveRoundOneSnapshot(year);
+    return await buildLiveTournamentSnapshot(year);
   } catch (error) {
     const fallback = await readStaticSnapshot(year);
     return {
@@ -269,7 +286,7 @@ function normaliseIds(ids, allowed, label) {
     throw new Error(`${label} contains duplicate players`);
   }
   if (parsed.some((value) => !allowed.has(value))) {
-    throw new Error(`${label} includes a player outside the 2025 round-one field`);
+    throw new Error(`${label} includes a player outside the 2025 main draw field`);
   }
   return parsed;
 }
@@ -291,22 +308,10 @@ function buildPoolResponse(snapshot, poolData, filePath) {
     const seedIds = normaliseIds(competitor.seedIds, validSeedIds, `${competitor.name} seedIds`);
     const qualifierIds = normaliseIds(competitor.qualifierIds, validQualifierIds, `${competitor.name} qualifierIds`);
 
-    const decorate = (playerId) => {
-      const player = entrantsById.get(playerId);
-      return {
-        ...player,
-        eliminated: player.roundOneResult === "lost",
-      };
-    };
-
-    const seeds = seedIds.map(decorate);
-    const qualifiers = qualifierIds.map(decorate);
-
     return {
       name: competitor.name,
-      seeds,
-      qualifiers,
-      liveCount: [...seeds, ...qualifiers].filter((player) => !player.eliminated).length,
+      seeds: seedIds.map((playerId) => entrantsById.get(playerId)),
+      qualifiers: qualifierIds.map((playerId) => entrantsById.get(playerId)),
     };
   });
 
@@ -321,10 +326,20 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/api/world-championship/:year", async (req, res) => {
+  try {
+    const year = Number(req.params.year);
+    const snapshot = await getTournamentSnapshot(year);
+    res.json(snapshot);
+  } catch (error) {
+    res.status(500).json({ error: String(error.message || error) });
+  }
+});
+
 app.get("/api/world-championship/:year/round-one", async (req, res) => {
   try {
     const year = Number(req.params.year);
-    const snapshot = await getRoundOneSnapshot(year);
+    const snapshot = await getTournamentSnapshot(year);
     res.json(snapshot);
   } catch (error) {
     res.status(500).json({ error: String(error.message || error) });
@@ -334,7 +349,7 @@ app.get("/api/world-championship/:year/round-one", async (req, res) => {
 app.get("/api/pool/:year", async (req, res) => {
   try {
     const year = Number(req.params.year);
-    const [snapshot, poolFile] = await Promise.all([getRoundOneSnapshot(year), readPoolFile(year)]);
+    const [snapshot, poolFile] = await Promise.all([getTournamentSnapshot(year), readPoolFile(year)]);
     res.json(buildPoolResponse(snapshot, poolFile.data, poolFile.filePath));
   } catch (error) {
     res.status(500).json({ error: String(error.message || error) });
@@ -344,7 +359,7 @@ app.get("/api/pool/:year", async (req, res) => {
 app.post("/api/pool/:year/upload", async (req, res) => {
   try {
     const year = Number(req.params.year);
-    const snapshot = await getRoundOneSnapshot(year);
+    const snapshot = await getTournamentSnapshot(year);
     const payload = req.body;
 
     if (!payload || typeof payload !== "object") {
@@ -360,9 +375,6 @@ app.post("/api/pool/:year/upload", async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Snooker pool server listening on http://localhost:${PORT}`);
-  if (SN_REQUESTED_BY) {
-    console.log("snooker.org live mode enabled via SNOOKER_ORG_REQUESTED_BY");
-  } else {
-    console.log("snooker.org live mode disabled. Using static fallback until SNOOKER_ORG_REQUESTED_BY is set.");
-  }
+  console.log(`snooker.org live mode enabled using X-Requested-By: ${SN_REQUESTED_BY}`);
+  console.log("The server will fall back to the local cached snapshot only if a live request fails.");
 });

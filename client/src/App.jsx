@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:5174";
 const YEAR = 2025;
@@ -75,6 +75,7 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("Using the generated demo pool file.");
+  const [selectedRoundKey, setSelectedRoundKey] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -104,6 +105,17 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!data?.snapshot?.rounds?.length) {
+      return;
+    }
+
+    const roundExists = data.snapshot.rounds.some((round) => round.key === selectedRoundKey);
+    if (!roundExists) {
+      setSelectedRoundKey(data.snapshot.rounds[0].key);
+    }
+  }, [data, selectedRoundKey]);
+
   async function handleUpload(event) {
     const file = event.target.files?.[0];
     if (!file) {
@@ -126,16 +138,46 @@ export default function App() {
     }
   }
 
+  const derived = useMemo(() => {
+    if (!data?.snapshot?.rounds?.length) {
+      return null;
+    }
+
+    const { snapshot, competitors } = data;
+    const selectedRound = snapshot.rounds.find((round) => round.key === selectedRoundKey) || snapshot.rounds[0];
+    const roundOrderById = new Map(snapshot.rounds.map((round) => [round.id, round.order]));
+
+    const entrantsById = new Map(
+      snapshot.entrants.map((entry) => {
+        const eliminatedOrder = entry.eliminatedInRoundId ? roundOrderById.get(entry.eliminatedInRoundId) : null;
+        const eliminated = eliminatedOrder !== null && eliminatedOrder <= selectedRound.order;
+        return [entry.id, { ...entry, eliminated }];
+      }),
+    );
+
+    const decoratedCompetitors = competitors.map((competitor) => ({
+      ...competitor,
+      seeds: competitor.seeds.map((player) => entrantsById.get(player.id)),
+      qualifiers: competitor.qualifiers.map((player) => entrantsById.get(player.id)),
+    }));
+
+    return {
+      selectedRound,
+      aliveEntrants: snapshot.entrants.filter((entry) => !entrantsById.get(entry.id).eliminated),
+      decoratedCompetitors,
+    };
+  }, [data, selectedRoundKey]);
+
   if (loading && !data) {
     return <main className="app-shell"><p className="status-banner">Loading 2025 World Championship pool...</p></main>;
   }
 
-  if (!data) {
+  if (!data || !derived) {
     return <main className="app-shell"><p className="status-banner error">{error || "Pool data is unavailable."}</p></main>;
   }
 
-  const { snapshot, competitors, sourceFile } = data;
-  const eliminatedCount = snapshot.entrants.filter((entry) => entry.roundOneResult === "lost").length;
+  const { snapshot, sourceFile } = data;
+  const { selectedRound, aliveEntrants, decoratedCompetitors } = derived;
   const isLive = snapshot.dataSource === "live";
   const sourceLabel = isLive ? "Live data" : "Cached fallback";
 
@@ -148,26 +190,26 @@ export default function App() {
         </div>
         <h1>{snapshot.eventName}</h1>
         <p className="hero-copy">
-          First-round view for the Crucible draw. The 2025 tournament ran from 19 April 2025 to 5 May 2025,
-          and this page starts by showing the opening 32-player round with the eliminated picks crossed out.
+          Main-draw view for the Crucible. Use the round selector to switch between round one, round two,
+          the quarterfinals, semifinals, and the final. Player strike-through and alive totals update for the round you pick.
         </p>
         {!isLive && snapshot.liveError ? (
           <p className="fallback-note">
-            Live refresh is unavailable right now, so this page is using the local 2025 round-one snapshot.
+            Live refresh is unavailable right now, so this page is using the local 2025 tournament snapshot.
           </p>
         ) : null}
         <div className="hero-stats">
           <div>
-            <strong>16</strong>
-            <span>Seeds</span>
+            <strong>{selectedRound.name}</strong>
+            <span>Selected round</span>
           </div>
           <div>
-            <strong>16</strong>
-            <span>Qualifiers</span>
+            <strong>{aliveEntrants.length}</strong>
+            <span>Players still alive</span>
           </div>
           <div>
-            <strong>{eliminatedCount}</strong>
-            <span>Round-one exits</span>
+            <strong>{selectedRound.matchCount}</strong>
+            <span>Matches in this round</span>
           </div>
         </div>
       </section>
@@ -183,42 +225,67 @@ export default function App() {
         </label>
       </section>
 
+      <section className="round-selector-card">
+        <div className="round-selector-header">
+          <div>
+            <p className="eyebrow">Rounds</p>
+            <h2>Choose the stage to view</h2>
+          </div>
+        </div>
+        <div className="round-selector-buttons">
+          {snapshot.rounds.map((round) => (
+            <button
+              key={round.key}
+              type="button"
+              className={round.key === selectedRound.key ? "round-button active" : "round-button"}
+              onClick={() => setSelectedRoundKey(round.key)}
+            >
+              <span>{round.shortLabel}</span>
+              <strong>{round.name}</strong>
+            </button>
+          ))}
+        </div>
+      </section>
+
       <p className={error ? "status-banner error" : "status-banner"}>{error || status}</p>
 
       <section className="section-heading">
         <div>
           <p className="eyebrow">Competitors</p>
-          <h2>Current pool entries</h2>
+          <h2>Picks alive after {selectedRound.name}</h2>
         </div>
       </section>
 
       <section className="competitor-grid">
-        {competitors.map((competitor) => (
-          <article key={competitor.name} className="competitor-card">
-            <div className="competitor-header">
-              <div>
-                <p className="eyebrow">Pool entrant</p>
-                <h2>{competitor.name}</h2>
+        {decoratedCompetitors.map((competitor) => {
+          const liveCount = [...competitor.seeds, ...competitor.qualifiers].filter((player) => !player.eliminated).length;
+          return (
+            <article key={competitor.name} className="competitor-card">
+              <div className="competitor-header">
+                <div>
+                  <p className="eyebrow">Pool entrant</p>
+                  <h2>{competitor.name}</h2>
+                </div>
+                <div className="live-pill">{liveCount} alive</div>
               </div>
-              <div className="live-pill">{competitor.liveCount} alive</div>
-            </div>
-            <div className="pick-columns">
-              <PickList title="Seeds" players={competitor.seeds} />
-              <PickList title="Qualifiers" players={competitor.qualifiers} />
-            </div>
-          </article>
-        ))}
+              <div className="pick-columns">
+                <PickList title="Seeds" players={competitor.seeds} />
+                <PickList title="Qualifiers" players={competitor.qualifiers} />
+              </div>
+            </article>
+          );
+        })}
       </section>
 
       <section className="section-heading draw-heading">
         <div>
-          <p className="eyebrow">Round 1</p>
-          <h2>Actual 2025 results</h2>
+          <p className="eyebrow">{selectedRound.shortLabel}</p>
+          <h2>{selectedRound.name} results</h2>
         </div>
       </section>
 
       <section className="matches-grid">
-        {snapshot.matches.map((match) => (
+        {selectedRound.matches.map((match) => (
           <MatchCard key={match.id} match={match} />
         ))}
       </section>
