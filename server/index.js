@@ -2,9 +2,10 @@ import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
 import { promises as fs } from "fs";
+import { randomUUID } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
-import { cacheLast32, getCachedLast32 } from "./sqlite_cache.mjs";
+import { cacheEventPlayers, cacheLast32, getCachedEventPlayers, getCachedLast32 } from "./sqlite_cache.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -29,6 +30,7 @@ const MAIN_DRAW_ROUNDS = [
 const ROUND_ONE_SIZE = 32;
 const POOL_DIR = path.join(__dirname, "data", "pools");
 const STATIC_DIR = path.join(__dirname, "data", "static");
+const ENTRANT_REGISTRY_PATH = path.join(__dirname, "data", "entrants.json");
 
 function getPoolFilePath(year) {
   return path.join(POOL_DIR, `world-championship-${year}.json`);
@@ -40,6 +42,11 @@ function getStaticSnapshotPath(year) {
 
 function playerLabel(player) {
   return (player.Name || `${player.FirstName ?? ""} ${player.LastName ?? ""}`).replace(/\s+/g, " ").trim();
+}
+
+function isPlaceholderEntrant(entry) {
+  const name = String(entry?.name || "").trim();
+  return !name || /^tbd$/i.test(name) || /^unknown$/i.test(String(entry?.nationality || "").trim());
 }
 
 async function fetchJson(url) {
@@ -77,11 +84,15 @@ async function resolveWorldChampionshipEventId(year) {
 
 async function fetchLast32Players(year, eventId) {
   try {
+    const cachedEventPlayers = getCachedEventPlayers(year);
     const [allPlayers, rounds, matches] = await Promise.all([
-      fetchJson(`${SN_API}/?t=9&e=${eventId}`),
+      cachedEventPlayers?.length ? Promise.resolve(cachedEventPlayers) : fetchJson(`${SN_API}/?t=9&e=${eventId}`),
       fetchJson(`${SN_API}/?t=12&e=${eventId}`),
       fetchJson(`${SN_API}/?t=6&e=${eventId}`),
     ]);
+    if (!cachedEventPlayers?.length && Array.isArray(allPlayers) && allPlayers.length >= ROUND_ONE_SIZE) {
+      cacheEventPlayers(year, allPlayers);
+    }
 
     const round = rounds.find((item) => Number(item.EventID) === eventId && Number(item.NumLeft) === ROUND_ONE_SIZE);
     if (!round) {
@@ -103,6 +114,30 @@ async function fetchLast32Players(year, eventId) {
     }
     return filtered;
   } catch (error) {
+    const cachedEventPlayers = getCachedEventPlayers(year);
+    if (cachedEventPlayers?.length) {
+      const [rounds, matches] = await Promise.all([
+        fetchJson(`${SN_API}/?t=12&e=${eventId}`),
+        fetchJson(`${SN_API}/?t=6&e=${eventId}`),
+      ]);
+      const round = rounds.find((item) => Number(item.EventID) === eventId && Number(item.NumLeft) === ROUND_ONE_SIZE);
+      if (round) {
+        const ids = new Set();
+        for (const match of matches) {
+          if (String(match.Round) !== String(round.Round)) {
+            continue;
+          }
+          ids.add(Number(match.Player1ID));
+          ids.add(Number(match.Player2ID));
+        }
+        const filtered = cachedEventPlayers.filter((player) => ids.has(Number(player.ID)));
+        if (filtered.length === ROUND_ONE_SIZE) {
+          cacheLast32(year, filtered);
+          return filtered;
+        }
+      }
+    }
+
     const cached = getCachedLast32(year);
     if (cached?.length === ROUND_ONE_SIZE) {
       return cached;
@@ -195,6 +230,7 @@ function buildTournamentSnapshot({ year, eventId, players, matches, seedings }) 
   const entrants = Array.from(entrantsById.values())
     .map((entry) => ({
       ...entry,
+      isPlaceholder: isPlaceholderEntrant(entry),
       eliminatedInRoundId: entry.eliminatedInRoundId ?? null,
       isChampion: entry.eliminatedInRoundId === null,
     }))
@@ -216,9 +252,32 @@ function buildTournamentSnapshot({ year, eventId, players, matches, seedings }) 
       end: `${year}-05-05`,
     },
     entrants,
-    seeds: entrants.filter((entry) => entry.isSeed),
-    qualifiers: entrants.filter((entry) => !entry.isSeed),
+    seeds: entrants.filter((entry) => entry.isSeed && !entry.isPlaceholder),
+    qualifiers: entrants.filter((entry) => !entry.isSeed && !entry.isPlaceholder),
     rounds,
+  };
+}
+
+function buildEmptyTournamentSnapshot(year, liveError = null) {
+  return {
+    year,
+    eventId: null,
+    eventName: `World Championship ${year}`,
+    eventDates: {
+      start: `${year}-04-19`,
+      end: `${year}-05-05`,
+    },
+    entrants: [],
+    seeds: [],
+    qualifiers: [],
+    rounds: MAIN_DRAW_ROUNDS.map((round, index) => ({
+      ...round,
+      order: index + 1,
+      matchCount: 0,
+      matches: [],
+    })),
+    dataSource: "unavailable",
+    liveError,
   };
 }
 
@@ -251,11 +310,18 @@ async function getTournamentSnapshot(year) {
   try {
     return await buildLiveTournamentSnapshot(year);
   } catch (error) {
-    const fallback = await readStaticSnapshot(year);
-    return {
-      ...fallback,
-      liveError: String(error.message || error),
-    };
+    try {
+      const fallback = await readStaticSnapshot(year);
+      return {
+        ...fallback,
+        liveError: String(error.message || error),
+      };
+    } catch (fallbackError) {
+      return buildEmptyTournamentSnapshot(
+        year,
+        String(error.message || error || fallbackError.message || fallbackError),
+      );
+    }
   }
 }
 
@@ -268,11 +334,167 @@ async function readPoolFile(year) {
   };
 }
 
+async function readPoolFileOptional(year) {
+  try {
+    return await readPoolFile(year);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return {
+        filePath: getPoolFilePath(year),
+        data: {
+          year,
+          eventName: `World Championship ${year}`,
+          competitors: [],
+        },
+      };
+    }
+    throw error;
+  }
+}
+
 async function writePoolFile(year, payload) {
   await fs.mkdir(POOL_DIR, { recursive: true });
   const filePath = getPoolFilePath(year);
   await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
   return filePath;
+}
+
+async function readEntrantRegistry() {
+  try {
+    const raw = await fs.readFile(ENTRANT_REGISTRY_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed?.entrants) ? parsed.entrants : [];
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+}
+
+async function writeEntrantRegistry(entrants) {
+  await fs.mkdir(path.dirname(ENTRANT_REGISTRY_PATH), { recursive: true });
+  await fs.writeFile(ENTRANT_REGISTRY_PATH, `${JSON.stringify({ entrants }, null, 2)}\n`, "utf8");
+}
+
+function normaliseEntrantName(name, label = "Entrant name") {
+  const trimmed = String(name || "").replace(/\s+/g, " ").trim();
+  if (!trimmed) {
+    throw new Error(`${label} is required`);
+  }
+  return trimmed;
+}
+
+function normaliseWinningYears(years, label = "Winning years") {
+  if (years === undefined || years === null) {
+    return [];
+  }
+  if (!Array.isArray(years)) {
+    throw new Error(`${label} must be an array of years`);
+  }
+
+  const parsed = years.map((value) => Number(value));
+  if (parsed.some((value) => !Number.isInteger(value))) {
+    throw new Error(`${label} must contain whole years`);
+  }
+  if (new Set(parsed).size !== parsed.length) {
+    throw new Error(`${label} contains duplicate years`);
+  }
+
+  return [...parsed].sort((left, right) => left - right);
+}
+
+function normaliseEntrantRegistry(entrants) {
+  if (!Array.isArray(entrants)) {
+    throw new Error("Entrant registry must be an array");
+  }
+
+  const seenIds = new Set();
+  const seenNames = new Set();
+  const winningYearOwners = new Map();
+
+  return entrants.map((entrant, index) => {
+    const id = String(entrant?.id || randomUUID());
+    const name = normaliseEntrantName(entrant?.name, `Entrant ${index + 1} name`);
+    const winningYears = normaliseWinningYears(entrant?.winningYears, `${name} winningYears`);
+    const lowerName = name.toLowerCase();
+
+    if (seenIds.has(id)) {
+      throw new Error(`Duplicate entrant id found for ${name}`);
+    }
+    if (seenNames.has(lowerName)) {
+      throw new Error(`Duplicate entrant name found for ${name}`);
+    }
+
+    seenIds.add(id);
+    seenNames.add(lowerName);
+
+    for (const year of winningYears) {
+      const existingOwner = winningYearOwners.get(year);
+      if (existingOwner) {
+        throw new Error(`${year} already has a winner assigned (${existingOwner})`);
+      }
+      winningYearOwners.set(year, name);
+    }
+
+    return { id, name, winningYears };
+  });
+}
+
+function combineRegistryWithPoolData(registryEntrants, poolData) {
+  const competitors = Array.isArray(poolData?.competitors) ? poolData.competitors : [];
+  const registryById = new Map(registryEntrants.map((entrant) => [entrant.id, entrant]));
+  const registryByName = new Map(registryEntrants.map((entrant) => [entrant.name.toLowerCase(), entrant]));
+  return competitors.map((competitor) => {
+    const entrantName = normaliseEntrantName(competitor?.name, "Entrant name");
+    const matchedEntrant = competitor.entrantId
+      ? registryById.get(String(competitor.entrantId))
+      : registryByName.get(entrantName.toLowerCase());
+    const entrantId = matchedEntrant?.id || String(competitor?.entrantId || randomUUID());
+
+    return {
+      entrantId,
+      name: matchedEntrant?.name || entrantName,
+      seedIds: Array.isArray(competitor?.seedIds) ? competitor.seedIds : [],
+      qualifierIds: Array.isArray(competitor?.qualifierIds) ? competitor.qualifierIds : [],
+    };
+  });
+}
+
+function preparePoolPayload(year, eventName, competitors) {
+  if (!Array.isArray(competitors)) {
+    throw new Error("Competitors must be an array");
+  }
+
+  const seenEntrantIds = new Set();
+  const seenNames = new Set();
+
+  return {
+    year,
+    eventName,
+    competitors: competitors.map((competitor, index) => {
+      const entrantId = String(competitor?.entrantId || randomUUID());
+      const name = normaliseEntrantName(competitor?.name, `Competitor ${index + 1} name`);
+      const lowerName = name.toLowerCase();
+
+      if (seenEntrantIds.has(entrantId)) {
+        throw new Error(`Duplicate entrant id found for ${name}`);
+      }
+      if (seenNames.has(lowerName)) {
+        throw new Error(`Duplicate entrant name found for ${name}`);
+      }
+
+      seenEntrantIds.add(entrantId);
+      seenNames.add(lowerName);
+
+      return {
+        entrantId,
+        name,
+        seedIds: Array.isArray(competitor?.seedIds) ? competitor.seedIds : [],
+        qualifierIds: Array.isArray(competitor?.qualifierIds) ? competitor.qualifierIds : [],
+      };
+    }),
+  };
 }
 
 function normaliseIds(ids, allowed, label) {
@@ -298,7 +520,12 @@ function normaliseIds(ids, allowed, label) {
 
 function buildPoolResponse(snapshot, poolData, filePath) {
   if (!Array.isArray(poolData?.competitors) || poolData.competitors.length === 0) {
-    throw new Error("Pool file must contain a non-empty competitors array");
+    return {
+      snapshot,
+      competitors: [],
+      sourceFile: filePath,
+      poolConfigured: false,
+    };
   }
 
   const entrantsById = new Map(snapshot.entrants.map((entry) => [entry.id, entry]));
@@ -314,6 +541,7 @@ function buildPoolResponse(snapshot, poolData, filePath) {
     const qualifierIds = normaliseIds(competitor.qualifierIds, validQualifierIds, `${competitor.name} qualifierIds`);
 
     return {
+      entrantId: competitor.entrantId ? String(competitor.entrantId) : null,
       name: competitor.name,
       seeds: seedIds.map((playerId) => entrantsById.get(playerId)),
       qualifiers: qualifierIds.map((playerId) => entrantsById.get(playerId)),
@@ -324,7 +552,65 @@ function buildPoolResponse(snapshot, poolData, filePath) {
     snapshot,
     competitors,
     sourceFile: filePath,
+    poolConfigured: true,
   };
+}
+
+function buildPublicPoolResponse(snapshot, poolData, filePath) {
+  try {
+    return buildPoolResponse(snapshot, poolData, filePath);
+  } catch (error) {
+    return {
+      snapshot,
+      competitors: [],
+      sourceFile: filePath,
+      poolConfigured: false,
+      poolConfigError: String(error.message || error),
+    };
+  }
+}
+
+function getAdminYearOptions(baseYear) {
+  return Array.from({ length: 6 }, (_, index) => baseYear - index).sort((left, right) => right - left);
+}
+
+function buildAdminPoolResponse(snapshot, poolData, filePath, entrantRegistry) {
+  const currentYear = new Date().getFullYear();
+  const selectedYear = Number(snapshot?.year ?? poolData?.year ?? currentYear);
+  const minKnownYear = Math.min(...Object.keys(WORLD_CHAMPIONSHIP_EVENT_IDS).map((value) => Number(value)), selectedYear);
+  const maxKnownYear = Math.max(currentYear, selectedYear);
+  const availableYears = [];
+  for (let year = maxKnownYear; year >= minKnownYear; year -= 1) {
+    availableYears.push(year);
+  }
+
+  return {
+    snapshot,
+    entrantRegistry,
+    availableYears: availableYears.length ? availableYears : getAdminYearOptions(currentYear),
+    poolData: {
+      year: poolData?.year ?? snapshot.year,
+      eventName: poolData?.eventName ?? snapshot.eventName,
+      competitors: combineRegistryWithPoolData(entrantRegistry, poolData),
+    },
+    sourceFile: filePath,
+  };
+}
+
+function mergeRegistryWithCompetitors(existingRegistry, competitors) {
+  const existingById = new Map(existingRegistry.map((entrant) => [entrant.id, entrant]));
+  const merged = new Map(existingRegistry.map((entrant) => [entrant.id, entrant]));
+
+  for (const competitor of competitors) {
+    const existing = existingById.get(competitor.entrantId);
+    merged.set(competitor.entrantId, {
+      id: competitor.entrantId,
+      name: competitor.name,
+      winningYears: existing?.winningYears || [],
+    });
+  }
+
+  return Array.from(merged.values());
 }
 
 app.get("/api/health", (_req, res) => {
@@ -354,8 +640,8 @@ app.get("/api/world-championship/:year/round-one", async (req, res) => {
 app.get("/api/pool/:year", async (req, res) => {
   try {
     const year = Number(req.params.year);
-    const [snapshot, poolFile] = await Promise.all([getTournamentSnapshot(year), readPoolFile(year)]);
-    res.json(buildPoolResponse(snapshot, poolFile.data, poolFile.filePath));
+    const [snapshot, poolFile] = await Promise.all([getTournamentSnapshot(year), readPoolFileOptional(year)]);
+    res.json(buildPublicPoolResponse(snapshot, poolFile.data, poolFile.filePath));
   } catch (error) {
     res.status(500).json({ error: String(error.message || error) });
   }
@@ -373,6 +659,73 @@ app.post("/api/pool/:year/upload", async (req, res) => {
 
     const filePath = await writePoolFile(year, payload);
     res.json(buildPoolResponse(snapshot, payload, filePath));
+  } catch (error) {
+    res.status(400).json({ error: String(error.message || error) });
+  }
+});
+
+app.get("/api/pool/:year/admin", async (req, res) => {
+  try {
+    const year = Number(req.params.year);
+    const [snapshot, poolFile, entrantRegistry] = await Promise.all([
+      getTournamentSnapshot(year),
+      readPoolFileOptional(year),
+      readEntrantRegistry(),
+    ]);
+    res.json(buildAdminPoolResponse(snapshot, poolFile.data, poolFile.filePath, entrantRegistry));
+  } catch (error) {
+    res.status(500).json({ error: String(error.message || error) });
+  }
+});
+
+app.get("/api/entrants", async (_req, res) => {
+  try {
+    const entrantRegistry = await readEntrantRegistry();
+    res.json({ entrants: normaliseEntrantRegistry(entrantRegistry) });
+  } catch (error) {
+    res.status(500).json({ error: String(error.message || error) });
+  }
+});
+
+app.put("/api/entrants", async (req, res) => {
+  try {
+    const payload = req.body;
+
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({ error: "Entrant save body must be JSON" });
+    }
+
+    const entrantRegistry = normaliseEntrantRegistry(payload.entrants || []);
+    await writeEntrantRegistry(entrantRegistry);
+    res.json({ entrants: entrantRegistry });
+  } catch (error) {
+    res.status(400).json({ error: String(error.message || error) });
+  }
+});
+
+app.put("/api/pool/:year/admin", async (req, res) => {
+  try {
+    const year = Number(req.params.year);
+    const snapshot = await getTournamentSnapshot(year);
+    const existingRegistry = await readEntrantRegistry();
+    const payload = req.body;
+
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({ error: "Save body must be JSON" });
+    }
+
+    const preparedPayload = preparePoolPayload(
+      year,
+      payload.eventName ?? `World Championship ${year}`,
+      payload.competitors || [],
+    );
+    const entrantRegistry = normaliseEntrantRegistry(
+      mergeRegistryWithCompetitors(existingRegistry, preparedPayload.competitors),
+    );
+    const filePath = await writePoolFile(year, preparedPayload);
+    buildPoolResponse(snapshot, preparedPayload, filePath);
+    await writeEntrantRegistry(entrantRegistry);
+    res.json(buildAdminPoolResponse(snapshot, preparedPayload, filePath, entrantRegistry));
   } catch (error) {
     res.status(400).json({ error: String(error.message || error) });
   }

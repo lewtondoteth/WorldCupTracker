@@ -11,6 +11,12 @@ CREATE TABLE IF NOT EXISTS last32 (
   data TEXT NOT NULL,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS event_players (
+  year INTEGER PRIMARY KEY,
+  data TEXT NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 `);
 
 
@@ -38,6 +44,25 @@ export function getCachedLast32(year) {
     }
   } catch (e) {
     console.error('[getCachedLast32] error:', e);
+    return null;
+  }
+}
+
+export function cacheEventPlayers(year, data) {
+  try {
+    const stmt = db.prepare("INSERT OR REPLACE INTO event_players (year, data, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)");
+    stmt.run(year, JSON.stringify(data));
+  } catch (e) {
+    console.error("[cacheEventPlayers] error:", e);
+  }
+}
+
+export function getCachedEventPlayers(year) {
+  try {
+    const row = db.prepare("SELECT data FROM event_players WHERE year = ?").get(year);
+    return row ? JSON.parse(row.data) : null;
+  } catch (e) {
+    console.error("[getCachedEventPlayers] error:", e);
     return null;
   }
 }
