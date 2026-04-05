@@ -256,17 +256,12 @@
 .toolbar-card {
   margin-top: 18px;
   padding: 18px 22px;
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-  gap: 16px;
 }
 
 .toolbar-meta {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
-  flex: 1;
   min-width: 0;
 }
 
@@ -300,6 +295,19 @@
   margin: 0;
   font-size: 0.95rem;
   word-break: break-all;
+}
+
+.toolbar-note {
+  margin: 8px 0 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(18, 99, 68, 0.08);
+  border: 1px solid rgba(18, 99, 68, 0.12);
+  color: #126344;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .toolbar-select-shell {

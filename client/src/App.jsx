@@ -205,6 +205,24 @@ function AdminPlayerLane({
   );
 }
 
+function getDefaultRoundKey(snapshot) {
+  const rounds = snapshot?.rounds || [];
+  if (!rounds.length) {
+    return "";
+  }
+
+  const firstIncompleteRound = rounds.find((round) => (
+    round.matches.length > 0
+      && round.matches.some((match) => match.unfinished || !match.winnerId)
+  ));
+  if (firstIncompleteRound) {
+    return firstIncompleteRound.key;
+  }
+
+  const latestStartedRound = [...rounds].reverse().find((round) => round.matches.length > 0);
+  return latestStartedRound?.key || rounds[0].key;
+}
+
 function HomePage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -214,6 +232,7 @@ function HomePage() {
   const [competitorsSectionExpanded, setCompetitorsSectionExpanded] = useState(true);
   const [expandedCompetitors, setExpandedCompetitors] = useState({});
   const [matchesExpanded, setMatchesExpanded] = useState(true);
+  const autoSelectedRoundYearRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -249,9 +268,13 @@ function HomePage() {
       return;
     }
 
+    const preferredRoundKey = getDefaultRoundKey(data.snapshot);
     const roundExists = data.snapshot.rounds.some((round) => round.key === selectedRoundKey);
-    if (!roundExists) {
-      setSelectedRoundKey(data.snapshot.rounds[0].key);
+    const shouldAutoSelect = autoSelectedRoundYearRef.current !== data.snapshot.year;
+
+    if (shouldAutoSelect || !roundExists) {
+      setSelectedRoundKey(preferredRoundKey);
+      autoSelectedRoundYearRef.current = data.snapshot.year;
     }
   }, [data, selectedRoundKey]);
 
@@ -269,6 +292,10 @@ function HomePage() {
 
     const { snapshot, competitors } = data;
     const selectedRound = snapshot.rounds.find((round) => round.key === selectedRoundKey) || snapshot.rounds[0];
+    const nextRound = snapshot.rounds.find((round) => round.order === selectedRound.order + 1) || null;
+    const nextRoundInPlay = Boolean(
+      nextRound?.matches.some((match) => match.unfinished || !match.winnerId),
+    );
     const roundOrderById = new Map(snapshot.rounds.map((round) => [round.id, round.order]));
     const previousRound = snapshot.rounds.find((round) => round.order === selectedRound.order - 1) || null;
     const currentRoundMatchByPlayerId = new Map();
@@ -325,6 +352,8 @@ function HomePage() {
 
     return {
       selectedRound,
+      nextRound,
+      nextRoundInPlay,
       decoratedCompetitors,
     };
   }, [data, selectedRoundKey]);
@@ -338,13 +367,7 @@ function HomePage() {
   }
 
   const { snapshot } = data;
-  const { selectedRound, decoratedCompetitors } = derived;
-  const isLive = snapshot.dataSource === "live";
-  const sourceLabel = isLive
-    ? "Live data"
-    : snapshot.dataSource === "static-fallback"
-      ? "Cached fallback"
-      : "Schedule pending";
+  const { selectedRound, nextRound, nextRoundInPlay, decoratedCompetitors } = derived;
   const poolConfigured = data.poolConfigured !== false;
 
   return (
@@ -381,12 +404,6 @@ function HomePage() {
       <section className="toolbar-card">
         <div className="toolbar-meta">
           <div>
-            <p className="toolbar-label">Data source</p>
-            <div className={isLive ? "source-indicator live" : "source-indicator cached"}>
-              {sourceLabel}
-            </div>
-          </div>
-          <div>
             <p className="toolbar-label">Selected round</p>
             <label className="toolbar-select-shell">
               <select
@@ -402,6 +419,9 @@ function HomePage() {
                 ))}
               </select>
             </label>
+            {nextRoundInPlay ? (
+              <p className="toolbar-note">{nextRound.name} is in play</p>
+            ) : null}
           </div>
           <div>
             <p className="toolbar-label">Players alive</p>
@@ -411,10 +431,6 @@ function HomePage() {
             <p className="toolbar-label">Matches this round</p>
             <p className="toolbar-value">{selectedRound.matchCount}</p>
           </div>
-        </div>
-        <div className="toolbar-action">
-          <p className="toolbar-label">Uploads</p>
-          <Link className="admin-pill-link" to="/admin">Manage in admin</Link>
         </div>
       </section>
 
