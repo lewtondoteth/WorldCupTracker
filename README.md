@@ -13,7 +13,7 @@ Important event details:
 - Pulls the live 2025 World Championship field and round-one results from `api.snooker.org`
 - Splits the draw into 16 seeds and 16 qualifiers
 - Loads a pool file from the backend
-- Shows 4 sample competitors, each with 8 seeded picks and 8 qualifier picks
+- Shows 4 sample competitors with a demo file that splits the 32-player field uniquely across them
 - Strikes through players who lost in round one
 - Lets you upload a replacement JSON picks file from the browser
 
@@ -36,18 +36,20 @@ Use this JSON shape when you want to upload a new file:
   "competitors": [
     {
       "name": "Alex Turner",
-      "seedIds": [39, 12, 237, 17, 5, 1, 101, 202],
-      "qualifierIds": [2498, 946, 1044, 1417, 158, 1257, 118, 19]
+      "seedIds": [39, 12, 237, 17],
+      "qualifierIds": [2498, 946, 1044, 1417]
     }
   ]
 }
 ```
 
 Rules for each competitor:
-- `seedIds` must contain exactly 8 players from the 16 seeded Crucible entrants
-- `qualifierIds` must contain exactly 8 players from the 16 qualifiers
+- `seedIds` can contain between 1 and 8 players from the 16 seeded Crucible entrants
+- `qualifierIds` can contain between 1 and 8 players from the 16 qualifiers
 - Each list must use numeric player ids from snooker.org
 - No duplicates are allowed inside a single list
+
+The generated demo file uses 4 seeded picks and 4 qualifier picks per fake user so all 32 entrants are covered exactly once.
 
 ## Run it locally
 

@@ -150,8 +150,9 @@ function buildTournamentSnapshot({ year, eventId, players, matches, seedings }) 
           isSeed: (seedingById.get(player2.id) ?? 99) <= 16,
           score: Number(match.Score2),
         };
-        const winnerId = Number(match.WinnerID);
-        const loserId = winnerId === side1.id ? side2.id : side1.id;
+        const winnerId = Number(match.WinnerID) || null;
+        const unfinished = Boolean(match.Unfinished) || !winnerId;
+        const loserId = unfinished ? null : (winnerId === side1.id ? side2.id : side1.id);
 
         for (const side of [side1, side2]) {
           const existing = entrantsById.get(side.id) || side;
@@ -162,11 +163,13 @@ function buildTournamentSnapshot({ year, eventId, players, matches, seedings }) 
           });
         }
 
-        const loser = entrantsById.get(loserId);
-        entrantsById.set(loserId, {
-          ...loser,
-          eliminatedInRoundId: round.id,
-        });
+        if (loserId !== null) {
+          const loser = entrantsById.get(loserId);
+          entrantsById.set(loserId, {
+            ...loser,
+            eliminatedInRoundId: round.id,
+          });
+        }
 
         return {
           id: Number(match.ID),
@@ -174,6 +177,8 @@ function buildTournamentSnapshot({ year, eventId, players, matches, seedings }) 
           scheduledDate: match.ScheduledDate || match.StartDate || "",
           winnerId,
           loserId,
+          unfinished,
+          status: unfinished ? "in-play" : "finished",
           player1: side1,
           player2: side2,
         };
@@ -279,8 +284,8 @@ function normaliseIds(ids, allowed, label) {
   if (parsed.some((value) => Number.isNaN(value))) {
     throw new Error(`${label} contains a non-numeric player id`);
   }
-  if (parsed.length !== 8) {
-    throw new Error(`${label} must contain exactly 8 players`);
+  if (parsed.length < 1 || parsed.length > 8) {
+    throw new Error(`${label} must contain between 1 and 8 players`);
   }
   if (new Set(parsed).size !== parsed.length) {
     throw new Error(`${label} contains duplicate players`);
