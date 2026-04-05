@@ -5,7 +5,9 @@ import dogsPlayingPool from "../../res/dogsplayingpool.webp";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:5174";
 const PUBLIC_DEFAULT_YEAR = new Date().getFullYear();
-const PUBLIC_YEAR_OPTIONS = Array.from({ length: 8 }, (_, index) => PUBLIC_DEFAULT_YEAR - index);
+const PUBLIC_YEAR_OPTIONS = PUBLIC_DEFAULT_YEAR >= 2027
+  ? Array.from({ length: 6 }, (_, index) => PUBLIC_DEFAULT_YEAR - index)
+  : [2026, 2025];
 const ADMIN_DEFAULT_YEAR = new Date().getFullYear();
 const ADMIN_YEAR_OPTIONS = Array.from({ length: 6 }, (_, index) => ADMIN_DEFAULT_YEAR - index);
 const WINNER_YEAR_OPTIONS = Array.from({ length: ADMIN_DEFAULT_YEAR - 2019 + 1 }, (_, index) => ADMIN_DEFAULT_YEAR - index);
@@ -112,21 +114,23 @@ function getNationalityFlag(nationality) {
     .join("");
 }
 
-function PlayerIdentity({ player, compact = false }) {
+function PlayerIdentity({ player, compact = false, showPhoto = true }) {
   const flag = getNationalityFlag(player.nationality);
   const identityClassName = `${compact ? "player-identity compact" : "player-identity"}${player.eliminated ? " eliminated" : ""}`;
 
   return (
     <div className={identityClassName}>
-      <div className="player-avatar-shell">
-        {player.photo ? (
-          <img className="player-avatar" src={player.photo} alt="" loading="lazy" />
-        ) : (
-          <div className="player-avatar fallback" aria-hidden="true">
-            {String(player.name || "?").trim().slice(0, 1)}
-          </div>
-        )}
-      </div>
+      {showPhoto ? (
+        <div className="player-avatar-shell">
+          {player.photo ? (
+            <img className="player-avatar" src={player.photo} alt="" loading="lazy" />
+          ) : (
+            <div className="player-avatar fallback" aria-hidden="true">
+              {String(player.name || "?").trim().slice(0, 1)}
+            </div>
+          )}
+        </div>
+      ) : null}
       <div className="player-text">
         <strong>{player.name}</strong>
         <small>
@@ -138,7 +142,7 @@ function PlayerIdentity({ player, compact = false }) {
   );
 }
 
-function PickList({ title, players }) {
+function PickList({ title, players, showPhotos }) {
   return (
     <section className="pick-group">
       <div className="pick-group-header">
@@ -148,7 +152,7 @@ function PickList({ title, players }) {
       <ul className="pick-list">
         {players.map((player) => (
           <li key={player.id} className={player.eliminated ? "pick-row eliminated" : "pick-row"}>
-            <PlayerIdentity player={player} />
+            <PlayerIdentity player={player} showPhoto={showPhotos} />
             <span className={`pick-status ${player.statusTone}`}>{player.roundStatusLabel}</span>
           </li>
         ))}
@@ -187,10 +191,16 @@ function isOpenTournamentMatch(match) {
   return isActiveTournamentMatch(match) && (match.unfinished || !match.winnerId);
 }
 
-function MatchCard({ match }) {
+function MatchCard({ match, showPhotos }) {
+  const metaBits = [
+    match.tableNo ? `Table ${match.tableNo}` : null,
+    match.startDate ? `Start ${match.startDate.slice(0, 10)}` : null,
+    match.endDate ? `End ${match.endDate.slice(0, 10)}` : null,
+  ].filter(Boolean);
+
   const renderSide = (player, won) => (
     <div className={won ? "match-side winner" : "match-side loser"}>
-      <PlayerIdentity player={player} compact />
+      <PlayerIdentity player={player} compact showPhoto={showPhotos} />
       <strong>{player.score}</strong>
     </div>
   );
@@ -198,7 +208,12 @@ function MatchCard({ match }) {
   return (
     <article className="match-card">
       <div className="match-meta">
-        <span>Match {match.number}</span>
+        <div className="match-meta-copy">
+          <span>Match {match.number}</span>
+          {metaBits.length ? (
+            <small>{metaBits.join(" • ")}</small>
+          ) : null}
+        </div>
         <span>
           {isPlaceholderMatchPlayer(match.player1) || isPlaceholderMatchPlayer(match.player2)
             ? "Awaiting qualifier"
@@ -344,6 +359,7 @@ function HomePage() {
   const [publicEntrants, setPublicEntrants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showPhotos, setShowPhotos] = useState(true);
   const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
   const [selectedRoundKey, setSelectedRoundKey] = useState("");
   const [competitorsSectionExpanded, setCompetitorsSectionExpanded] = useState(true);
@@ -562,6 +578,20 @@ function HomePage() {
             <p className="toolbar-label">Matches this round</p>
             <p className="toolbar-value">{openMatchCount}</p>
           </div>
+          <div>
+            <p className="toolbar-label">Player photos</p>
+            <label className="toolbar-switch">
+              <input
+                type="checkbox"
+                checked={showPhotos}
+                onChange={(event) => setShowPhotos(event.target.checked)}
+              />
+              <span className="toolbar-switch-track">
+                <span className="toolbar-switch-thumb" />
+              </span>
+              <span className="toolbar-switch-label">{showPhotos ? "On" : "Off"}</span>
+            </label>
+          </div>
         </div>
       </section>
 
@@ -577,13 +607,13 @@ function HomePage() {
           <section className="section-heading">
             <div className="collapsible-title-row">
               <div>
-                <p className="eyebrow">Competitors</p>
-                <h2>Picks alive after {selectedRound.name}</h2>
+                <p className="eyebrow">Pool standings</p>
+                <h2>Entrants</h2>
               </div>
               <ChevronToggle
                 expanded={competitorsSectionExpanded}
                 onToggle={() => setCompetitorsSectionExpanded((current) => !current)}
-                label={`Picks alive after ${selectedRound.name}`}
+                label="Entrants"
                 className="section-heading-toggle"
               />
             </div>
@@ -629,8 +659,8 @@ function HomePage() {
                     </div>
                     {isExpanded ? (
                       <div className="pick-columns">
-                        <PickList title="Seeds" players={competitor.seeds} />
-                        <PickList title="Qualifiers" players={competitor.qualifiers} />
+                        <PickList title="Seeds" players={competitor.seeds} showPhotos={showPhotos} />
+                        <PickList title="Qualifiers" players={competitor.qualifiers} showPhotos={showPhotos} />
                       </div>
                     ) : (
                       <div className="collapsed-summary">
@@ -650,13 +680,13 @@ function HomePage() {
       <section className="section-heading draw-heading">
         <div className="collapsible-title-row">
           <div>
-            <p className="eyebrow">{selectedRound.shortLabel}</p>
-            <h2>{selectedRound.name} results</h2>
+            <p className="eyebrow">Matches</p>
+            <h2>{selectedRound.name}</h2>
           </div>
           <ChevronToggle
             expanded={matchesExpanded}
             onToggle={() => setMatchesExpanded((current) => !current)}
-            label={`${selectedRound.name} results`}
+            label={selectedRound.name}
             className="section-heading-toggle"
           />
         </div>
@@ -666,7 +696,7 @@ function HomePage() {
         <section className="matches-grid">
           {selectedRound.matches.length ? (
             selectedRound.matches.map((match) => (
-              <MatchCard key={match.id} match={match} />
+              <MatchCard key={match.id} match={match} showPhotos={showPhotos} />
             ))
           ) : (
             <article className="match-card empty-round-card">
@@ -1109,7 +1139,7 @@ function AdminPage() {
             {passwordError ? <p className="admin-error">{passwordError}</p> : null}
             <div className="admin-actions">
               <button className="admin-submit" type="submit">Unlock admin</button>
-              <Link className="admin-secondary-link" to="/">Back to pool</Link>
+              <Link className="admin-secondary-link" to="/" reloadDocument>Back to pool</Link>
             </div>
           </form>
         </section>
@@ -1433,7 +1463,7 @@ function AdminPage() {
         )}
 
         <div className="admin-actions">
-          <Link className="admin-secondary-link" to="/">Back to pool</Link>
+          <Link className="admin-secondary-link" to="/" reloadDocument>Back to pool</Link>
         </div>
       </section>
     </main>

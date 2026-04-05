@@ -160,6 +160,26 @@ function buildTournamentSnapshot({ year, eventId, players, matches, seedings }) 
   );
   const seedingById = new Map(seedings.map((item) => [Number(item.PlayerID), Number(item.Seeding)]));
   const entrantsById = new Map();
+  const toMatchSide = (player, rawPlayerId, score, placeholderId) => {
+    if (!player) {
+      return {
+        id: placeholderId,
+        name: "TBD",
+        nationality: "",
+        photo: "",
+        seedNumber: null,
+        isSeed: false,
+        score: Number(score) || 0,
+      };
+    }
+
+    return {
+      ...player,
+      seedNumber: seedingById.get(player.id) ?? null,
+      isSeed: (seedingById.get(player.id) ?? 99) <= 16,
+      score: Number(score) || 0,
+    };
+  };
 
   const rounds = MAIN_DRAW_ROUNDS.map((round, index) => {
     const roundMatches = matches
@@ -169,22 +189,8 @@ function buildTournamentSnapshot({ year, eventId, players, matches, seedings }) 
         const player1 = playersById.get(Number(match.Player1ID));
         const player2 = playersById.get(Number(match.Player2ID));
 
-        if (!player1 || !player2) {
-          throw new Error(`Missing player details for match ${match.ID}`);
-        }
-
-        const side1 = {
-          ...player1,
-          seedNumber: seedingById.get(player1.id) ?? null,
-          isSeed: (seedingById.get(player1.id) ?? 99) <= 16,
-          score: Number(match.Score1),
-        };
-        const side2 = {
-          ...player2,
-          seedNumber: seedingById.get(player2.id) ?? null,
-          isSeed: (seedingById.get(player2.id) ?? 99) <= 16,
-          score: Number(match.Score2),
-        };
+        const side1 = toMatchSide(player1, match.Player1ID, match.Score1, -((Number(match.ID) || 0) * 10 + 1));
+        const side2 = toMatchSide(player2, match.Player2ID, match.Score2, -((Number(match.ID) || 0) * 10 + 2));
         const winnerId = Number(match.WinnerID) || null;
         const unfinished = Boolean(match.Unfinished) || !winnerId;
         const loserId = unfinished ? null : (winnerId === side1.id ? side2.id : side1.id);
@@ -210,6 +216,9 @@ function buildTournamentSnapshot({ year, eventId, players, matches, seedings }) 
           id: Number(match.ID),
           number: Number(match.Number),
           scheduledDate: match.ScheduledDate || match.StartDate || "",
+          startDate: match.StartDate || "",
+          endDate: match.EndDate || "",
+          tableNo: Number(match.TableNo) || 0,
           winnerId,
           loserId,
           unfinished,
@@ -306,9 +315,26 @@ async function readStaticSnapshot(year) {
   };
 }
 
+async function writeStaticSnapshot(year, snapshot) {
+  await fs.mkdir(STATIC_DIR, { recursive: true });
+  const filePath = getStaticSnapshotPath(year);
+  const payload = {
+    ...snapshot,
+  };
+  delete payload.dataSource;
+  delete payload.liveError;
+  await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+}
+
 async function getTournamentSnapshot(year) {
   try {
-    return await buildLiveTournamentSnapshot(year);
+    const liveSnapshot = await buildLiveTournamentSnapshot(year);
+    try {
+      await writeStaticSnapshot(year, liveSnapshot);
+    } catch (writeError) {
+      console.error("[writeStaticSnapshot] error:", writeError);
+    }
+    return liveSnapshot;
   } catch (error) {
     try {
       const fallback = await readStaticSnapshot(year);
