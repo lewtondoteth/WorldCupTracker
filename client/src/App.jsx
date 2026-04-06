@@ -519,29 +519,54 @@ function HomePage() {
 
   return (
     <main className="app-shell">
-      <section className="hero-card">
+      <header className="site-nav">
+        <Link className="site-brand" to="/">
+          <span className="site-brand-mark">S</span>
+          <span className="site-brand-copy">
+            <strong>Snooker Pool</strong>
+            <small>World Championship tracker</small>
+          </span>
+        </Link>
+        <nav className="site-menu" aria-label="Primary">
+          <a className="site-menu-link" href="#overview">Overview</a>
+          {poolConfigured ? <a className="site-menu-link" href="#entrants">Entrants</a> : null}
+          <a className="site-menu-link" href="#matches">Matches</a>
+          <Link className="admin-link" to="/admin">Admin</Link>
+        </nav>
+      </header>
+
+      <section className="hero-card" id="overview">
         <div className="hero-orbit hero-orbit-one" />
         <div className="hero-orbit hero-orbit-two" />
         <div className="hero-grid" />
         <div className="hero-header">
-          <h1>
-            World Championship
-            <label className="hero-year-select-shell">
-              <select
-                className="hero-year-select"
-                value={selectedYear}
-                onChange={(event) => setSelectedYear(Number(event.target.value))}
-                aria-label="Select tournament year"
-              >
-                {PUBLIC_YEAR_OPTIONS.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </h1>
-          <Link className="admin-link" to="/admin">Admin</Link>
+          <div className="hero-copy">
+            <p className="hero-kicker">Live pool dashboard</p>
+            <h1>
+              World Championship
+              <label className="hero-year-select-shell">
+                <select
+                  className="hero-year-select"
+                  value={selectedYear}
+                  onChange={(event) => setSelectedYear(Number(event.target.value))}
+                  aria-label="Select tournament year"
+                >
+                  {PUBLIC_YEAR_OPTIONS.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </h1>
+            <p className="hero-summary">
+              Track every entrant, see who is still alive, and jump straight into the active round without digging through a spreadsheet-style layout.
+            </p>
+            <div className="hero-actions">
+              {poolConfigured ? <a className="admin-pill-link" href="#entrants">View entrants</a> : null}
+              <a className="admin-pill-link subtle" href="#matches">Open matches</a>
+            </div>
+          </div>
         </div>
         <div className="hero-image-shell">
           <img className="hero-image" src={dogsPlayingPool} alt="Dogs playing pool" />
@@ -604,7 +629,7 @@ function HomePage() {
 
       {poolConfigured ? (
         <>
-          <section className="section-heading">
+          <section className="section-heading" id="entrants">
             <div className="collapsible-title-row">
               <div>
                 <p className="eyebrow">Pool standings</p>
@@ -677,7 +702,7 @@ function HomePage() {
         </>
       ) : null}
 
-      <section className="section-heading draw-heading">
+      <section className="section-heading draw-heading" id="matches">
         <div className="collapsible-title-row">
           <div>
             <p className="eyebrow">Matches</p>

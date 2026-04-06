@@ -1,0 +1,1397 @@
+{
+  "year": 2026,
+  "eventId": 2214,
+  "eventName": "World Championship 2026",
+  "eventDates": {
+    "start": "2026-04-19",
+    "end": "2026-05-05"
+  },
+  "entrants": [
+    {
+      "id": 946,
+      "name": "Xintong Zhao",
+      "nationality": "China",
+      "photo": "https://snooker.org/Img/players/Zhao Xintong.JPG",
+      "seedNumber": 1,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 12,
+      "name": "Judd Trump",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/jtrump.jpg",
+      "seedNumber": 2,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 39,
+      "name": "Kyren Wilson",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Kyren Wilson.png",
+      "seedNumber": 3,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 154,
+      "name": "Neil Robertson",
+      "nationality": "Australia",
+      "photo": "https://snooker.org/img/players/NRobertson.png",
+      "seedNumber": 4,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 237,
+      "name": "John Higgins",
+      "nationality": "Scotland",
+      "photo": "https://snooker.org/img/players/jhiggins.jpg",
+      "seedNumber": 5,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 1,
+      "name": "Mark Williams",
+      "nationality": "Wales",
+      "photo": "https://snooker.org/img/players/MarkWilliams.png",
+      "seedNumber": 6,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 17,
+      "name": "Mark Selby",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/mselby.jpg",
+      "seedNumber": 7,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 97,
+      "name": "Shaun Murphy",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Murphy.png",
+      "seedNumber": 8,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 24,
+      "name": "Guodong Xiao",
+      "nationality": "China",
+      "photo": "https://snooker.org/img/players/Xiao.png",
+      "seedNumber": 9,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 2469,
+      "name": "Yize Wu",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 10,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 16,
+      "name": "Barry Hawkins",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/bhawkins.jpg",
+      "seedNumber": 11,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 5,
+      "name": "Ronnie O'Sullivan",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/rosullivan.jpg",
+      "seedNumber": 12,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 1044,
+      "name": "Chris Wakelin",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Wakelin.png",
+      "seedNumber": 13,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 202,
+      "name": "Mark Allen",
+      "nationality": "Northern Ireland",
+      "photo": "https://snooker.org/img/players/MarkAllen.png",
+      "seedNumber": 14,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 1982,
+      "name": "Jiahui Si",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 15,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 224,
+      "name": "Junhui Ding",
+      "nationality": "China",
+      "photo": "https://snooker.org/img/players/Dingjunhui.jpg",
+      "seedNumber": 16,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 376,
+      "name": "TBD",
+      "nationality": "",
+      "photo": "",
+      "seedNumber": null,
+      "isSeed": false,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": true,
+      "isChampion": true
+    }
+  ],
+  "seeds": [
+    {
+      "id": 946,
+      "name": "Xintong Zhao",
+      "nationality": "China",
+      "photo": "https://snooker.org/Img/players/Zhao Xintong.JPG",
+      "seedNumber": 1,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 12,
+      "name": "Judd Trump",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/jtrump.jpg",
+      "seedNumber": 2,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 39,
+      "name": "Kyren Wilson",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Kyren Wilson.png",
+      "seedNumber": 3,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 154,
+      "name": "Neil Robertson",
+      "nationality": "Australia",
+      "photo": "https://snooker.org/img/players/NRobertson.png",
+      "seedNumber": 4,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 237,
+      "name": "John Higgins",
+      "nationality": "Scotland",
+      "photo": "https://snooker.org/img/players/jhiggins.jpg",
+      "seedNumber": 5,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 1,
+      "name": "Mark Williams",
+      "nationality": "Wales",
+      "photo": "https://snooker.org/img/players/MarkWilliams.png",
+      "seedNumber": 6,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 17,
+      "name": "Mark Selby",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/mselby.jpg",
+      "seedNumber": 7,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 97,
+      "name": "Shaun Murphy",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Murphy.png",
+      "seedNumber": 8,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 24,
+      "name": "Guodong Xiao",
+      "nationality": "China",
+      "photo": "https://snooker.org/img/players/Xiao.png",
+      "seedNumber": 9,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 2469,
+      "name": "Yize Wu",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 10,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 16,
+      "name": "Barry Hawkins",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/bhawkins.jpg",
+      "seedNumber": 11,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 5,
+      "name": "Ronnie O'Sullivan",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/rosullivan.jpg",
+      "seedNumber": 12,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 1044,
+      "name": "Chris Wakelin",
+      "nationality": "England",
+      "photo": "https://snooker.org/img/players/Wakelin.png",
+      "seedNumber": 13,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 202,
+      "name": "Mark Allen",
+      "nationality": "Northern Ireland",
+      "photo": "https://snooker.org/img/players/MarkAllen.png",
+      "seedNumber": 14,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 1982,
+      "name": "Jiahui Si",
+      "nationality": "China",
+      "photo": "",
+      "seedNumber": 15,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    },
+    {
+      "id": 224,
+      "name": "Junhui Ding",
+      "nationality": "China",
+      "photo": "https://snooker.org/img/players/Dingjunhui.jpg",
+      "seedNumber": 16,
+      "isSeed": true,
+      "score": 0,
+      "eliminatedInRoundId": null,
+      "isPlaceholder": false,
+      "isChampion": true
+    }
+  ],
+  "qualifiers": [],
+  "rounds": [
+    {
+      "key": "round-1",
+      "id": 7,
+      "name": "Round 1",
+      "shortLabel": "R1",
+      "entrantsLeft": 32,
+      "order": 1,
+      "matchCount": 16,
+      "matches": [
+        {
+          "id": 10052339,
+          "number": 1,
+          "scheduledDate": "2026-04-18T09:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 946,
+            "name": "Xintong Zhao",
+            "nationality": "China",
+            "photo": "https://snooker.org/Img/players/Zhao Xintong.JPG",
+            "seedNumber": 1,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052340,
+          "number": 2,
+          "scheduledDate": "2026-04-19T09:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 224,
+            "name": "Junhui Ding",
+            "nationality": "China",
+            "photo": "https://snooker.org/img/players/Dingjunhui.jpg",
+            "seedNumber": 16,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052341,
+          "number": 3,
+          "scheduledDate": "2026-04-18T13:30:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 24,
+            "name": "Guodong Xiao",
+            "nationality": "China",
+            "photo": "https://snooker.org/img/players/Xiao.png",
+            "seedNumber": 9,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052342,
+          "number": 4,
+          "scheduledDate": "2026-04-20T18:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 97,
+            "name": "Shaun Murphy",
+            "nationality": "England",
+            "photo": "https://snooker.org/img/players/Murphy.png",
+            "seedNumber": 8,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052343,
+          "number": 5,
+          "scheduledDate": "2026-04-19T13:30:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 237,
+            "name": "John Higgins",
+            "nationality": "Scotland",
+            "photo": "https://snooker.org/img/players/jhiggins.jpg",
+            "seedNumber": 5,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052344,
+          "number": 6,
+          "scheduledDate": "2026-04-21T13:30:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 5,
+            "name": "Ronnie O'Sullivan",
+            "nationality": "England",
+            "photo": "https://snooker.org/img/players/rosullivan.jpg",
+            "seedNumber": 12,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052345,
+          "number": 7,
+          "scheduledDate": "2026-04-21T09:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 1044,
+            "name": "Chris Wakelin",
+            "nationality": "England",
+            "photo": "https://snooker.org/img/players/Wakelin.png",
+            "seedNumber": 13,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052346,
+          "number": 8,
+          "scheduledDate": "2026-04-22T18:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 154,
+            "name": "Neil Robertson",
+            "nationality": "Australia",
+            "photo": "https://snooker.org/img/players/NRobertson.png",
+            "seedNumber": 4,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052347,
+          "number": 9,
+          "scheduledDate": "2026-04-20T09:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 39,
+            "name": "Kyren Wilson",
+            "nationality": "England",
+            "photo": "https://snooker.org/img/players/Kyren Wilson.png",
+            "seedNumber": 3,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052348,
+          "number": 10,
+          "scheduledDate": "2026-04-18T09:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 202,
+            "name": "Mark Allen",
+            "nationality": "Northern Ireland",
+            "photo": "https://snooker.org/img/players/MarkAllen.png",
+            "seedNumber": 14,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052349,
+          "number": 11,
+          "scheduledDate": "2026-04-18T18:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 16,
+            "name": "Barry Hawkins",
+            "nationality": "England",
+            "photo": "https://snooker.org/img/players/bhawkins.jpg",
+            "seedNumber": 11,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052350,
+          "number": 12,
+          "scheduledDate": "2026-04-18T13:30:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 1,
+            "name": "Mark Williams",
+            "nationality": "Wales",
+            "photo": "https://snooker.org/img/players/MarkWilliams.png",
+            "seedNumber": 6,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052351,
+          "number": 13,
+          "scheduledDate": "2026-04-22T09:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 17,
+            "name": "Mark Selby",
+            "nationality": "England",
+            "photo": "https://snooker.org/img/players/mselby.jpg",
+            "seedNumber": 7,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052352,
+          "number": 14,
+          "scheduledDate": "2026-04-20T13:30:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 2469,
+            "name": "Yize Wu",
+            "nationality": "China",
+            "photo": "",
+            "seedNumber": 10,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052353,
+          "number": 15,
+          "scheduledDate": "2026-04-22T13:30:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 1982,
+            "name": "Jiahui Si",
+            "nationality": "China",
+            "photo": "",
+            "seedNumber": 15,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052354,
+          "number": 16,
+          "scheduledDate": "2026-04-21T09:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 12,
+            "name": "Judd Trump",
+            "nationality": "England",
+            "photo": "https://snooker.org/img/players/jtrump.jpg",
+            "seedNumber": 2,
+            "isSeed": true,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        }
+      ]
+    },
+    {
+      "key": "round-2",
+      "id": 8,
+      "name": "Round 2",
+      "shortLabel": "R2",
+      "entrantsLeft": 16,
+      "order": 2,
+      "matchCount": 8,
+      "matches": [
+        {
+          "id": 10052331,
+          "number": 1,
+          "scheduledDate": "2026-04-24T13:30:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052332,
+          "number": 2,
+          "scheduledDate": "2026-04-23T12:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052333,
+          "number": 3,
+          "scheduledDate": "2026-04-25T18:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052334,
+          "number": 4,
+          "scheduledDate": "2026-04-25T09:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052335,
+          "number": 5,
+          "scheduledDate": "2026-04-23T18:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052336,
+          "number": 6,
+          "scheduledDate": "2026-04-24T09:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052337,
+          "number": 7,
+          "scheduledDate": "2026-04-26T09:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052338,
+          "number": 8,
+          "scheduledDate": "2026-04-25T13:30:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        }
+      ]
+    },
+    {
+      "key": "quarterfinals",
+      "id": 13,
+      "name": "Quarterfinals",
+      "shortLabel": "QF",
+      "entrantsLeft": 8,
+      "order": 3,
+      "matchCount": 4,
+      "matches": [
+        {
+          "id": 10052251,
+          "number": 1,
+          "scheduledDate": "2026-04-28T09:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052252,
+          "number": 2,
+          "scheduledDate": "2026-04-28T13:30:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052253,
+          "number": 3,
+          "scheduledDate": "2026-04-28T09:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052254,
+          "number": 4,
+          "scheduledDate": "2026-04-28T13:30:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        }
+      ]
+    },
+    {
+      "key": "semifinals",
+      "id": 14,
+      "name": "Semifinals",
+      "shortLabel": "SF",
+      "entrantsLeft": 4,
+      "order": 4,
+      "matchCount": 2,
+      "matches": [
+        {
+          "id": 10052355,
+          "number": 1,
+          "scheduledDate": "2026-04-30T12:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        },
+        {
+          "id": 10052356,
+          "number": 2,
+          "scheduledDate": "2026-04-30T18:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        }
+      ]
+    },
+    {
+      "key": "final",
+      "id": 15,
+      "name": "Final",
+      "shortLabel": "F",
+      "entrantsLeft": 2,
+      "order": 5,
+      "matchCount": 1,
+      "matches": [
+        {
+          "id": 10046798,
+          "number": 1,
+          "scheduledDate": "2026-05-03T12:00:00Z",
+          "startDate": "",
+          "endDate": "",
+          "tableNo": 0,
+          "winnerId": null,
+          "loserId": null,
+          "unfinished": true,
+          "status": "in-play",
+          "player1": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          },
+          "player2": {
+            "id": 376,
+            "name": "TBD",
+            "nationality": "",
+            "photo": "",
+            "seedNumber": null,
+            "isSeed": false,
+            "score": 0
+          }
+        }
+      ]
+    }
+  ]
+}
