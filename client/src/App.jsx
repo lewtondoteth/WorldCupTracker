@@ -1462,7 +1462,7 @@ function MatchesPage() {
     <main className="app-shell">
       <SiteHeader mode="matches" poolConfigured={poolConfigured} />
 
-      <section className="bracket-hero-card">
+      <section className="bracket-hero-card matches-hero-card">
         <div className="bracket-hero-copy">
           <p className="hero-kicker">Round-by-round match centre</p>
           <h1>{BRAND_SHORT_NAME} Matches</h1>
