@@ -1217,6 +1217,13 @@
   font-size: 0.98rem;
 }
 
+.matches-hero-tools {
+  display: grid;
+  align-content: start;
+  justify-items: end;
+  gap: 12px;
+}
+
 .bracket-hero-note {
   margin: 4px 0 0;
   color: #6f8177;
@@ -1234,10 +1241,9 @@
 
 .matches-toolbar-top {
   width: min(100%, 520px);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-template-areas:
-    "year round"
-    "live photos";
+    "year round live";
 }
 
 .matches-toolbar-control {
@@ -1252,19 +1258,79 @@
   grid-area: live;
 }
 
-.matches-toolbar-photos {
-  grid-area: photos;
-}
-
-.matches-toolbar-top .toolbar-switch {
-  min-height: 42px;
-}
-
 .matches-heading-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.matches-settings-shell {
+  position: relative;
+}
+
+.matches-settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  border: 1px solid rgba(23, 88, 61, 0.14);
+  background: linear-gradient(180deg, rgba(255, 252, 246, 0.98), rgba(245, 238, 224, 0.94));
+  box-shadow: 0 12px 26px rgba(56, 52, 37, 0.08);
+  color: #294c3f;
+  cursor: pointer;
+}
+
+.matches-settings-button.open {
+  border-color: rgba(23, 88, 61, 0.24);
+  box-shadow:
+    0 16px 32px rgba(56, 52, 37, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.matches-settings-icon {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+}
+
+.matches-settings-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.matches-settings-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 3;
+  display: grid;
+  gap: 12px;
+  width: min(280px, calc(100vw - 48px));
+  padding: 16px;
+  border: 1px solid rgba(23, 88, 61, 0.12);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(202, 169, 84, 0.16), transparent 32%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.98), rgba(247, 241, 227, 0.95));
+  box-shadow: 0 22px 44px rgba(56, 52, 37, 0.09);
+}
+
+.matches-settings-panel-header .eyebrow {
+  margin: 0;
+}
+
+.matches-settings-control {
+  display: grid;
+  gap: 10px;
+}
+
+.matches-settings-control .toolbar-switch {
+  justify-content: space-between;
 }
 
 .matches-filter-button {
@@ -2505,10 +2571,9 @@
   }
 
   .matches-toolbar-top {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     grid-template-areas:
-      "year round"
-      "live photos";
+      "year round live";
     gap: 8px;
   }
 
@@ -2535,26 +2600,16 @@
     font-size: 0.95rem;
   }
 
-  .matches-toolbar-top .toolbar-switch {
-    gap: 8px;
-  }
-
-  .matches-toolbar-top .toolbar-switch-track {
-    width: 48px;
-    height: 28px;
-  }
-
-  .matches-toolbar-top .toolbar-switch-thumb {
-    width: 20px;
-    height: 20px;
-  }
-
-  .matches-toolbar-top .toolbar-switch input:checked + .toolbar-switch-track .toolbar-switch-thumb {
-    transform: translateX(20px);
-  }
-
   .matches-toolbar-top .bracket-inline-value {
     font-size: 1rem;
+  }
+
+  .matches-hero-tools {
+    justify-items: stretch;
+  }
+
+  .matches-settings-shell {
+    justify-self: end;
   }
 
   .matches-heading-actions {
@@ -2948,13 +3003,16 @@
     grid-template-areas:
       "year"
       "round"
-      "live"
-      "photos";
+      "live";
   }
 
   .matches-filter-button {
     width: 100%;
     justify-content: center;
+  }
+
+  .matches-settings-panel {
+    width: min(260px, calc(100vw - 40px));
   }
 
   .toolbar-meta > div,

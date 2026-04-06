@@ -1266,6 +1266,7 @@ function MatchesPage() {
   const [selectedRoundKey, setSelectedRoundKey] = useSessionState(MATCHES_ROUND_SESSION_KEY, "");
   const [selectedEntrantFilter, setSelectedEntrantFilter] = useSessionState(MATCHES_ENTRANT_FILTER_SESSION_KEY, "all");
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [showPhotos, setShowPhotos] = usePublicShowPhotos();
   const autoSelectedRoundYearRef = useRef(null);
 
@@ -1340,60 +1341,86 @@ function MatchesPage() {
             Follow every scheduled and in-play match on its own page without crowding the tournament overview.
           </p>
         </div>
-        <div className="bracket-toolbar matches-toolbar-top">
-          <div className="bracket-control bracket-control-year">
-            <p className="toolbar-label">Year</p>
-            <label className="toolbar-select-shell">
-              <select
-                className="toolbar-select"
-                value={selectedYear}
-                onChange={(event) => setSelectedYear(Number(event.target.value))}
-                aria-label="Select tournament year"
-              >
-                {PUBLIC_YEAR_OPTIONS.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="bracket-control matches-toolbar-control">
-            <p className="toolbar-label">Round</p>
-            <label className="toolbar-select-shell">
-              <select
-                className="toolbar-select"
-                value={selectedRound.key}
-                onChange={(event) => setSelectedRoundKey(event.target.value)}
-                aria-label="Select round"
-              >
-                {snapshot.rounds.map((round) => (
-                  <option key={round.key} value={round.key}>
-                    {round.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="bracket-control matches-toolbar-control matches-toolbar-stat">
-            <span className="bracket-inline-label">Live matches</span>
-            <strong className="bracket-inline-value">
-              {selectedEntrantFilter === "all" ? unplayedMatchCount : filteredMatches.length}
-            </strong>
-          </div>
-          <div className="bracket-control matches-toolbar-control matches-toolbar-photos">
-            <span className="bracket-inline-label">Player photos</span>
-            <label className="toolbar-switch">
-              <input
-                type="checkbox"
-                checked={showPhotos}
-                onChange={(event) => setShowPhotos(event.target.checked)}
-              />
-              <span className="toolbar-switch-track">
-                <span className="toolbar-switch-thumb" />
+        <div className="matches-hero-tools">
+          <div className="matches-settings-shell">
+            <button
+              type="button"
+              className={`matches-settings-button${settingsMenuOpen ? " open" : ""}`}
+              onClick={() => setSettingsMenuOpen((current) => !current)}
+              aria-expanded={settingsMenuOpen}
+              aria-controls="matches-settings-panel"
+              aria-label="Open match settings"
+              title="Match settings"
+            >
+              <span className="matches-settings-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.63l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.49-.42h-3.84a.5.5 0 0 0-.49.42l-.36 2.54c-.57.23-1.12.54-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.85a.5.5 0 0 0 .12.63l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94L2.82 14.52a.5.5 0 0 0-.12.63l1.92 3.32c.13.22.39.31.6.22l2.39-.96c.5.4 1.05.71 1.63.94l.36 2.54c.04.24.25.42.49.42h3.84c.24 0 .45-.18.49-.42l.36-2.54c.57-.23 1.12-.54 1.63-.94l2.39.96c.22.09.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.63l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z" />
+                </svg>
               </span>
-              <span className="toolbar-switch-label">{showPhotos ? "On" : "Off"}</span>
-            </label>
+            </button>
+            {settingsMenuOpen ? (
+              <section id="matches-settings-panel" className="matches-settings-panel">
+                <div className="matches-settings-panel-header">
+                  <p className="eyebrow">Display</p>
+                </div>
+                <div className="matches-settings-control">
+                  <span className="bracket-inline-label">Player photos</span>
+                  <label className="toolbar-switch">
+                    <input
+                      type="checkbox"
+                      checked={showPhotos}
+                      onChange={(event) => setShowPhotos(event.target.checked)}
+                    />
+                    <span className="toolbar-switch-track">
+                      <span className="toolbar-switch-thumb" />
+                    </span>
+                    <span className="toolbar-switch-label">{showPhotos ? "On" : "Off"}</span>
+                  </label>
+                </div>
+              </section>
+            ) : null}
+          </div>
+          <div className="bracket-toolbar matches-toolbar-top">
+            <div className="bracket-control bracket-control-year">
+              <p className="toolbar-label">Year</p>
+              <label className="toolbar-select-shell">
+                <select
+                  className="toolbar-select"
+                  value={selectedYear}
+                  onChange={(event) => setSelectedYear(Number(event.target.value))}
+                  aria-label="Select tournament year"
+                >
+                  {PUBLIC_YEAR_OPTIONS.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="bracket-control matches-toolbar-control">
+              <p className="toolbar-label">Round</p>
+              <label className="toolbar-select-shell">
+                <select
+                  className="toolbar-select"
+                  value={selectedRound.key}
+                  onChange={(event) => setSelectedRoundKey(event.target.value)}
+                  aria-label="Select round"
+                >
+                  {snapshot.rounds.map((round) => (
+                    <option key={round.key} value={round.key}>
+                      {round.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="bracket-control matches-toolbar-control matches-toolbar-stat">
+              <span className="bracket-inline-label">Live matches</span>
+              <strong className="bracket-inline-value">
+                {selectedEntrantFilter === "all" ? unplayedMatchCount : filteredMatches.length}
+              </strong>
+            </div>
           </div>
         </div>
       </section>
