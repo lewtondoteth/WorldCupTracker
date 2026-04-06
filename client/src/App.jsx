@@ -4,6 +4,8 @@ import crownIcon from "../../res/crown.png";
 import dogsPlayingPool from "../../res/dogsplayingpool.webp";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:5174";
+const BRAND_NAME = "The Pellegrino Classic";
+const BRAND_SHORT_NAME = "Pellegrino Classic";
 const PUBLIC_DEFAULT_YEAR = new Date().getFullYear();
 const PUBLIC_YEAR_OPTIONS = PUBLIC_DEFAULT_YEAR >= 2027
   ? Array.from({ length: 6 }, (_, index) => PUBLIC_DEFAULT_YEAR - index)
@@ -183,34 +185,34 @@ function isPlaceholderMatchPlayer(player) {
   return !name || /^tbd$/i.test(name);
 }
 
+function isPlaceholderEntrant(entry) {
+  const name = String(entry?.name || "").trim();
+  return !name || /^tbd$/i.test(name);
+}
+
 function SiteHeader({ mode = "home", poolConfigured = false }) {
   return (
     <header className="site-nav">
-      <Link className="site-brand" to="/">
-        <span className="site-brand-mark">S</span>
-        <span className="site-brand-copy">
-          <strong>The Pellegrino Classic</strong>
-          <small>Snooker tournament tracker</small>
-        </span>
-      </Link>
-      <nav className="site-menu" aria-label="Primary">
-        {mode === "home" ? (
-          <>
-            <a className="site-menu-link" href="#overview">Overview</a>
-            {poolConfigured ? <a className="site-menu-link" href="#entrants">Entrants</a> : null}
-            <a className="site-menu-link" href="#matches">Matches</a>
-            <Link className="site-menu-link" to="/bracket">Bracket</Link>
-            <Link className="site-menu-link" to="/winners">Winners</Link>
-          </>
-        ) : (
-          <>
-            <Link className="site-menu-link" to="/">Tournament</Link>
-            <Link className={`site-menu-link${mode === "bracket" ? " current" : ""}`} to="/bracket">Bracket</Link>
-            <Link className={`site-menu-link${mode === "winners" ? " current" : ""}`} to="/winners">Winners</Link>
-          </>
-        )}
-        <Link className="admin-link" to="/admin">Admin</Link>
-      </nav>
+      <div className="site-nav-center">
+        <nav className="site-menu" aria-label="Primary">
+          {mode === "home" ? (
+            <>
+              <a className="site-menu-link" href="#overview">Overview</a>
+              {poolConfigured ? <a className="site-menu-link" href="#entrants">Entrants</a> : null}
+              <a className="site-menu-link" href="#matches">Matches</a>
+              <Link className="site-menu-link" to="/bracket">Bracket</Link>
+              <Link className="site-menu-link" to="/winners">Winners</Link>
+            </>
+          ) : (
+            <>
+              <Link className="site-menu-link" to="/">Tournament</Link>
+              <Link className={`site-menu-link${mode === "bracket" ? " current" : ""}`} to="/bracket">Bracket</Link>
+              <Link className={`site-menu-link${mode === "winners" ? " current" : ""}`} to="/winners">Winners</Link>
+            </>
+          )}
+        </nav>
+      </div>
+      <Link className="admin-link" to="/admin">Admin</Link>
     </header>
   );
 }
@@ -526,8 +528,10 @@ function HomePage() {
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      setLoading(true);
+    async function load(showLoadingState = true) {
+      if (showLoadingState) {
+        setLoading(true);
+      }
       setError("");
       try {
         const [nextData, entrantsResponse] = await Promise.all([
@@ -544,15 +548,23 @@ function HomePage() {
           setError(loadError.message);
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && showLoadingState) {
           setLoading(false);
         }
       }
     }
 
     load();
+
+    const refreshId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        load(false);
+      }
+    }, 60000);
+
     return () => {
       cancelled = true;
+      window.clearInterval(refreshId);
     };
   }, [selectedYear]);
 
@@ -587,10 +599,7 @@ function HomePage() {
     const registryById = new Map(publicEntrants.map((entrant) => [String(entrant.id), entrant]));
     const registryByName = new Map(publicEntrants.map((entrant) => [entrant.name.toLowerCase(), entrant]));
     const selectedRound = snapshot.rounds.find((round) => round.key === selectedRoundKey) || snapshot.rounds[0];
-    const nextRound = snapshot.rounds.find((round) => round.order === selectedRound.order + 1) || null;
-    const nextRoundInPlay = Boolean(
-      nextRound?.matches.some((match) => isOpenTournamentMatch(match)),
-    );
+    const currentRound = snapshot.rounds.find((round) => round.key === getDefaultRoundKey(snapshot)) || selectedRound;
     const roundOrderById = new Map(snapshot.rounds.map((round) => [round.id, round.order]));
     const previousRound = snapshot.rounds.find((round) => round.order === selectedRound.order - 1) || null;
     const currentRoundMatchByPlayerId = new Map();
@@ -649,20 +658,30 @@ function HomePage() {
       qualifiers: competitor.qualifiers.map((player) => entrantsById.get(player.id)),
     }));
     const aliveEntrantsCount = Array.from(entrantsById.values()).filter((entry) => !entry.eliminated).length;
-    const openMatchCount = selectedRound.matches.filter((match) => isOpenTournamentMatch(match)).length;
+    const totalFieldSize = snapshot.rounds.reduce(
+      (max, round) => Math.max(max, Number(round.entrantsLeft) || 0),
+      snapshot.entrants.length,
+    );
+    const qualifiedEntrantsCount = snapshot.entrants.filter((entry) => !isPlaceholderEntrant(entry)).length;
+    const spacesLeftCount = Math.max(0, totalFieldSize - qualifiedEntrantsCount);
+    const hasTbdEntrants = spacesLeftCount > 0;
+    const unresolvedScheduledMatches = selectedRound.matches.filter((match) => !match.winnerId).length;
+    const unplayedMatchCount = unresolvedScheduledMatches || selectedRound.matchCount || 0;
 
     return {
       selectedRound,
-      nextRound,
-      nextRoundInPlay,
+      currentRound,
       aliveEntrantsCount,
-      openMatchCount,
+      qualifiedEntrantsCount,
+      spacesLeftCount,
+      hasTbdEntrants,
+      unplayedMatchCount,
       decoratedCompetitors,
     };
   }, [data, publicEntrants, selectedRoundKey]);
 
   if (loading && !data) {
-    return <main className="app-shell"><p className="status-banner">Loading The Pellegrino Classic {selectedYear}...</p></main>;
+    return <main className="app-shell"><p className="status-banner">Loading {BRAND_NAME} {selectedYear}...</p></main>;
   }
 
   if (!data || !data.snapshot?.rounds?.length || !derived) {
@@ -670,7 +689,16 @@ function HomePage() {
   }
 
   const { snapshot } = data;
-  const { selectedRound, nextRound, nextRoundInPlay, aliveEntrantsCount, openMatchCount, decoratedCompetitors } = derived;
+  const {
+    selectedRound,
+    currentRound,
+    aliveEntrantsCount,
+    qualifiedEntrantsCount,
+    spacesLeftCount,
+    hasTbdEntrants,
+    unplayedMatchCount,
+    decoratedCompetitors,
+  } = derived;
   const poolConfigured = data.poolConfigured !== false;
 
   return (
@@ -685,7 +713,7 @@ function HomePage() {
           <div className="hero-copy">
             <p className="hero-kicker">Live tournament dashboard</p>
             <h1>
-              The Pellegrino Classic
+              {BRAND_NAME}
               <label className="hero-year-select-shell">
                 <select
                   className="hero-year-select"
@@ -702,7 +730,7 @@ function HomePage() {
               </label>
             </h1>
             <p className="hero-summary">
-              Track every entrant, see who is still alive, and jump straight into the active round without digging through a spreadsheet-style layout.
+              Follow the family draw, keep tabs on every surviving pick, and see who is edging closer to taking the painting home.
             </p>
             <div className="hero-actions">
               {poolConfigured ? <a className="admin-pill-link" href="#entrants">View entrants</a> : null}
@@ -714,6 +742,31 @@ function HomePage() {
         <div className="hero-image-shell">
           <img className="hero-image" src={dogsPlayingPool} alt="Dogs playing pool" />
         </div>
+      </section>
+
+      <section className="summary-strip">
+        <article className="summary-card">
+          <p className="toolbar-label">Event</p>
+          <p className="summary-value">{BRAND_SHORT_NAME} {selectedYear}</p>
+        </article>
+        <article className="summary-card">
+          <p className="toolbar-label">Current live round</p>
+          <p className="summary-value">{currentRound.name}</p>
+        </article>
+        <article className="summary-card">
+          <p className="toolbar-label">{hasTbdEntrants ? "Qualified so far" : "Entrants alive"}</p>
+          <p className="summary-value">{hasTbdEntrants ? qualifiedEntrantsCount : aliveEntrantsCount}</p>
+          <p className="summary-copy">
+            {hasTbdEntrants
+              ? `${spacesLeftCount} space${spacesLeftCount === 1 ? "" : "s"} left to fill`
+              : "Still live across the championship draw"}
+          </p>
+        </article>
+        <article className="summary-card">
+          <p className="toolbar-label">Live matches</p>
+          <p className="summary-value">{unplayedMatchCount}</p>
+          <p className="summary-copy">Still to be played in {selectedRound.name}</p>
+        </article>
       </section>
 
       <section className="toolbar-card">
@@ -734,17 +787,14 @@ function HomePage() {
                 ))}
               </select>
             </label>
-            {nextRoundInPlay ? (
-              <p className="toolbar-note">{nextRound.name} is in play</p>
-            ) : null}
           </div>
           <div>
-            <p className="toolbar-label">Players alive</p>
-            <p className="toolbar-value">{aliveEntrantsCount}</p>
+            <p className="toolbar-label">{hasTbdEntrants ? "Qualified entrants" : "Players alive"}</p>
+            <p className="toolbar-value">{hasTbdEntrants ? qualifiedEntrantsCount : aliveEntrantsCount}</p>
           </div>
           <div>
             <p className="toolbar-label">Matches this round</p>
-            <p className="toolbar-value">{openMatchCount}</p>
+            <p className="toolbar-value">{unplayedMatchCount}</p>
           </div>
           <div>
             <p className="toolbar-label">Player photos</p>
@@ -896,13 +946,16 @@ function BracketPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const autoAdjustedYearRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      setLoading(true);
+    async function load(showLoadingState = true) {
+      if (showLoadingState) {
+        setLoading(true);
+      }
       setError("");
 
       try {
@@ -918,21 +971,29 @@ function BracketPage() {
             return;
           }
           setData(nextData);
+          setLastUpdatedAt(new Date());
         }
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError.message || "Failed to load bracket data.");
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && showLoadingState) {
           setLoading(false);
         }
       }
     }
 
     load();
+    const refreshId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        load(false);
+      }
+    }, 60000);
+
     return () => {
       cancelled = true;
+      window.clearInterval(refreshId);
     };
   }, [selectedYear]);
 
@@ -941,6 +1002,7 @@ function BracketPage() {
       return null;
     }
 
+    const activeRoundKey = getDefaultRoundKey(data.snapshot);
     const bracketRounds = buildBracketRounds(data.snapshot.rounds, data.competitors || []);
     const maxSlots = 2 ** bracketRounds.length;
     const completedMatches = bracketRounds.reduce(
@@ -949,6 +1011,7 @@ function BracketPage() {
     );
 
     return {
+      activeRoundKey,
       bracketRounds,
       maxSlots,
       completedMatches,
@@ -956,7 +1019,7 @@ function BracketPage() {
   }, [data]);
 
   if (loading && !data) {
-    return <main className="app-shell"><p className="status-banner">Loading {selectedYear} bracket...</p></main>;
+    return <main className="app-shell"><p className="status-banner">Loading {BRAND_SHORT_NAME} bracket...</p></main>;
   }
 
   if (!data || !data.snapshot?.rounds?.length || !derived) {
@@ -974,9 +1037,14 @@ function BracketPage() {
       <section className="bracket-hero-card">
         <div className="bracket-hero-copy">
           <p className="hero-kicker">Entrant bracket</p>
-          <h1>Pellegrino Bracket</h1>
+          <h1>{BRAND_SHORT_NAME} Bracket</h1>
           <p className="hero-summary">
-            Track entrant-versus-entrant paths through every round.
+            Follow every entrant path through the live draw at a glance.
+          </p>
+          <p className="bracket-hero-note">
+            {lastUpdatedAt
+              ? `Updated ${lastUpdatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+              : "Waiting for live data"}
           </p>
         </div>
         <div className="bracket-toolbar">
@@ -996,6 +1064,10 @@ function BracketPage() {
                 ))}
               </select>
             </label>
+          </div>
+          <div className="bracket-control">
+            <span className="bracket-inline-label">Active round</span>
+            <strong className="bracket-inline-value">{derived.bracketRounds.find((round) => round.key === derived.activeRoundKey)?.name || "Round 1"}</strong>
           </div>
           <div className="bracket-control">
             <span className="bracket-inline-label">Completed</span>
@@ -1027,7 +1099,10 @@ function BracketPage() {
       <section className="bracket-board-shell">
         <div className="bracket-board">
           {derived.bracketRounds.map((round, roundIndex) => (
-            <section key={round.key} className="bracket-round-column">
+            <section
+              key={round.key}
+              className={`bracket-round-column${round.key === derived.activeRoundKey ? " active" : ""}`}
+            >
               <div className="bracket-round-header">
                 <p className="eyebrow">Round</p>
                 <h3>{round.name}</h3>
@@ -1583,7 +1658,7 @@ function AdminPage() {
       setError("");
       const payload = {
         year: selectedAdminYear,
-        eventName: builder.poolData.eventName ?? `World Championship ${selectedAdminYear}`,
+        eventName: builder.poolData.eventName ?? `${BRAND_SHORT_NAME} ${selectedAdminYear}`,
         competitors: (builder.poolData.competitors || []).map((competitor) => ({
           entrantId: competitor.entrantId,
           name: competitor.name.trim(),
