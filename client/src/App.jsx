@@ -189,8 +189,8 @@ function SiteHeader({ mode = "home", poolConfigured = false }) {
       <Link className="site-brand" to="/">
         <span className="site-brand-mark">S</span>
         <span className="site-brand-copy">
-          <strong>Snooker Pool</strong>
-          <small>World Championship tracker</small>
+          <strong>The Pellegrino Classic</strong>
+          <small>Snooker tournament tracker</small>
         </span>
       </Link>
       <nav className="site-menu" aria-label="Primary">
@@ -204,7 +204,7 @@ function SiteHeader({ mode = "home", poolConfigured = false }) {
           </>
         ) : (
           <>
-            <Link className="site-menu-link" to="/">Pool</Link>
+            <Link className="site-menu-link" to="/">Tournament</Link>
             <Link className={`site-menu-link${mode === "bracket" ? " current" : ""}`} to="/bracket">Bracket</Link>
             <Link className={`site-menu-link${mode === "winners" ? " current" : ""}`} to="/winners">Winners</Link>
           </>
@@ -662,11 +662,11 @@ function HomePage() {
   }, [data, publicEntrants, selectedRoundKey]);
 
   if (loading && !data) {
-    return <main className="app-shell"><p className="status-banner">Loading {selectedYear} World Championship pool...</p></main>;
+    return <main className="app-shell"><p className="status-banner">Loading The Pellegrino Classic {selectedYear}...</p></main>;
   }
 
   if (!data || !data.snapshot?.rounds?.length || !derived) {
-    return <main className="app-shell"><p className="status-banner error">{error || "Pool data is unavailable."}</p></main>;
+    return <main className="app-shell"><p className="status-banner error">{error || "Tournament data is unavailable."}</p></main>;
   }
 
   const { snapshot } = data;
@@ -683,9 +683,9 @@ function HomePage() {
         <div className="hero-grid" />
         <div className="hero-header">
           <div className="hero-copy">
-            <p className="hero-kicker">Live pool dashboard</p>
+            <p className="hero-kicker">Live tournament dashboard</p>
             <h1>
-              World Championship
+              The Pellegrino Classic
               <label className="hero-year-select-shell">
                 <select
                   className="hero-year-select"
@@ -766,7 +766,7 @@ function HomePage() {
       {error ? <p className="status-banner error">{error}</p> : null}
       {!poolConfigured ? (
         <p className="status-banner">
-          The {selectedYear} pool is not fully configured yet. Match data is still available below, and you can finish setting up the pool from admin.
+          The {selectedYear} tournament is not fully configured yet. Match data is still available below, and you can finish setting up the tournament from admin.
         </p>
       ) : null}
 
@@ -775,7 +775,7 @@ function HomePage() {
           <section className="section-heading" id="entrants">
             <div className="collapsible-title-row">
               <div>
-                <p className="eyebrow">Pool standings</p>
+                <p className="eyebrow">Tournament standings</p>
                 <h2>Entrants</h2>
               </div>
               <ChevronToggle
@@ -797,7 +797,7 @@ function HomePage() {
                   <article key={competitor.name} className="competitor-card">
                     <div className="competitor-header">
                       <div className="competitor-heading">
-                        <p className="eyebrow">Pool entrant</p>
+                        <p className="eyebrow">Tournament entrant</p>
                         <div className="collapsible-title-row">
                           <div className="competitor-title-wrap">
                             <h2>{competitor.name}</h2>
@@ -974,13 +974,13 @@ function BracketPage() {
       <section className="bracket-hero-card">
         <div className="bracket-hero-copy">
           <p className="hero-kicker">Entrant bracket</p>
-          <h1>Tournament Table</h1>
+          <h1>Pellegrino Bracket</h1>
           <p className="hero-summary">
-            Every match shows the pool entrant first and the assigned player beneath, so you can track entrant-versus-entrant progress through the tournament.
+            Track entrant-versus-entrant paths through every round.
           </p>
         </div>
         <div className="bracket-toolbar">
-          <div className="bracket-stat">
+          <div className="bracket-control bracket-control-year">
             <p className="toolbar-label">Year</p>
             <label className="toolbar-select-shell">
               <select
@@ -997,13 +997,15 @@ function BracketPage() {
               </select>
             </label>
           </div>
-          <div className="bracket-stat">
-            <p className="toolbar-label">Completed matches</p>
-            <p className="toolbar-value">{derived.completedMatches}</p>
+          <div className="bracket-control">
+            <span className="bracket-inline-label">Completed</span>
+            <strong className="bracket-inline-value">{derived.completedMatches}</strong>
           </div>
-          <div className="bracket-stat">
-            <p className="toolbar-label">Pool assignments</p>
-            <p className="toolbar-value">{poolConfigured ? "Live" : "Incomplete"}</p>
+          <div className="bracket-control">
+            <span className="bracket-inline-label">Assignments</span>
+            <strong className={`bracket-inline-value bracket-status-value ${poolConfigured ? "live" : "incomplete"}`}>
+              {poolConfigured ? "Live" : "Incomplete"}
+            </strong>
           </div>
         </div>
       </section>
@@ -1011,7 +1013,7 @@ function BracketPage() {
       {error ? <p className="status-banner error">{error}</p> : null}
       {!poolConfigured ? (
         <p className="status-banner">
-          The pool is not fully configured yet. Players without an owner are shown as unassigned until they are allocated to an entrant.
+          The tournament is not fully configured yet. Players without an owner are shown as unassigned until they are allocated to an entrant.
         </p>
       ) : null}
 
@@ -1216,7 +1218,7 @@ function AdminPage() {
   const [savingBuilder, setSavingBuilder] = useState(false);
   const [entrantsLoading, setEntrantsLoading] = useState(false);
   const [savingEntrants, setSavingEntrants] = useState(false);
-  const [status, setStatus] = useState("Build the current year's pool by dragging players into each entrant, then save it.");
+  const [status, setStatus] = useState("Build the current year's tournament by dragging players into each entrant, then save it.");
   const [error, setError] = useState("");
   const [builder, setBuilder] = useState(null);
   const [entrantRegistry, setEntrantRegistry] = useState([]);
@@ -1428,7 +1430,7 @@ function AdminPage() {
     );
 
     if (alreadyAdded) {
-      setError("That pool entrant already exists.");
+      setError("That tournament entrant already exists.");
       return;
     }
 
@@ -1592,9 +1594,9 @@ function AdminPage() {
 
       const response = await saveAdminPoolBuilder(selectedAdminYear, payload);
       setBuilder(response);
-      setStatus(`Saved the pool builder to ${response.sourceFile}.`);
+      setStatus(`Saved the tournament builder to ${response.sourceFile}.`);
     } catch (saveError) {
-      setError(saveError.message || "The pool builder could not be saved.");
+      setError(saveError.message || "The tournament builder could not be saved.");
     } finally {
       setSavingBuilder(false);
     }
@@ -1621,7 +1623,7 @@ function AdminPage() {
             {passwordError ? <p className="admin-error">{passwordError}</p> : null}
             <div className="admin-actions">
               <button className="admin-submit" type="submit">Unlock admin</button>
-              <Link className="admin-secondary-link" to="/" reloadDocument>Back to pool</Link>
+              <Link className="admin-secondary-link" to="/" reloadDocument>Back to tournament</Link>
             </div>
           </form>
         </section>
@@ -1647,7 +1649,7 @@ function AdminPage() {
             className={adminView === "builder" ? "admin-menu-button active" : "admin-menu-button"}
             onClick={() => setAdminView("builder")}
           >
-            Pool builder
+            Tournament builder
           </button>
           <button
             type="button"
@@ -1687,7 +1689,7 @@ function AdminPage() {
                 <p className="toolbar-value">{builderDerived?.availableQualifiers.length ?? 0}</p>
               </div>
               <div className="admin-stat-card">
-                <p className="toolbar-label">Pool entrants</p>
+                <p className="toolbar-label">Tournament entrants</p>
                 <p className="toolbar-value">{builder?.poolData?.competitors?.length ?? 0}</p>
               </div>
               <div className="admin-stat-card">
@@ -1726,8 +1728,8 @@ function AdminPage() {
         <section className="admin-builder-panel">
           <div className="admin-builder-header">
             <div>
-              <p className="eyebrow">Pool Builder</p>
-              <h2>Create pool entrants and assign current-year players</h2>
+              <p className="eyebrow">Tournament Builder</p>
+              <h2>Create tournament entrants and assign current-year players</h2>
               <p className="admin-copy">Saved entrants are reused as the starting list for future years.</p>
             </div>
             <div className="admin-actions">
@@ -1735,7 +1737,7 @@ function AdminPage() {
                 {builderLoading ? "Refreshing..." : "Refresh"}
               </button>
               <button type="button" className="admin-submit" onClick={handleSaveBuilder} disabled={savingBuilder || builderLoading}>
-                {savingBuilder ? "Saving..." : "Save pool"}
+                {savingBuilder ? "Saving..." : "Save tournament"}
               </button>
             </div>
           </div>
@@ -1836,7 +1838,7 @@ function AdminPage() {
                   ))
                 ) : (
                   <article className="admin-competitor-card admin-empty-competitor-card">
-                    <p className="admin-copy">Add a pool entrant to start assigning the current year's players.</p>
+                    <p className="admin-copy">Add a tournament entrant to start assigning the current year's players.</p>
                   </article>
                 )}
               </section>
@@ -1945,7 +1947,7 @@ function AdminPage() {
         )}
 
         <div className="admin-actions">
-          <Link className="admin-secondary-link" to="/" reloadDocument>Back to pool</Link>
+          <Link className="admin-secondary-link" to="/" reloadDocument>Back to tournament</Link>
         </div>
       </section>
     </main>

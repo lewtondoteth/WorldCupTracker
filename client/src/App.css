@@ -1145,7 +1145,9 @@
 
 .bracket-hero-copy {
   display: grid;
-  gap: 12px;
+  align-content: start;
+  gap: 10px;
+  max-width: 30rem;
 }
 
 .bracket-hero-card h1,
@@ -1155,17 +1157,68 @@
   font-family: "Baskerville", "Palatino Linotype", serif;
 }
 
-.bracket-toolbar {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+.bracket-hero-copy .hero-summary {
+  max-width: 26rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.98rem;
 }
 
-.bracket-stat {
-  padding: 14px 16px;
+.bracket-toolbar {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bracket-control {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  min-width: 96px;
+  min-height: 74px;
+  padding: 12px 14px;
   border-radius: 18px;
-  border: 1px solid var(--line);
-  background: rgba(255, 251, 243, 0.72);
+  border: 1px solid rgba(35, 53, 45, 0.08);
+  background: linear-gradient(180deg, rgba(255, 253, 248, 0.94), rgba(247, 240, 225, 0.9));
+  box-shadow: 0 8px 18px rgba(66, 58, 32, 0.04);
+}
+
+.bracket-control-year {
+  min-width: 168px;
+}
+
+.bracket-control-year .toolbar-select-shell {
+  width: 100%;
+  min-width: 0;
+}
+
+.bracket-control .toolbar-label {
+  margin: 0;
+}
+
+.bracket-inline-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.bracket-inline-value {
+  color: var(--ink);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.bracket-status-value.live {
+  color: var(--accent);
+}
+
+.bracket-status-value.incomplete {
+  color: #8a5a32;
 }
 
 .bracket-board-shell {
@@ -1985,6 +2038,14 @@
     grid-template-columns: 1fr;
   }
 
+  .bracket-toolbar {
+    justify-content: stretch;
+  }
+
+  .bracket-control {
+    min-height: 0;
+  }
+
   .winners-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2052,6 +2113,16 @@
   .bracket-hero-card {
     padding: 18px;
     border-radius: 24px;
+  }
+
+  .bracket-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .bracket-control,
+  .bracket-control-year {
+    min-width: 0;
   }
 
   .winners-hero-card {
