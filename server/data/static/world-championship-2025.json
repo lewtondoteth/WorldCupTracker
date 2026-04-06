@@ -16,6 +16,7 @@
       "isSeed": true,
       "score": 9,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -27,6 +28,7 @@
       "isSeed": true,
       "score": 14,
       "eliminatedInRoundId": 14,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -38,6 +40,7 @@
       "isSeed": true,
       "score": 12,
       "eliminatedInRoundId": 13,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -49,6 +52,7 @@
       "isSeed": true,
       "score": 8,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -60,6 +64,7 @@
       "isSeed": true,
       "score": 7,
       "eliminatedInRoundId": 14,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -71,6 +76,7 @@
       "isSeed": true,
       "score": 12,
       "eliminatedInRoundId": 15,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -82,6 +88,7 @@
       "isSeed": true,
       "score": 8,
       "eliminatedInRoundId": 13,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -93,6 +100,7 @@
       "isSeed": true,
       "score": 6,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -104,6 +112,7 @@
       "isSeed": true,
       "score": 8,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -115,6 +124,7 @@
       "isSeed": true,
       "score": 4,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -126,6 +136,7 @@
       "isSeed": true,
       "score": 9,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -137,6 +148,7 @@
       "isSeed": true,
       "score": 7,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -148,6 +160,7 @@
       "isSeed": true,
       "score": 9,
       "eliminatedInRoundId": 13,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -159,6 +172,7 @@
       "isSeed": true,
       "score": 12,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -170,6 +184,7 @@
       "isSeed": true,
       "score": 10,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -181,6 +196,7 @@
       "isSeed": true,
       "score": 4,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -192,6 +208,7 @@
       "isSeed": false,
       "score": 4,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -203,6 +220,7 @@
       "isSeed": false,
       "score": 5,
       "eliminatedInRoundId": 13,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -214,6 +232,7 @@
       "isSeed": false,
       "score": 8,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -225,6 +244,7 @@
       "isSeed": false,
       "score": 6,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -236,6 +256,7 @@
       "isSeed": false,
       "score": 10,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -247,6 +268,7 @@
       "isSeed": false,
       "score": 4,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -258,6 +280,7 @@
       "isSeed": false,
       "score": 7,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -269,6 +292,7 @@
       "isSeed": false,
       "score": 4,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -280,6 +304,7 @@
       "isSeed": false,
       "score": 4,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -291,6 +316,7 @@
       "isSeed": false,
       "score": 7,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -302,6 +328,7 @@
       "isSeed": false,
       "score": 10,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -313,6 +340,7 @@
       "isSeed": false,
       "score": 10,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -324,6 +352,7 @@
       "isSeed": false,
       "score": 6,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -335,6 +364,7 @@
       "isSeed": false,
       "score": 4,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -346,6 +376,7 @@
       "isSeed": false,
       "score": 7,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -357,6 +388,7 @@
       "isSeed": false,
       "score": 18,
       "eliminatedInRoundId": null,
+      "isPlaceholder": false,
       "isChampion": true
     }
   ],
@@ -370,6 +402,7 @@
       "isSeed": true,
       "score": 9,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -381,6 +414,7 @@
       "isSeed": true,
       "score": 14,
       "eliminatedInRoundId": 14,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -392,6 +426,7 @@
       "isSeed": true,
       "score": 12,
       "eliminatedInRoundId": 13,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -403,6 +438,7 @@
       "isSeed": true,
       "score": 8,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -414,6 +450,7 @@
       "isSeed": true,
       "score": 7,
       "eliminatedInRoundId": 14,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -425,6 +462,7 @@
       "isSeed": true,
       "score": 12,
       "eliminatedInRoundId": 15,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -436,6 +474,7 @@
       "isSeed": true,
       "score": 8,
       "eliminatedInRoundId": 13,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -447,6 +486,7 @@
       "isSeed": true,
       "score": 6,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -458,6 +498,7 @@
       "isSeed": true,
       "score": 8,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -469,6 +510,7 @@
       "isSeed": true,
       "score": 4,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -480,6 +522,7 @@
       "isSeed": true,
       "score": 9,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -491,6 +534,7 @@
       "isSeed": true,
       "score": 7,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -502,6 +546,7 @@
       "isSeed": true,
       "score": 9,
       "eliminatedInRoundId": 13,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -513,6 +558,7 @@
       "isSeed": true,
       "score": 12,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -524,6 +570,7 @@
       "isSeed": true,
       "score": 10,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -535,6 +582,7 @@
       "isSeed": true,
       "score": 4,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     }
   ],
@@ -548,6 +596,7 @@
       "isSeed": false,
       "score": 4,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -559,6 +608,7 @@
       "isSeed": false,
       "score": 5,
       "eliminatedInRoundId": 13,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -570,6 +620,7 @@
       "isSeed": false,
       "score": 8,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -581,6 +632,7 @@
       "isSeed": false,
       "score": 6,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -592,6 +644,7 @@
       "isSeed": false,
       "score": 10,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -603,6 +656,7 @@
       "isSeed": false,
       "score": 4,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -614,6 +668,7 @@
       "isSeed": false,
       "score": 7,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -625,6 +680,7 @@
       "isSeed": false,
       "score": 4,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -636,6 +692,7 @@
       "isSeed": false,
       "score": 4,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -647,6 +704,7 @@
       "isSeed": false,
       "score": 7,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -658,6 +716,7 @@
       "isSeed": false,
       "score": 10,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -669,6 +728,7 @@
       "isSeed": false,
       "score": 10,
       "eliminatedInRoundId": 8,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -680,6 +740,7 @@
       "isSeed": false,
       "score": 6,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -691,6 +752,7 @@
       "isSeed": false,
       "score": 4,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -702,6 +764,7 @@
       "isSeed": false,
       "score": 7,
       "eliminatedInRoundId": 7,
+      "isPlaceholder": false,
       "isChampion": false
     },
     {
@@ -713,6 +776,7 @@
       "isSeed": false,
       "score": 18,
       "eliminatedInRoundId": null,
+      "isPlaceholder": false,
       "isChampion": true
     }
   ],
@@ -730,8 +794,13 @@
           "id": 9379098,
           "number": 1,
           "scheduledDate": "2025-04-19T18:00:00Z",
+          "startDate": "2025-04-19T08:59:07Z",
+          "endDate": "2025-04-19T22:03:12Z",
+          "tableNo": 0,
           "winnerId": 2498,
           "loserId": 39,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 39,
             "name": "Kyren Wilson",
@@ -755,8 +824,13 @@
           "id": 9379099,
           "number": 2,
           "scheduledDate": "2025-04-21T09:00:00Z",
+          "startDate": "2025-04-20T09:02:17Z",
+          "endDate": "2025-04-21T10:53:29Z",
+          "tableNo": 0,
           "winnerId": 946,
           "loserId": 90,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 90,
             "name": "Jak Jones",
@@ -780,8 +854,13 @@
           "id": 9379100,
           "number": 3,
           "scheduledDate": "2025-04-20T18:00:00Z",
+          "startDate": "2025-04-19T13:31:41Z",
+          "endDate": "2025-04-20T22:07:57Z",
+          "tableNo": 0,
           "winnerId": 1044,
           "loserId": 154,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 154,
             "name": "Neil Robertson",
@@ -805,8 +884,13 @@
           "id": 9379101,
           "number": 4,
           "scheduledDate": "2025-04-21T13:30:00Z",
+          "startDate": "2025-04-20T13:32:10Z",
+          "endDate": "2025-04-21T16:11:52Z",
+          "tableNo": 0,
           "winnerId": 202,
           "loserId": 1417,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 202,
             "name": "Mark Allen",
@@ -830,8 +914,13 @@
           "id": 9379102,
           "number": 5,
           "scheduledDate": "2025-04-23T13:30:00Z",
+          "startDate": "2025-04-22T13:31:04Z",
+          "endDate": "2025-04-23T15:03:26Z",
+          "tableNo": 0,
           "winnerId": 5,
           "loserId": 158,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 5,
             "name": "Ronnie O'Sullivan",
@@ -855,8 +944,13 @@
           "id": 9379103,
           "number": 6,
           "scheduledDate": "2025-04-23T09:00:00Z",
+          "startDate": "2025-04-22T08:57:24Z",
+          "endDate": "2025-04-23T12:57:33Z",
+          "tableNo": 0,
           "winnerId": 1257,
           "loserId": 81,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 81,
             "name": "Anda Zhang",
@@ -880,8 +974,13 @@
           "id": 9379104,
           "number": 7,
           "scheduledDate": "2025-04-22T18:00:00Z",
+          "startDate": "2025-04-21T17:53:17Z",
+          "endDate": "2025-04-22T21:03:37Z",
+          "tableNo": 0,
           "winnerId": 1982,
           "loserId": 118,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 1982,
             "name": "Jiahui Si",
@@ -905,8 +1004,13 @@
           "id": 9379105,
           "number": 8,
           "scheduledDate": "2025-04-24T18:00:00Z",
+          "startDate": "2025-04-23T18:09:25Z",
+          "endDate": "2025-04-24T23:08:29Z",
+          "tableNo": 0,
           "winnerId": 19,
           "loserId": 17,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 17,
             "name": "Mark Selby",
@@ -930,8 +1034,13 @@
           "id": 9379106,
           "number": 9,
           "scheduledDate": "2025-04-21T18:00:00Z",
+          "startDate": "2025-04-21T09:00:57Z",
+          "endDate": "2025-04-21T21:51:51Z",
+          "tableNo": 0,
           "winnerId": 237,
           "loserId": 1038,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 237,
             "name": "John Higgins",
@@ -955,8 +1064,13 @@
           "id": 9379107,
           "number": 10,
           "scheduledDate": "2025-04-20T09:00:00Z",
+          "startDate": "2025-04-19T08:59:07Z",
+          "endDate": "2025-04-20T11:10:50Z",
+          "tableNo": 0,
           "winnerId": 24,
           "loserId": 47,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 24,
             "name": "Guodong Xiao",
@@ -980,8 +1094,13 @@
           "id": 9379108,
           "number": 11,
           "scheduledDate": "2025-04-20T18:00:00Z",
+          "startDate": "2025-04-19T18:00:03Z",
+          "endDate": "2025-04-20T21:47:03Z",
+          "tableNo": 0,
           "winnerId": 666,
           "loserId": 16,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 16,
             "name": "Barry Hawkins",
@@ -1005,8 +1124,13 @@
           "id": 9379109,
           "number": 12,
           "scheduledDate": "2025-04-20T13:30:00Z",
+          "startDate": "2025-04-19T13:31:41Z",
+          "endDate": "2025-04-20T16:50:12Z",
+          "tableNo": 0,
           "winnerId": 1,
           "loserId": 2469,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 1,
             "name": "Mark Williams",
@@ -1030,8 +1154,13 @@
           "id": 9379110,
           "number": 13,
           "scheduledDate": "2025-04-24T12:00:00Z",
+          "startDate": "2025-04-23T13:33:35Z",
+          "endDate": "2025-04-24T15:13:23Z",
+          "tableNo": 0,
           "winnerId": 101,
           "loserId": 68,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 101,
             "name": "Luca Brecel",
@@ -1055,8 +1184,13 @@
           "id": 9379111,
           "number": 14,
           "scheduledDate": "2025-04-22T13:30:00Z",
+          "startDate": "2025-04-21T13:32:07Z",
+          "endDate": "2025-04-22T16:06:51Z",
+          "tableNo": 0,
           "winnerId": 224,
           "loserId": 89,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 224,
             "name": "Junhui Ding",
@@ -1080,8 +1214,13 @@
           "id": 9379112,
           "number": 15,
           "scheduledDate": "2025-04-23T09:00:00Z",
+          "startDate": "2025-04-22T08:57:24Z",
+          "endDate": "2025-04-23T10:39:09Z",
+          "tableNo": 0,
           "winnerId": 97,
           "loserId": 32,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 97,
             "name": "Shaun Murphy",
@@ -1105,8 +1244,13 @@
           "id": 9379113,
           "number": 16,
           "scheduledDate": "2025-04-23T18:00:00Z",
+          "startDate": "2025-04-22T18:26:11Z",
+          "endDate": "2025-04-23T20:02:17Z",
+          "tableNo": 0,
           "winnerId": 12,
           "loserId": 906,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 12,
             "name": "Judd Trump",
@@ -1141,8 +1285,13 @@
           "id": 9379114,
           "number": 1,
           "scheduledDate": "2025-04-27T09:00:00Z",
+          "startDate": "2025-04-25T13:21:52Z",
+          "endDate": "2025-04-27T11:16:39Z",
+          "tableNo": 0,
           "winnerId": 946,
           "loserId": 2498,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 2498,
             "name": "Peifan Lei",
@@ -1166,8 +1315,13 @@
           "id": 9379115,
           "number": 2,
           "scheduledDate": "2025-04-25T18:00:00Z",
+          "startDate": "2025-04-24T12:03:34Z",
+          "endDate": "2025-04-25T19:25:15Z",
+          "tableNo": 0,
           "winnerId": 1044,
           "loserId": 202,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 1044,
             "name": "Chris Wakelin",
@@ -1191,8 +1345,13 @@
           "id": 9379116,
           "number": 3,
           "scheduledDate": "2025-04-28T18:00:00Z",
+          "startDate": "2025-04-26T13:15:29Z",
+          "endDate": "2025-04-28T18:26:43Z",
+          "tableNo": 0,
           "winnerId": 5,
           "loserId": 1257,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 5,
             "name": "Ronnie O'Sullivan",
@@ -1216,8 +1375,13 @@
           "id": 9379117,
           "number": 4,
           "scheduledDate": "2025-04-28T12:00:00Z",
+          "startDate": "2025-04-26T18:14:15Z",
+          "endDate": "2025-04-28T15:02:33Z",
+          "tableNo": 0,
           "winnerId": 1982,
           "loserId": 19,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 1982,
             "name": "Jiahui Si",
@@ -1241,8 +1405,13 @@
           "id": 9379118,
           "number": 5,
           "scheduledDate": "2025-04-26T20:00:00Z",
+          "startDate": "2025-04-24T17:50:24Z",
+          "endDate": "2025-04-26T21:28:35Z",
+          "tableNo": 0,
           "winnerId": 237,
           "loserId": 24,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 237,
             "name": "John Higgins",
@@ -1266,8 +1435,13 @@
           "id": 9379119,
           "number": 6,
           "scheduledDate": "2025-04-26T13:30:00Z",
+          "startDate": "2025-04-25T09:12:57Z",
+          "endDate": "2025-04-26T17:06:38Z",
+          "tableNo": 0,
           "winnerId": 1,
           "loserId": 666,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 666,
             "name": "Hossein Vafaei",
@@ -1291,8 +1465,13 @@
           "id": 9379120,
           "number": 7,
           "scheduledDate": "2025-04-28T18:00:00Z",
+          "startDate": "2025-04-26T18:14:15Z",
+          "endDate": "2025-04-28T18:25:28Z",
+          "tableNo": 0,
           "winnerId": 101,
           "loserId": 224,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 101,
             "name": "Luca Brecel",
@@ -1316,8 +1495,13 @@
           "id": 9379121,
           "number": 8,
           "scheduledDate": "2025-04-28T12:00:00Z",
+          "startDate": "2025-04-27T08:44:58Z",
+          "endDate": "2025-04-28T14:11:01Z",
+          "tableNo": 0,
           "winnerId": 12,
           "loserId": 97,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 97,
             "name": "Shaun Murphy",
@@ -1352,8 +1536,13 @@
           "id": 9379122,
           "number": 1,
           "scheduledDate": "2025-04-30T13:30:00Z",
+          "startDate": "2025-04-29T09:11:02Z",
+          "endDate": "2025-04-30T14:15:08Z",
+          "tableNo": 0,
           "winnerId": 946,
           "loserId": 1044,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 946,
             "name": "Xintong Zhao",
@@ -1377,8 +1566,13 @@
           "id": 9379123,
           "number": 2,
           "scheduledDate": "2025-04-30T18:00:00Z",
+          "startDate": "2025-04-29T13:28:56Z",
+          "endDate": "2025-04-30T20:13:12Z",
+          "tableNo": 0,
           "winnerId": 5,
           "loserId": 1982,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 5,
             "name": "Ronnie O'Sullivan",
@@ -1402,8 +1596,13 @@
           "id": 9379124,
           "number": 3,
           "scheduledDate": "2025-04-30T09:00:00Z",
+          "startDate": "2025-04-29T09:11:02Z",
+          "endDate": "2025-04-30T12:39:08Z",
+          "tableNo": 0,
           "winnerId": 1,
           "loserId": 237,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 237,
             "name": "John Higgins",
@@ -1427,8 +1626,13 @@
           "id": 9379125,
           "number": 4,
           "scheduledDate": "2025-04-30T18:00:00Z",
+          "startDate": "2025-04-29T13:28:56Z",
+          "endDate": "2025-04-30T19:53:10Z",
+          "tableNo": 0,
           "winnerId": 12,
           "loserId": 101,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 101,
             "name": "Luca Brecel",
@@ -1463,8 +1667,13 @@
           "id": 9379326,
           "number": 1,
           "scheduledDate": "2025-05-03T13:30:00Z",
+          "startDate": "2025-05-01T12:01:18Z",
+          "endDate": "2025-05-02T20:08:51Z",
+          "tableNo": 0,
           "winnerId": 946,
           "loserId": 5,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 946,
             "name": "Xintong Zhao",
@@ -1488,8 +1697,13 @@
           "id": 9379327,
           "number": 2,
           "scheduledDate": "2025-05-03T18:00:00Z",
+          "startDate": "2025-05-01T18:11:23Z",
+          "endDate": "2025-05-03T20:11:26Z",
+          "tableNo": 0,
           "winnerId": 1,
           "loserId": 12,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 1,
             "name": "Mark Williams",
@@ -1524,8 +1738,13 @@
           "id": 9379141,
           "number": 1,
           "scheduledDate": "2025-05-05T18:00:00Z",
+          "startDate": "2025-05-04T12:01:02Z",
+          "endDate": "2025-05-05T19:35:42Z",
+          "tableNo": 0,
           "winnerId": 946,
           "loserId": 1,
+          "unfinished": false,
+          "status": "finished",
           "player1": {
             "id": 946,
             "name": "Xintong Zhao",
