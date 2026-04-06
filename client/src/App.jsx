@@ -17,10 +17,64 @@ const ADMIN_YEAR_OPTIONS = Array.from({ length: 6 }, (_, index) => ADMIN_DEFAULT
 const WINNER_YEAR_OPTIONS = Array.from({ length: ADMIN_DEFAULT_YEAR - 2019 + 1 }, (_, index) => ADMIN_DEFAULT_YEAR - index);
 const ADMIN_PASSWORD = "painting";
 const ADMIN_SESSION_KEY = "snooker-admin-authenticated";
+const PUBLIC_YEAR_SESSION_KEY = "snooker-public-selected-year";
+const PUBLIC_SHOW_PHOTOS_SESSION_KEY = "snooker-public-show-photos";
+const MATCHES_ROUND_SESSION_KEY = "snooker-public-matches-round";
+const MATCHES_ENTRANT_FILTER_SESSION_KEY = "snooker-public-matches-entrant-filter";
 
 function createEntrantId() {
   return globalThis.crypto?.randomUUID?.()
     ?? `entrant-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function useSessionState(key, initialValue) {
+  const [value, setValue] = useState(() => {
+    const fallbackValue = typeof initialValue === "function" ? initialValue() : initialValue;
+
+    if (typeof window === "undefined") {
+      return fallbackValue;
+    }
+
+    try {
+      const storedValue = window.sessionStorage.getItem(key);
+      return storedValue === null ? fallbackValue : JSON.parse(storedValue);
+    } catch {
+      return fallbackValue;
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.sessionStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // Ignore session storage failures and keep the in-memory value.
+    }
+  }, [key, value]);
+
+  return [value, setValue];
+}
+
+function usePublicSelectedYear() {
+  const [selectedYear, setSelectedYear] = useSessionState(
+    PUBLIC_YEAR_SESSION_KEY,
+    () => PUBLIC_DEFAULT_YEAR,
+  );
+
+  useEffect(() => {
+    if (!PUBLIC_YEAR_OPTIONS.includes(selectedYear)) {
+      setSelectedYear(PUBLIC_DEFAULT_YEAR);
+    }
+  }, [selectedYear, setSelectedYear]);
+
+  return [PUBLIC_YEAR_OPTIONS.includes(selectedYear) ? selectedYear : PUBLIC_DEFAULT_YEAR, setSelectedYear];
+}
+
+function usePublicShowPhotos() {
+  return useSessionState(PUBLIC_SHOW_PHOTOS_SESSION_KEY, true);
 }
 
 async function readJsonResponse(response, fallbackMessage) {
@@ -934,7 +988,7 @@ function useTournamentOverview(selectedYear) {
 }
 
 function HomePage() {
-  const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
+  const [selectedYear, setSelectedYear] = usePublicSelectedYear();
   const {
     data,
     loading,
@@ -1062,8 +1116,8 @@ function HomePage() {
 }
 
 function EntrantsPage() {
-  const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
-  const [showPhotos, setShowPhotos] = useState(true);
+  const [selectedYear, setSelectedYear] = usePublicSelectedYear();
+  const [showPhotos, setShowPhotos] = usePublicShowPhotos();
   const { data, loading, error, derived } = useTournamentOverview(selectedYear);
   const [expandedCompetitors, setExpandedCompetitors] = useState({});
 
@@ -1207,12 +1261,12 @@ function EntrantsPage() {
 }
 
 function MatchesPage() {
-  const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
+  const [selectedYear, setSelectedYear] = usePublicSelectedYear();
   const { data, loading, error } = usePublicTournamentData(selectedYear);
-  const [selectedRoundKey, setSelectedRoundKey] = useState("");
-  const [selectedEntrantFilter, setSelectedEntrantFilter] = useState("all");
+  const [selectedRoundKey, setSelectedRoundKey] = useSessionState(MATCHES_ROUND_SESSION_KEY, "");
+  const [selectedEntrantFilter, setSelectedEntrantFilter] = useSessionState(MATCHES_ENTRANT_FILTER_SESSION_KEY, "all");
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
-  const [showPhotos, setShowPhotos] = useState(true);
+  const [showPhotos, setShowPhotos] = usePublicShowPhotos();
   const autoSelectedRoundYearRef = useRef(null);
 
   useEffect(() => {
@@ -1443,7 +1497,7 @@ function BracketPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
+  const [selectedYear, setSelectedYear] = usePublicSelectedYear();
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const autoAdjustedYearRef = useRef(false);
 
