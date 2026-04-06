@@ -1433,8 +1433,64 @@
   cursor: pointer;
 }
 
-.matches-filter-select-shell {
+.matches-filter-group {
+  display: grid;
+  gap: 8px;
+}
+
+.matches-filter-label {
+  margin: 0;
+  color: #4c6258;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.matches-filter-search {
   width: 100%;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(35, 53, 45, 0.12);
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ink);
+  font: inherit;
+}
+
+.matches-filter-search:focus {
+  outline: 2px solid rgba(23, 88, 61, 0.18);
+  outline-offset: 2px;
+}
+
+.matches-filter-help {
+  margin: 0;
+  color: #6a7f74;
+  font-size: 0.82rem;
+}
+
+.matches-filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.matches-filter-option {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 88, 61, 0.12);
+  background: rgba(255, 255, 255, 0.74);
+  color: #315547;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.matches-filter-option.active {
+  border-color: rgba(23, 88, 61, 0.24);
+  background: linear-gradient(135deg, rgba(25, 91, 64, 0.96), rgba(54, 132, 97, 0.92));
+  color: #f6fff9;
 }
 
 .bracket-control {

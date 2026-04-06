@@ -20,7 +20,9 @@ const ADMIN_SESSION_KEY = "snooker-admin-authenticated";
 const PUBLIC_YEAR_SESSION_KEY = "snooker-public-selected-year";
 const PUBLIC_SHOW_PHOTOS_SESSION_KEY = "snooker-public-show-photos";
 const MATCHES_ROUND_SESSION_KEY = "snooker-public-matches-round";
-const MATCHES_ENTRANT_FILTER_SESSION_KEY = "snooker-public-matches-entrant-filter";
+const MATCHES_ENTRANT_FILTERS_SESSION_KEY = "snooker-public-matches-entrant-filters";
+const MATCHES_PLAYER_FILTER_TEXT_SESSION_KEY = "snooker-public-matches-player-filter";
+const MATCHES_COUNTRY_FILTERS_SESSION_KEY = "snooker-public-matches-country-filters";
 
 function createEntrantId() {
   return globalThis.crypto?.randomUUID?.()
@@ -75,6 +77,18 @@ function usePublicSelectedYear() {
 
 function usePublicShowPhotos() {
   return useSessionState(PUBLIC_SHOW_PHOTOS_SESSION_KEY, true);
+}
+
+function normaliseSessionList(value) {
+  if (Array.isArray(value)) {
+    return value.filter((item) => typeof item === "string" && item.trim());
+  }
+
+  if (typeof value === "string" && value.trim() && value !== "all") {
+    return [value.trim()];
+  }
+
+  return [];
 }
 
 async function readJsonResponse(response, fallbackMessage) {
@@ -1264,11 +1278,22 @@ function MatchesPage() {
   const [selectedYear, setSelectedYear] = usePublicSelectedYear();
   const { data, loading, error } = usePublicTournamentData(selectedYear);
   const [selectedRoundKey, setSelectedRoundKey] = useSessionState(MATCHES_ROUND_SESSION_KEY, "");
-  const [selectedEntrantFilter, setSelectedEntrantFilter] = useSessionState(MATCHES_ENTRANT_FILTER_SESSION_KEY, "all");
+  const [selectedEntrantFiltersRaw, setSelectedEntrantFilters] = useSessionState(MATCHES_ENTRANT_FILTERS_SESSION_KEY, []);
+  const [playerFilterText, setPlayerFilterText] = useSessionState(MATCHES_PLAYER_FILTER_TEXT_SESSION_KEY, "");
+  const [selectedCountryFiltersRaw, setSelectedCountryFilters] = useSessionState(MATCHES_COUNTRY_FILTERS_SESSION_KEY, []);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [showPhotos, setShowPhotos] = usePublicShowPhotos();
   const autoSelectedRoundYearRef = useRef(null);
+  const selectedEntrantFilters = normaliseSessionList(selectedEntrantFiltersRaw);
+  const selectedCountryFilters = normaliseSessionList(selectedCountryFiltersRaw);
+  const playerNameTerms = useMemo(
+    () => String(playerFilterText || "")
+      .split(",")
+      .map((term) => term.trim().toLowerCase())
+      .filter(Boolean),
+    [playerFilterText],
+  );
 
   useEffect(() => {
     if (!data?.snapshot?.rounds?.length) {
@@ -1297,12 +1322,30 @@ function MatchesPage() {
     )].sort((left, right) => left.localeCompare(right)),
     [ownershipByPlayerId],
   );
+  const countryOptions = useMemo(
+    () => [...new Set(
+      (data?.snapshot?.rounds || []).flatMap((round) => round.matches.flatMap((match) => [
+        match.player1?.nationality || "",
+        match.player2?.nationality || "",
+      ]))
+        .filter(Boolean),
+    )].sort((left, right) => left.localeCompare(right)),
+    [data?.snapshot?.rounds],
+  );
 
   useEffect(() => {
-    if (selectedEntrantFilter !== "all" && !entrantOptions.includes(selectedEntrantFilter)) {
-      setSelectedEntrantFilter("all");
+    const nextFilters = selectedEntrantFilters.filter((entrantName) => entrantOptions.includes(entrantName));
+    if (JSON.stringify(nextFilters) !== JSON.stringify(selectedEntrantFiltersRaw)) {
+      setSelectedEntrantFilters(nextFilters);
     }
-  }, [entrantOptions, selectedEntrantFilter]);
+  }, [entrantOptions, selectedEntrantFilters, selectedEntrantFiltersRaw, setSelectedEntrantFilters]);
+
+  useEffect(() => {
+    const nextFilters = selectedCountryFilters.filter((country) => countryOptions.includes(country));
+    if (JSON.stringify(nextFilters) !== JSON.stringify(selectedCountryFiltersRaw)) {
+      setSelectedCountryFilters(nextFilters);
+    }
+  }, [countryOptions, selectedCountryFilters, selectedCountryFiltersRaw, setSelectedCountryFilters]);
 
   if (loading && !data) {
     return <main className="app-shell"><p className="status-banner">Loading matches...</p></main>;
@@ -1320,14 +1363,37 @@ function MatchesPage() {
     : (selectedRound.matchCount || 0);
   const poolConfigured = data.poolConfigured !== false;
   const filteredMatches = selectedRound.matches.filter((match) => {
-    if (selectedEntrantFilter === "all") {
-      return true;
-    }
-
     const playerOneOwner = ownershipByPlayerId.get(match.player1.id)?.entrantName || "";
     const playerTwoOwner = ownershipByPlayerId.get(match.player2.id)?.entrantName || "";
-    return playerOneOwner === selectedEntrantFilter || playerTwoOwner === selectedEntrantFilter;
+    const playerNames = [
+      String(match.player1?.name || "").toLowerCase(),
+      String(match.player2?.name || "").toLowerCase(),
+    ];
+    const playerCountries = [
+      match.player1?.nationality || "",
+      match.player2?.nationality || "",
+    ];
+
+    const entrantMatches = !selectedEntrantFilters.length
+      || selectedEntrantFilters.includes(playerOneOwner)
+      || selectedEntrantFilters.includes(playerTwoOwner);
+    const playerMatches = !playerNameTerms.length
+      || playerNames.some((name) => playerNameTerms.some((term) => name.includes(term)));
+    const countryMatches = !selectedCountryFilters.length
+      || playerCountries.some((country) => selectedCountryFilters.includes(country));
+
+    return entrantMatches && playerMatches && countryMatches;
   });
+  const filteredUnplayedMatchCount = filteredMatches.filter((match) => !match.winnerId).length;
+  const activeFilterCount = selectedEntrantFilters.length + selectedCountryFilters.length + playerNameTerms.length;
+
+  function toggleFilterItem(currentValues, nextValue, setter) {
+    setter(
+      currentValues.includes(nextValue)
+        ? currentValues.filter((value) => value !== nextValue)
+        : [...currentValues, nextValue],
+    );
+  }
 
   return (
     <main className="app-shell">
@@ -1418,7 +1484,7 @@ function MatchesPage() {
             <div className="bracket-control matches-toolbar-control matches-toolbar-stat">
               <span className="bracket-inline-label">Live matches</span>
               <strong className="bracket-inline-value">
-                {selectedEntrantFilter === "all" ? unplayedMatchCount : filteredMatches.length}
+                {activeFilterCount ? filteredUnplayedMatchCount : unplayedMatchCount}
               </strong>
             </div>
           </div>
@@ -1451,7 +1517,7 @@ function MatchesPage() {
               <span />
             </span>
             <span>Filter</span>
-            {selectedEntrantFilter !== "all" ? <strong>{selectedEntrantFilter}</strong> : null}
+            {activeFilterCount ? <strong>{activeFilterCount} active</strong> : null}
           </button>
         </div>
       </section>
@@ -1464,31 +1530,58 @@ function MatchesPage() {
               type="button"
               className="matches-filter-clear"
               onClick={() => {
-                setSelectedEntrantFilter("all");
-                setFilterMenuOpen(false);
+                setSelectedEntrantFilters([]);
+                setPlayerFilterText("");
+                setSelectedCountryFilters([]);
               }}
             >
               Clear
             </button>
           </div>
-          <label className="toolbar-select-shell matches-filter-select-shell">
-            <select
-              className="toolbar-select"
-              value={selectedEntrantFilter}
-              onChange={(event) => {
-                setSelectedEntrantFilter(event.target.value);
-                setFilterMenuOpen(false);
-              }}
-              aria-label="Filter matches by entrant"
-            >
-              <option value="all">All entrants</option>
+          <div className="matches-filter-group">
+            <label className="matches-filter-label" htmlFor="matches-player-filter">
+              Player name
+            </label>
+            <input
+              id="matches-player-filter"
+              className="matches-filter-search"
+              type="text"
+              value={playerFilterText}
+              onChange={(event) => setPlayerFilterText(event.target.value)}
+              placeholder="Trump, Zhao"
+            />
+            <p className="matches-filter-help">Use comma-separated names to match multiple players.</p>
+          </div>
+          <div className="matches-filter-group">
+            <p className="matches-filter-label">Entrants</p>
+            <div className="matches-filter-options">
               {entrantOptions.map((entrantName) => (
-                <option key={entrantName} value={entrantName}>
+                <button
+                  key={entrantName}
+                  type="button"
+                  className={`matches-filter-option${selectedEntrantFilters.includes(entrantName) ? " active" : ""}`}
+                  onClick={() => toggleFilterItem(selectedEntrantFilters, entrantName, setSelectedEntrantFilters)}
+                >
                   {entrantName}
-                </option>
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
+          <div className="matches-filter-group">
+            <p className="matches-filter-label">Country</p>
+            <div className="matches-filter-options">
+              {countryOptions.map((country) => (
+                <button
+                  key={country}
+                  type="button"
+                  className={`matches-filter-option${selectedCountryFilters.includes(country) ? " active" : ""}`}
+                  onClick={() => toggleFilterItem(selectedCountryFilters, country, setSelectedCountryFilters)}
+                >
+                  {country}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
       ) : null}
 
@@ -1506,12 +1599,12 @@ function MatchesPage() {
           <article className="match-card empty-round-card">
             <div className="match-meta">
               <span>{selectedRound.name}</span>
-              <span>{selectedEntrantFilter === "all" ? "Not populated yet" : "No matches for entrant"}</span>
+              <span>{activeFilterCount ? "No matches for current filters" : "Not populated yet"}</span>
             </div>
             <p className="empty-round-copy">
-              {selectedEntrantFilter === "all"
+              {activeFilterCount === 0
                 ? "This round has not been populated with match data yet, so players who are still alive are shown as waiting for the round to begin."
-                : `No matches in ${selectedRound.name} currently involve ${selectedEntrantFilter}.`}
+                : `No matches in ${selectedRound.name} match the entrant, player, or country filters you selected.`}
             </p>
           </article>
         )}
