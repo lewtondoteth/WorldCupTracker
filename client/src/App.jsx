@@ -488,7 +488,7 @@ function SiteHeader({ mode = "home", poolConfigured = false }) {
           {mode === "home" ? (
             <>
               <a className="site-menu-link" href="#overview" onClick={closeMenu}>Overview</a>
-              {poolConfigured ? <Link className="site-menu-link" to="/entrants" onClick={closeMenu}>Entrants</Link> : null}
+              <Link className="site-menu-link" to="/entrants" onClick={closeMenu}>Entrants</Link>
               <Link className="site-menu-link" to="/matches" onClick={closeMenu}>Matches</Link>
               <Link className="site-menu-link" to="/bracket" onClick={closeMenu}>Bracket</Link>
               <Link className="site-menu-link" to="/winners" onClick={closeMenu}>Winners</Link>
@@ -496,7 +496,7 @@ function SiteHeader({ mode = "home", poolConfigured = false }) {
           ) : (
             <>
               <Link className="site-menu-link" to="/" onClick={closeMenu}>Tournament</Link>
-              {poolConfigured ? <Link className={`site-menu-link${mode === "entrants" ? " current" : ""}`} to="/entrants" onClick={closeMenu}>Entrants</Link> : null}
+              <Link className={`site-menu-link${mode === "entrants" ? " current" : ""}`} to="/entrants" onClick={closeMenu}>Entrants</Link>
               <Link className={`site-menu-link${mode === "matches" ? " current" : ""}`} to="/matches" onClick={closeMenu}>Matches</Link>
               <Link className={`site-menu-link${mode === "bracket" ? " current" : ""}`} to="/bracket" onClick={closeMenu}>Bracket</Link>
               <Link className={`site-menu-link${mode === "winners" ? " current" : ""}`} to="/winners" onClick={closeMenu}>Winners</Link>
