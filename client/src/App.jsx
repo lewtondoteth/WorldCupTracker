@@ -1913,11 +1913,9 @@ function WinnersPage() {
                 src={dogsPlayingPool}
                 alt=""
               />
-              <div className="winners-title-overlay">
-                <h1>Past Winners</h1>
-              </div>
             </div>
           </div>
+          <h1>Past Winners</h1>
         </div>
       </section>
 
