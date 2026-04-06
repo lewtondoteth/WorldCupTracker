@@ -117,7 +117,7 @@ function getNationalityFlag(nationality) {
     .join("");
 }
 
-function PlayerIdentity({ player, compact = false, showPhoto = true }) {
+function PlayerIdentity({ player, compact = false, showPhoto = true, ownerName = "" }) {
   const flag = getNationalityFlag(player.nationality);
   const identityClassName = `${compact ? "player-identity compact" : "player-identity"}${player.eliminated ? " eliminated" : ""}`;
 
@@ -135,7 +135,7 @@ function PlayerIdentity({ player, compact = false, showPhoto = true }) {
         </div>
       ) : null}
       <div className="player-text">
-        <strong>{player.name}</strong>
+        <strong>{player.name}{ownerName ? ` (${ownerName})` : ""}</strong>
         <small>
           {flag ? <span className="player-flag" aria-hidden="true">{flag}</span> : null}
           <span>{player.nationality || "Unknown"}</span>
@@ -429,7 +429,7 @@ function isOpenTournamentMatch(match) {
   return isActiveTournamentMatch(match) && (match.unfinished || !match.winnerId);
 }
 
-function MatchCard({ match, showPhotos }) {
+function MatchCard({ match, showPhotos, ownershipByPlayerId }) {
   const metaBits = [
     match.tableNo ? `Table ${match.tableNo}` : null,
     match.startDate ? `Start ${match.startDate.slice(0, 10)}` : null,
@@ -438,7 +438,12 @@ function MatchCard({ match, showPhotos }) {
 
   const renderSide = (player, won) => (
     <div className={won ? "match-side winner" : "match-side loser"}>
-      <PlayerIdentity player={player} compact showPhoto={showPhotos} />
+      <PlayerIdentity
+        player={player}
+        compact
+        showPhoto={showPhotos}
+        ownerName={ownershipByPlayerId?.get(player.id)?.entrantName || ""}
+      />
       <strong>{player.score}</strong>
     </div>
   );
@@ -1180,6 +1185,7 @@ function MatchesPage() {
     ? unresolvedScheduledMatches
     : (selectedRound.matchCount || 0);
   const poolConfigured = data.poolConfigured !== false;
+  const ownershipByPlayerId = buildOwnershipMap(data.competitors || []);
 
   return (
     <main className="app-shell">
@@ -1266,7 +1272,12 @@ function MatchesPage() {
       <section className="matches-grid">
         {selectedRound.matches.length ? (
           selectedRound.matches.map((match) => (
-            <MatchCard key={match.id} match={match} showPhotos={showPhotos} />
+            <MatchCard
+              key={match.id}
+              match={match}
+              showPhotos={showPhotos}
+              ownershipByPlayerId={ownershipByPlayerId}
+            />
           ))
         ) : (
           <article className="match-card empty-round-card">
