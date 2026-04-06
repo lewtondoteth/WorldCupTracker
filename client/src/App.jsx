@@ -947,7 +947,7 @@ function HomePage() {
         <div className="hero-grid" />
         <div className="hero-header">
           <div className="hero-copy">
-            <p className="hero-kicker">Live tournament dashboard</p>
+            <p className="hero-kicker">Live tournament dashboard 2026</p>
             <h1>
               {BRAND_NAME}
               <label className="hero-year-select-shell">
