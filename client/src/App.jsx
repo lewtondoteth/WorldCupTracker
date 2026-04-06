@@ -395,29 +395,47 @@ function buildAutoAssignment(snapshot, competitors, targetCountsOverride = null)
 }
 
 function SiteHeader({ mode = "home", poolConfigured = false }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = () => setMenuOpen(false);
+
   return (
     <header className="site-nav">
-      <div className="site-nav-center">
-        <nav className="site-menu" aria-label="Primary">
+      <div className="site-nav-top">
+        <button
+          type="button"
+          className="site-nav-toggle"
+          aria-expanded={menuOpen}
+          aria-controls="site-primary-nav"
+          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+          onClick={() => setMenuOpen((current) => !current)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+        <Link className="admin-link mobile-admin-link" to="/admin" onClick={closeMenu}>Admin</Link>
+      </div>
+      <div className={`site-nav-center${menuOpen ? " mobile-open" : ""}`}>
+        <nav id="site-primary-nav" className="site-menu" aria-label="Primary">
           {mode === "home" ? (
             <>
-              <a className="site-menu-link" href="#overview">Overview</a>
-              {poolConfigured ? <a className="site-menu-link" href="#entrants">Entrants</a> : null}
-              <Link className="site-menu-link" to="/matches">Matches</Link>
-              <Link className="site-menu-link" to="/bracket">Bracket</Link>
-              <Link className="site-menu-link" to="/winners">Winners</Link>
+              <a className="site-menu-link" href="#overview" onClick={closeMenu}>Overview</a>
+              {poolConfigured ? <a className="site-menu-link" href="#entrants" onClick={closeMenu}>Entrants</a> : null}
+              <Link className="site-menu-link" to="/matches" onClick={closeMenu}>Matches</Link>
+              <Link className="site-menu-link" to="/bracket" onClick={closeMenu}>Bracket</Link>
+              <Link className="site-menu-link" to="/winners" onClick={closeMenu}>Winners</Link>
             </>
           ) : (
             <>
-              <Link className="site-menu-link" to="/">Tournament</Link>
-              <Link className={`site-menu-link${mode === "matches" ? " current" : ""}`} to="/matches">Matches</Link>
-              <Link className={`site-menu-link${mode === "bracket" ? " current" : ""}`} to="/bracket">Bracket</Link>
-              <Link className={`site-menu-link${mode === "winners" ? " current" : ""}`} to="/winners">Winners</Link>
+              <Link className="site-menu-link" to="/" onClick={closeMenu}>Tournament</Link>
+              <Link className={`site-menu-link${mode === "matches" ? " current" : ""}`} to="/matches" onClick={closeMenu}>Matches</Link>
+              <Link className={`site-menu-link${mode === "bracket" ? " current" : ""}`} to="/bracket" onClick={closeMenu}>Bracket</Link>
+              <Link className={`site-menu-link${mode === "winners" ? " current" : ""}`} to="/winners" onClick={closeMenu}>Winners</Link>
             </>
           )}
         </nav>
+        <Link className="admin-link desktop-admin-link" to="/admin" onClick={closeMenu}>Admin</Link>
       </div>
-      <Link className="admin-link" to="/admin">Admin</Link>
     </header>
   );
 }
