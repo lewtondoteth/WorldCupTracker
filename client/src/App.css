@@ -2679,28 +2679,23 @@
     border-radius: 14px;
   }
 
-  .winners-title-overlay {
-    padding: 10px;
-  }
-
-  .winners-title-overlay h1 {
-    padding: 8px 14px;
-    font-size: 1.55rem;
-  }
-
   .winners-title-row {
     gap: 10px;
   }
 
   .winners-title-image-shell {
     width: min(100%, 260px);
-    height: 110px;
     padding: 8px;
     border-radius: 20px;
   }
 
   .winners-title-image {
     border-radius: 14px;
+  }
+
+  .winners-hero-copy h1 {
+    font-size: 1.95rem;
+    line-height: 1;
   }
 
   .bracket-board-shell {
@@ -2992,13 +2987,8 @@
     border-radius: 12px;
   }
 
-  .winners-title-overlay {
-    padding: 8px;
-  }
-
-  .winners-title-overlay h1 {
-    padding: 7px 12px;
-    font-size: 1.3rem;
+  .winners-hero-copy h1 {
+    font-size: 1.75rem;
   }
 
   .bracket-round-column {
