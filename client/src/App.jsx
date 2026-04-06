@@ -1704,6 +1704,7 @@ function BracketPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const autoAdjustedYearRef = useRef(false);
   const isCompactViewport = useIsCompactViewport();
+  const isVeryCompactViewport = useIsCompactViewport(480);
 
   useEffect(() => {
     let cancelled = false;
@@ -1783,7 +1784,7 @@ function BracketPage() {
   }
 
   const poolConfigured = data.poolConfigured !== false;
-  const bracketUnit = isCompactViewport ? 252 : 208;
+  const bracketUnit = isVeryCompactViewport ? 320 : isCompactViewport ? 280 : 208;
   const bracketHeight = derived.bracketRounds[0].bracketMatches.length * bracketUnit;
 
   return (
