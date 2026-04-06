@@ -420,7 +420,7 @@ function SiteHeader({ mode = "home", poolConfigured = false }) {
           {mode === "home" ? (
             <>
               <a className="site-menu-link" href="#overview" onClick={closeMenu}>Overview</a>
-              {poolConfigured ? <a className="site-menu-link" href="#entrants" onClick={closeMenu}>Entrants</a> : null}
+              {poolConfigured ? <Link className="site-menu-link" to="/entrants" onClick={closeMenu}>Entrants</Link> : null}
               <Link className="site-menu-link" to="/matches" onClick={closeMenu}>Matches</Link>
               <Link className="site-menu-link" to="/bracket" onClick={closeMenu}>Bracket</Link>
               <Link className="site-menu-link" to="/winners" onClick={closeMenu}>Winners</Link>
@@ -428,6 +428,7 @@ function SiteHeader({ mode = "home", poolConfigured = false }) {
           ) : (
             <>
               <Link className="site-menu-link" to="/" onClick={closeMenu}>Tournament</Link>
+              {poolConfigured ? <Link className={`site-menu-link${mode === "entrants" ? " current" : ""}`} to="/entrants" onClick={closeMenu}>Entrants</Link> : null}
               <Link className={`site-menu-link${mode === "matches" ? " current" : ""}`} to="/matches" onClick={closeMenu}>Matches</Link>
               <Link className={`site-menu-link${mode === "bracket" ? " current" : ""}`} to="/bracket" onClick={closeMenu}>Bracket</Link>
               <Link className={`site-menu-link${mode === "winners" ? " current" : ""}`} to="/winners" onClick={closeMenu}>Winners</Link>
@@ -791,18 +792,10 @@ function usePublicTournamentData(selectedYear) {
   return { data, publicEntrants, loading, error };
 }
 
-function HomePage() {
-  const [showPhotos, setShowPhotos] = useState(true);
-  const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
+function useTournamentOverview(selectedYear) {
   const { data, publicEntrants, loading, error } = usePublicTournamentData(selectedYear);
   const [selectedRoundKey, setSelectedRoundKey] = useState("");
-  const [competitorsSectionExpanded, setCompetitorsSectionExpanded] = useState(true);
-  const [expandedCompetitors, setExpandedCompetitors] = useState({});
   const autoSelectedRoundYearRef = useRef(null);
-
-  useEffect(() => {
-    setExpandedCompetitors({});
-  }, [data?.snapshot?.year]);
 
   useEffect(() => {
     if (!data?.snapshot?.rounds?.length) {
@@ -930,6 +923,27 @@ function HomePage() {
     };
   }, [data, publicEntrants, selectedRoundKey]);
 
+  return {
+    data,
+    loading,
+    error,
+    selectedRoundKey,
+    setSelectedRoundKey,
+    derived,
+  };
+}
+
+function HomePage() {
+  const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
+  const {
+    data,
+    loading,
+    error,
+    selectedRoundKey,
+    setSelectedRoundKey,
+    derived,
+  } = useTournamentOverview(selectedYear);
+
   if (loading && !data) {
     return <main className="app-shell"><p className="status-banner">Loading {BRAND_NAME} {selectedYear}...</p></main>;
   }
@@ -950,7 +964,6 @@ function HomePage() {
     winningCompetitorName,
     championPlayerName,
     unplayedMatchCount,
-    decoratedCompetitors,
   } = derived;
   const poolConfigured = data.poolConfigured !== false;
   const isYearSwitching = loading && Boolean(data) && data.snapshot?.year !== selectedYear;
@@ -993,7 +1006,7 @@ function HomePage() {
               Follow the family draw, keep tabs on every surviving pick, and see who is edging closer to taking the painting home.
             </p>
             <div className="hero-actions">
-              {poolConfigured ? <a className="admin-pill-link" href="#entrants">View entrants</a> : null}
+              {poolConfigured ? <Link className="admin-pill-link" to="/entrants">View entrants</Link> : null}
               <Link className="admin-pill-link subtle" to="/bracket">Open bracket</Link>
               <Link className="admin-pill-link subtle" to="/matches">Open matches</Link>
             </div>
@@ -1037,35 +1050,81 @@ function HomePage() {
         </article>
       </section>
 
-      <section className="toolbar-card">
-        <div className="toolbar-meta">
-          <div>
-            <p className="toolbar-label">Selected round</p>
+      {error ? <p className="status-banner error">{error}</p> : null}
+      {!poolConfigured ? (
+        <p className="status-banner">
+          The {selectedYear} tournament is not fully configured yet. Match data is still available below, and you can finish setting up the tournament from admin.
+        </p>
+      ) : null}
+
+    </main>
+  );
+}
+
+function EntrantsPage() {
+  const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
+  const [showPhotos, setShowPhotos] = useState(true);
+  const { data, loading, error, derived } = useTournamentOverview(selectedYear);
+  const [expandedCompetitors, setExpandedCompetitors] = useState({});
+
+  useEffect(() => {
+    setExpandedCompetitors({});
+  }, [data?.snapshot?.year]);
+
+  function toggleCompetitor(name) {
+    setExpandedCompetitors((current) => ({
+      ...current,
+      [name]: !(current[name] ?? true),
+    }));
+  }
+
+  if (loading && !data) {
+    return <main className="app-shell"><p className="status-banner">Loading entrants...</p></main>;
+  }
+
+  if (!data || !data.snapshot?.rounds?.length || !derived) {
+    return <main className="app-shell"><p className="status-banner error">{error || "Entrant data is unavailable."}</p></main>;
+  }
+
+  const poolConfigured = data.poolConfigured !== false;
+  const { decoratedCompetitors } = derived;
+
+  return (
+    <main className="app-shell">
+      <SiteHeader mode="entrants" poolConfigured={poolConfigured} />
+
+      <section className="bracket-hero-card">
+        <div className="bracket-hero-copy">
+          <p className="hero-kicker">Tournament standings</p>
+          <h1>{BRAND_SHORT_NAME} Entrants</h1>
+          <p className="hero-summary">
+            See every entrant, their surviving players, and their winning history without crowding the landing page.
+          </p>
+        </div>
+        <div className="bracket-toolbar">
+          <div className="bracket-control bracket-control-year">
+            <p className="toolbar-label">Year</p>
             <label className="toolbar-select-shell">
               <select
                 className="toolbar-select"
-                value={selectedRound.key}
-                onChange={(event) => setSelectedRoundKey(event.target.value)}
-                aria-label="Select round"
+                value={selectedYear}
+                onChange={(event) => setSelectedYear(Number(event.target.value))}
+                aria-label="Select tournament year"
               >
-                {snapshot.rounds.map((round) => (
-                  <option key={round.key} value={round.key}>
-                    {round.name}
+                {PUBLIC_YEAR_OPTIONS.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
                   </option>
                 ))}
               </select>
             </label>
           </div>
-          <div>
-            <p className="toolbar-label">{hasTbdEntrants ? "Qualified entrants" : "Players alive"}</p>
-            <p className="toolbar-value">{hasTbdEntrants ? qualifiedEntrantsCount : aliveEntrantsCount}</p>
+          <div className="bracket-control">
+            <span className="bracket-inline-label">Entrants</span>
+            <strong className="bracket-inline-value">{decoratedCompetitors.length}</strong>
           </div>
-          <div>
-            <p className="toolbar-label">Matches this round</p>
-            <p className="toolbar-value">{unplayedMatchCount}</p>
-          </div>
-          <div>
-            <p className="toolbar-label">Player photos</p>
+          <div className="bracket-control bracket-control-photos">
+            <span className="bracket-inline-label">Player photos</span>
             <label className="toolbar-switch">
               <input
                 type="checkbox"
@@ -1084,85 +1143,65 @@ function HomePage() {
       {error ? <p className="status-banner error">{error}</p> : null}
       {!poolConfigured ? (
         <p className="status-banner">
-          The {selectedYear} tournament is not fully configured yet. Match data is still available below, and you can finish setting up the tournament from admin.
+          The tournament is not fully configured yet. Entrant cards will appear here once assignments have been completed.
         </p>
       ) : null}
 
       {poolConfigured ? (
-        <>
-          <section className="section-heading" id="entrants">
-            <div className="collapsible-title-row">
-              <div>
-                <p className="eyebrow">Tournament standings</p>
-                <h2>Entrants</h2>
-              </div>
-              <ChevronToggle
-                expanded={competitorsSectionExpanded}
-                onToggle={() => setCompetitorsSectionExpanded((current) => !current)}
-                label="Entrants"
-                className="section-heading-toggle"
-              />
-            </div>
-          </section>
-
-          {competitorsSectionExpanded ? (
-            <section className="competitor-grid">
-              {decoratedCompetitors.map((competitor) => {
-                const liveCount = [...competitor.seeds, ...competitor.qualifiers].filter((player) => !player.eliminated).length;
-                const totalCount = competitor.seeds.length + competitor.qualifiers.length;
-                const isExpanded = expandedCompetitors[competitor.name] ?? true;
-                return (
-                  <article key={competitor.name} className="competitor-card">
-                    <div className="competitor-header">
-                      <div className="competitor-heading">
-                        <div className="collapsible-title-row">
-                          <div className="competitor-title-inline">
-                            <h2>{competitor.name}</h2>
-                            <span className="live-pill inline">{liveCount} alive</span>
-                            {(competitor.winningYears || []).length ? (
-                              <div className="competitor-crowns" aria-label={`${competitor.winningYears.length} wins`}>
-                                {competitor.winningYears.map((year) => (
-                                  <img
-                                    key={year}
-                                    className="competitor-crown"
-                                    src={crownIcon}
-                                    alt=""
-                                    aria-hidden="true"
-                                    title={`Winner ${year}`}
-                                  />
-                                ))}
-                              </div>
-                            ) : null}
+        <section className="competitor-grid">
+          {decoratedCompetitors.map((competitor) => {
+            const liveCount = [...competitor.seeds, ...competitor.qualifiers].filter((player) => !player.eliminated).length;
+            const totalCount = competitor.seeds.length + competitor.qualifiers.length;
+            const isExpanded = expandedCompetitors[competitor.name] ?? true;
+            return (
+              <article key={competitor.name} className="competitor-card">
+                <div className="competitor-header">
+                  <div className="competitor-heading">
+                    <div className="collapsible-title-row">
+                      <div className="competitor-title-inline">
+                        <h2>{competitor.name}</h2>
+                        <span className="live-pill inline">{liveCount} alive</span>
+                        {(competitor.winningYears || []).length ? (
+                          <div className="competitor-crowns" aria-label={`${competitor.winningYears.length} wins`}>
+                            {competitor.winningYears.map((year) => (
+                              <img
+                                key={year}
+                                className="competitor-crown"
+                                src={crownIcon}
+                                alt=""
+                                aria-hidden="true"
+                                title={`Winner ${year}`}
+                              />
+                            ))}
                           </div>
-                          <ChevronToggle
-                            expanded={isExpanded}
-                            onToggle={() => toggleCompetitor(competitor.name)}
-                            label={`${competitor.name} picks`}
-                          />
-                        </div>
-                        <p className="competitor-meta-copy">{totalCount} picks</p>
+                        ) : null}
                       </div>
+                      <ChevronToggle
+                        expanded={isExpanded}
+                        onToggle={() => toggleCompetitor(competitor.name)}
+                        label={`${competitor.name} picks`}
+                      />
                     </div>
-                    {isExpanded ? (
-                      <div className="pick-columns">
-                        <PickList title="Seeds" players={competitor.seeds} showPhotos={showPhotos} />
-                        <PickList title="Qualifiers" players={competitor.qualifiers} showPhotos={showPhotos} />
-                      </div>
-                    ) : (
-                      <div className="collapsed-summary">
-                        <span>{competitor.seeds.filter((player) => !player.eliminated).length} seed picks still alive</span>
-                        <span>{competitor.qualifiers.filter((player) => !player.eliminated).length} qualifier picks still alive</span>
-                        <span>{totalCount} picks assigned</span>
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
-            </section>
-          ) : null}
-        </>
+                    <p className="competitor-meta-copy">{totalCount} picks</p>
+                  </div>
+                </div>
+                {isExpanded ? (
+                  <div className="pick-columns">
+                    <PickList title="Seeds" players={competitor.seeds} showPhotos={showPhotos} />
+                    <PickList title="Qualifiers" players={competitor.qualifiers} showPhotos={showPhotos} />
+                  </div>
+                ) : (
+                  <div className="collapsed-summary">
+                    <span>{competitor.seeds.filter((player) => !player.eliminated).length} seed picks still alive</span>
+                    <span>{competitor.qualifiers.filter((player) => !player.eliminated).length} qualifier picks still alive</span>
+                    <span>{totalCount} picks assigned</span>
+                  </div>
+                )}
+              </article>
+            );
+          })}
+        </section>
       ) : null}
-
     </main>
   );
 }
@@ -2761,6 +2800,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/entrants" element={<EntrantsPage />} />
       <Route path="/matches" element={<MatchesPage />} />
       <Route path="/bracket" element={<BracketPage />} />
       <Route path="/winners" element={<WinnersPage />} />
