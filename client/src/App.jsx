@@ -1091,9 +1091,6 @@ function HomePage() {
                 </select>
               </label>
             </h1>
-            <p className="hero-summary">
-              Follow the family draw, keep tabs on every surviving pick, and see who is edging closer to taking the painting home.
-            </p>
             <div className="hero-actions">
               {poolConfigured ? <Link className="admin-pill-link" to="/entrants">View entrants</Link> : null}
               <Link className="admin-pill-link subtle" to="/bracket">Open bracket</Link>
@@ -1188,9 +1185,6 @@ function EntrantsPage() {
         <div className="bracket-hero-copy">
           <p className="hero-kicker">Tournament standings</p>
           <h1>{BRAND_SHORT_NAME} Entrants</h1>
-          <p className="hero-summary">
-            See every entrant, their surviving players, and their winning history without crowding the landing page.
-          </p>
         </div>
         <div className="entrants-hero-tools">
           <div className="matches-settings-shell entrants-settings-shell">
@@ -1466,9 +1460,6 @@ function MatchesPage() {
         <div className="bracket-hero-copy">
           <p className="hero-kicker">Round-by-round match centre</p>
           <h1>{BRAND_SHORT_NAME} Matches</h1>
-          <p className="hero-summary">
-            Follow every scheduled and in-play match on its own page without crowding the tournament overview.
-          </p>
         </div>
         <div className="matches-hero-tools">
           <div className="matches-settings-shell">
@@ -1800,9 +1791,6 @@ function BracketPage() {
         <div className="bracket-hero-copy">
           <p className="hero-kicker">Entrant bracket</p>
           <h1>{BRAND_SHORT_NAME} Bracket</h1>
-          <p className="hero-summary">
-            Follow every entrant path through the live draw at a glance.
-          </p>
           <p className="bracket-hero-note">
             {lastUpdatedAt
               ? `Updated ${lastUpdatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
