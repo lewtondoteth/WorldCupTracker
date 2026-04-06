@@ -1232,6 +1232,145 @@
   width: min(100%, 560px);
 }
 
+.matches-toolbar-top {
+  width: min(100%, 520px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    "year round"
+    "live photos";
+}
+
+.matches-toolbar-control {
+  min-width: 0;
+}
+
+.matches-toolbar-top .bracket-control-year {
+  grid-area: year;
+}
+
+.matches-toolbar-stat {
+  grid-area: live;
+}
+
+.matches-toolbar-photos {
+  grid-area: photos;
+}
+
+.matches-toolbar-top .toolbar-switch {
+  min-height: 42px;
+}
+
+.matches-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.matches-filter-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 88, 61, 0.16);
+  background: linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(244, 237, 223, 0.92));
+  box-shadow: 0 12px 26px rgba(56, 52, 37, 0.08);
+  color: #23473a;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.matches-filter-button strong {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #0f5b3d;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.matches-filter-button.open {
+  border-color: rgba(23, 88, 61, 0.26);
+  box-shadow:
+    0 16px 32px rgba(56, 52, 37, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.matches-filter-icon {
+  display: inline-grid;
+  gap: 4px;
+  width: 16px;
+  flex: 0 0 auto;
+}
+
+.matches-filter-icon span {
+  display: block;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.matches-filter-icon span:nth-child(1) {
+  width: 100%;
+}
+
+.matches-filter-icon span:nth-child(2) {
+  width: 70%;
+}
+
+.matches-filter-icon span:nth-child(3) {
+  width: 42%;
+}
+
+.matches-filter-panel {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 320px);
+  margin: -2px 0 18px auto;
+  padding: 16px;
+  border: 1px solid rgba(23, 88, 61, 0.12);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(202, 169, 84, 0.16), transparent 32%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(247, 241, 227, 0.94));
+  box-shadow: 0 22px 44px rgba(56, 52, 37, 0.09);
+}
+
+.matches-filter-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.matches-filter-panel-header .eyebrow {
+  margin: 0;
+}
+
+.matches-filter-clear {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 88, 61, 0.12);
+  background: rgba(255, 255, 255, 0.74);
+  color: #315547;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.matches-filter-select-shell {
+  width: 100%;
+}
+
 .bracket-control {
   display: flex;
   flex-direction: column;
@@ -2243,6 +2382,10 @@
     grid-template-columns: 1fr;
   }
 
+  .matches-toolbar-top {
+    width: 100%;
+  }
+
   .bracket-control {
     min-height: 0;
   }
@@ -2361,9 +2504,67 @@
     grid-template-columns: 1fr;
   }
 
+  .matches-toolbar-top {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "year round"
+      "live photos";
+    gap: 8px;
+  }
+
   .bracket-control,
   .bracket-control-year {
     min-width: 0;
+  }
+
+  .matches-toolbar-top .bracket-control {
+    min-height: 0;
+    padding: 10px 12px;
+    border-radius: 16px;
+    gap: 5px;
+  }
+
+  .matches-toolbar-top .toolbar-label,
+  .matches-toolbar-top .bracket-inline-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+  }
+
+  .matches-toolbar-top .toolbar-select {
+    padding: 9px 34px 9px 12px;
+    font-size: 0.95rem;
+  }
+
+  .matches-toolbar-top .toolbar-switch {
+    gap: 8px;
+  }
+
+  .matches-toolbar-top .toolbar-switch-track {
+    width: 48px;
+    height: 28px;
+  }
+
+  .matches-toolbar-top .toolbar-switch-thumb {
+    width: 20px;
+    height: 20px;
+  }
+
+  .matches-toolbar-top .toolbar-switch input:checked + .toolbar-switch-track .toolbar-switch-thumb {
+    transform: translateX(20px);
+  }
+
+  .matches-toolbar-top .bracket-inline-value {
+    font-size: 1rem;
+  }
+
+  .matches-heading-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .matches-filter-panel {
+    width: 100%;
+    margin: -2px 0 16px;
   }
 
   .winners-hero-card {
@@ -2740,6 +2941,20 @@
 
   .summary-strip {
     grid-template-columns: 1fr;
+  }
+
+  .matches-toolbar-top {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "year"
+      "round"
+      "live"
+      "photos";
+  }
+
+  .matches-filter-button {
+    width: 100%;
+    justify-content: center;
   }
 
   .toolbar-meta > div,

@@ -1210,6 +1210,8 @@ function MatchesPage() {
   const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
   const { data, loading, error } = usePublicTournamentData(selectedYear);
   const [selectedRoundKey, setSelectedRoundKey] = useState("");
+  const [selectedEntrantFilter, setSelectedEntrantFilter] = useState("all");
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [showPhotos, setShowPhotos] = useState(true);
   const autoSelectedRoundYearRef = useRef(null);
 
@@ -1228,6 +1230,25 @@ function MatchesPage() {
     }
   }, [data, selectedRoundKey]);
 
+  const ownershipByPlayerId = useMemo(
+    () => buildOwnershipMap(data?.competitors || []),
+    [data?.competitors],
+  );
+  const entrantOptions = useMemo(
+    () => [...new Set(
+      Array.from(ownershipByPlayerId.values())
+        .map((owner) => owner?.entrantName || "")
+        .filter(Boolean),
+    )].sort((left, right) => left.localeCompare(right)),
+    [ownershipByPlayerId],
+  );
+
+  useEffect(() => {
+    if (selectedEntrantFilter !== "all" && !entrantOptions.includes(selectedEntrantFilter)) {
+      setSelectedEntrantFilter("all");
+    }
+  }, [entrantOptions, selectedEntrantFilter]);
+
   if (loading && !data) {
     return <main className="app-shell"><p className="status-banner">Loading matches...</p></main>;
   }
@@ -1243,7 +1264,15 @@ function MatchesPage() {
     ? unresolvedScheduledMatches
     : (selectedRound.matchCount || 0);
   const poolConfigured = data.poolConfigured !== false;
-  const ownershipByPlayerId = buildOwnershipMap(data.competitors || []);
+  const filteredMatches = selectedRound.matches.filter((match) => {
+    if (selectedEntrantFilter === "all") {
+      return true;
+    }
+
+    const playerOneOwner = ownershipByPlayerId.get(match.player1.id)?.entrantName || "";
+    const playerTwoOwner = ownershipByPlayerId.get(match.player2.id)?.entrantName || "";
+    return playerOneOwner === selectedEntrantFilter || playerTwoOwner === selectedEntrantFilter;
+  });
 
   return (
     <main className="app-shell">
@@ -1257,7 +1286,7 @@ function MatchesPage() {
             Follow every scheduled and in-play match on its own page without crowding the tournament overview.
           </p>
         </div>
-        <div className="bracket-toolbar">
+        <div className="bracket-toolbar matches-toolbar-top">
           <div className="bracket-control bracket-control-year">
             <p className="toolbar-label">Year</p>
             <label className="toolbar-select-shell">
@@ -1275,7 +1304,7 @@ function MatchesPage() {
               </select>
             </label>
           </div>
-          <div className="bracket-control">
+          <div className="bracket-control matches-toolbar-control">
             <p className="toolbar-label">Round</p>
             <label className="toolbar-select-shell">
               <select
@@ -1292,11 +1321,13 @@ function MatchesPage() {
               </select>
             </label>
           </div>
-          <div className="bracket-control">
+          <div className="bracket-control matches-toolbar-control matches-toolbar-stat">
             <span className="bracket-inline-label">Live matches</span>
-            <strong className="bracket-inline-value">{unplayedMatchCount}</strong>
+            <strong className="bracket-inline-value">
+              {selectedEntrantFilter === "all" ? unplayedMatchCount : filteredMatches.length}
+            </strong>
           </div>
-          <div className="bracket-control">
+          <div className="bracket-control matches-toolbar-control matches-toolbar-photos">
             <span className="bracket-inline-label">Player photos</span>
             <label className="toolbar-switch">
               <input
@@ -1325,11 +1356,64 @@ function MatchesPage() {
           <p className="eyebrow">Matches</p>
           <h2>{selectedRound.name}</h2>
         </div>
+        <div className="matches-heading-actions">
+          <button
+            type="button"
+            className={`matches-filter-button${filterMenuOpen ? " open" : ""}`}
+            onClick={() => setFilterMenuOpen((current) => !current)}
+            aria-expanded={filterMenuOpen}
+            aria-controls="matches-filter-panel"
+          >
+            <span className="matches-filter-icon" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+            <span>Filter</span>
+            {selectedEntrantFilter !== "all" ? <strong>{selectedEntrantFilter}</strong> : null}
+          </button>
+        </div>
       </section>
 
+      {filterMenuOpen ? (
+        <section id="matches-filter-panel" className="matches-filter-panel">
+          <div className="matches-filter-panel-header">
+            <p className="eyebrow">Filter Matches</p>
+            <button
+              type="button"
+              className="matches-filter-clear"
+              onClick={() => {
+                setSelectedEntrantFilter("all");
+                setFilterMenuOpen(false);
+              }}
+            >
+              Clear
+            </button>
+          </div>
+          <label className="toolbar-select-shell matches-filter-select-shell">
+            <select
+              className="toolbar-select"
+              value={selectedEntrantFilter}
+              onChange={(event) => {
+                setSelectedEntrantFilter(event.target.value);
+                setFilterMenuOpen(false);
+              }}
+              aria-label="Filter matches by entrant"
+            >
+              <option value="all">All entrants</option>
+              {entrantOptions.map((entrantName) => (
+                <option key={entrantName} value={entrantName}>
+                  {entrantName}
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
+      ) : null}
+
       <section className="matches-grid">
-        {selectedRound.matches.length ? (
-          selectedRound.matches.map((match) => (
+        {filteredMatches.length ? (
+          filteredMatches.map((match) => (
             <MatchCard
               key={match.id}
               match={match}
@@ -1341,10 +1425,12 @@ function MatchesPage() {
           <article className="match-card empty-round-card">
             <div className="match-meta">
               <span>{selectedRound.name}</span>
-              <span>Not populated yet</span>
+              <span>{selectedEntrantFilter === "all" ? "Not populated yet" : "No matches for entrant"}</span>
             </div>
             <p className="empty-round-copy">
-              This round has not been populated with match data yet, so players who are still alive are shown as waiting for the round to begin.
+              {selectedEntrantFilter === "all"
+                ? "This round has not been populated with match data yet, so players who are still alive are shown as waiting for the round to begin."
+                : `No matches in ${selectedRound.name} currently involve ${selectedEntrantFilter}.`}
             </p>
           </article>
         )}
