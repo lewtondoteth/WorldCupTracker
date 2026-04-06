@@ -23,10 +23,35 @@ const MATCHES_ROUND_SESSION_KEY = "snooker-public-matches-round";
 const MATCHES_ENTRANT_FILTERS_SESSION_KEY = "snooker-public-matches-entrant-filters";
 const MATCHES_PLAYER_FILTERS_SESSION_KEY = "snooker-public-matches-player-filters";
 const MATCHES_COUNTRY_FILTERS_SESSION_KEY = "snooker-public-matches-country-filters";
+const PLAYER_OVERRIDE_FIELDS = [
+  "nickname",
+  "nationality",
+  "born",
+  "photo",
+  "twitter",
+  "websiteUrl",
+  "info",
+  "photoSource",
+];
 
 function createEntrantId() {
   return globalThis.crypto?.randomUUID?.()
     ?? `entrant-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalisePlayerOverrideDraft(override) {
+  const playerId = Number(override?.playerId);
+  if (!Number.isInteger(playerId) || playerId <= 0) {
+    return null;
+  }
+
+  const next = { playerId };
+  for (const field of PLAYER_OVERRIDE_FIELDS) {
+    next[field] = typeof override?.[field] === "string" ? override[field] : "";
+  }
+
+  const hasValue = PLAYER_OVERRIDE_FIELDS.some((field) => next[field].trim());
+  return hasValue ? next : null;
 }
 
 function useSessionState(key, initialValue) {
@@ -176,6 +201,29 @@ async function saveEntrants(payload) {
     body: JSON.stringify(payload),
   });
   return readJsonResponse(response, "Failed to save entrants");
+}
+
+async function fetchPlayerOverrides() {
+  const response = await fetch(`${API_BASE}/api/player-overrides`);
+  return readJsonResponse(response, "Failed to load player overrides");
+}
+
+async function savePlayerOverride(playerId, payload) {
+  const response = await fetch(`${API_BASE}/api/player-overrides/${playerId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return readJsonResponse(response, "Failed to save player override");
+}
+
+async function deletePlayerOverride(playerId) {
+  const response = await fetch(`${API_BASE}/api/player-overrides/${playerId}`, {
+    method: "DELETE",
+  });
+  return readJsonResponse(response, "Failed to clear player override");
 }
 
 const NATIONALITY_FLAGS = {
@@ -696,6 +744,7 @@ function PlayerBioDialog({ player, onClose }) {
           </div>
         </div>
         <div className="player-bio-grid">
+          {player.nickname ? <div><span>Nickname</span><strong>{player.nickname}</strong></div> : null}
           {age !== null ? <div><span>Age</span><strong>{age}</strong></div> : null}
           {bornLabel ? <div><span>Born</span><strong>{bornLabel}</strong></div> : null}
           {careerLabel ? <div><span>Pro seasons</span><strong>{careerLabel}</strong></div> : null}
@@ -2189,12 +2238,18 @@ function AdminPage() {
   const [autoAssigning, setAutoAssigning] = useState(false);
   const [entrantsLoading, setEntrantsLoading] = useState(false);
   const [savingEntrants, setSavingEntrants] = useState(false);
+  const [playerOverridesLoading, setPlayerOverridesLoading] = useState(false);
+  const [savingPlayerOverrides, setSavingPlayerOverrides] = useState(false);
   const [status, setStatus] = useState("Build the current year's tournament by dragging players into each entrant, then save it.");
   const [error, setError] = useState("");
+  const [playerOverrideStatus, setPlayerOverrideStatus] = useState("");
   const [builder, setBuilder] = useState(null);
   const [entrantRegistry, setEntrantRegistry] = useState([]);
+  const [playerOverrides, setPlayerOverrides] = useState([]);
   const [selectedRegistryEntrantId, setSelectedRegistryEntrantId] = useState("");
   const [newEntrantName, setNewEntrantName] = useState("");
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [selectedPlayerOverrideId, setSelectedPlayerOverrideId] = useState("");
   const [showAutoAssignConfirm, setShowAutoAssignConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [autoAssignTargets, setAutoAssignTargets] = useState({});
@@ -2234,9 +2289,23 @@ function AdminPage() {
     }
   }
 
+  async function loadPlayerOverrides() {
+    try {
+      setPlayerOverridesLoading(true);
+      setError("");
+      const data = await fetchPlayerOverrides();
+      setPlayerOverrides(data.overrides || []);
+    } catch (loadError) {
+      setError(loadError.message || "Failed to load player overrides.");
+    } finally {
+      setPlayerOverridesLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (authenticated) {
       loadEntrants();
+      loadPlayerOverrides();
     }
   }, [authenticated]);
 
@@ -2369,6 +2438,51 @@ function AdminPage() {
       availableQualifiers: builder.snapshot.qualifiers.filter((player) => !assignedIds.has(player.id)),
     };
   }, [builder, entrantRegistry]);
+
+  const availablePlayersForOverrides = useMemo(() => (
+    (builder?.snapshot?.entrants || [])
+      .filter((entry) => !entry.isPlaceholder)
+      .slice()
+      .sort((left, right) => left.name.localeCompare(right.name))
+  ), [builder]);
+
+  const filteredPlayersForOverrides = useMemo(() => {
+    const searchTerm = playerSearch.trim().toLowerCase();
+    if (!searchTerm) {
+      return availablePlayersForOverrides;
+    }
+
+    return availablePlayersForOverrides.filter((player) => (
+      player.name.toLowerCase().includes(searchTerm)
+      || String(player.nationality || "").toLowerCase().includes(searchTerm)
+    ));
+  }, [availablePlayersForOverrides, playerSearch]);
+
+  const playerOverridesById = useMemo(() => new Map(
+    playerOverrides.map((override) => [Number(override.playerId), override]),
+  ), [playerOverrides]);
+
+  const selectedOverridePlayer = useMemo(() => {
+    const selectedId = Number(selectedPlayerOverrideId);
+    return filteredPlayersForOverrides.find((player) => player.id === selectedId) || null;
+  }, [filteredPlayersForOverrides, selectedPlayerOverrideId]);
+
+  const selectedPlayerOverride = selectedOverridePlayer
+    ? playerOverridesById.get(selectedOverridePlayer.id) || null
+    : null;
+
+  useEffect(() => {
+    if (!filteredPlayersForOverrides.length) {
+      setSelectedPlayerOverrideId("");
+      return;
+    }
+
+    const selectedId = Number(selectedPlayerOverrideId);
+    const stillVisible = filteredPlayersForOverrides.some((player) => player.id === selectedId);
+    if (!stillVisible) {
+      setSelectedPlayerOverrideId(String(filteredPlayersForOverrides[0].id));
+    }
+  }, [filteredPlayersForOverrides, selectedPlayerOverrideId]);
 
   const autoAssignDerived = useMemo(() => {
     if (!builder?.snapshot || !builderDerived?.competitors?.length) {
@@ -2603,6 +2717,75 @@ function AdminPage() {
     )));
   }
 
+  function handlePlayerOverrideFieldChange(playerId, field, value) {
+    setPlayerOverrideStatus("");
+    setPlayerOverrides((current) => {
+      const next = new Map(current.map((override) => [Number(override.playerId), {
+        ...override,
+        playerId: Number(override.playerId),
+      }]));
+      const existing = next.get(playerId) || { playerId };
+      const candidate = normalisePlayerOverrideDraft({
+        ...existing,
+        [field]: value,
+      });
+
+      if (candidate) {
+        next.set(playerId, candidate);
+      } else {
+        next.delete(playerId);
+      }
+
+      return Array.from(next.values()).sort((left, right) => left.playerId - right.playerId);
+    });
+  }
+
+  async function handleClearSelectedPlayerOverride() {
+    if (!selectedOverridePlayer) {
+      return;
+    }
+
+    try {
+      setSavingPlayerOverrides(true);
+      setError("");
+      const response = await deletePlayerOverride(selectedOverridePlayer.id);
+      setPlayerOverrides(response.overrides || []);
+      setPlayerOverrideStatus(`Cleared overrides for ${selectedOverridePlayer.name}.`);
+    } catch (saveError) {
+      setError(saveError.message || "The player override could not be cleared.");
+    } finally {
+      setSavingPlayerOverrides(false);
+    }
+  }
+
+  async function handleSavePlayerOverride() {
+    if (!selectedOverridePlayer) {
+      return;
+    }
+
+    try {
+      setSavingPlayerOverrides(true);
+      setError("");
+      const candidate = normalisePlayerOverrideDraft({
+        playerId: selectedOverridePlayer.id,
+        ...(selectedPlayerOverride || {}),
+      });
+      const response = candidate
+        ? await savePlayerOverride(selectedOverridePlayer.id, candidate)
+        : await deletePlayerOverride(selectedOverridePlayer.id);
+      setPlayerOverrides(response.overrides || []);
+      setPlayerOverrideStatus(
+        candidate
+          ? `Saved overrides for ${selectedOverridePlayer.name}.`
+          : `Cleared overrides for ${selectedOverridePlayer.name}.`,
+      );
+    } catch (saveError) {
+      setError(saveError.message || "The player override could not be saved.");
+    } finally {
+      setSavingPlayerOverrides(false);
+    }
+  }
+
   function movePlayer(playerId, sourceBucket, target) {
     setBuilder((current) => {
       if (!current?.snapshot) {
@@ -2782,6 +2965,18 @@ function AdminPage() {
     }
   }
 
+  function handleAdminYearChange(nextYear) {
+    setSelectedAdminYear(nextYear);
+    setError("");
+    setPlayerOverrideStatus("");
+  }
+
+  const adminLoadingNotice = builderLoading
+    ? (adminView === "players"
+      ? `Loading player data for ${selectedAdminYear}...`
+      : `Loading tournament data for ${selectedAdminYear}...`)
+    : "";
+
   if (!authenticated) {
     return (
       <main className="app-shell admin-shell">
@@ -2838,9 +3033,16 @@ function AdminPage() {
           >
             Entrants
           </button>
+          <button
+            type="button"
+            className={adminView === "players" ? "admin-menu-button active" : "admin-menu-button"}
+            onClick={() => setAdminView("players")}
+          >
+            Players
+          </button>
         </div>
 
-        <div className={adminView === "builder" ? "admin-builder-toolbar" : "admin-builder-toolbar entrants-view"}>
+        <div className={`admin-builder-toolbar${adminView === "entrants" ? " entrants-view" : ""}${adminView === "players" ? " players-view" : ""}`}>
           {adminView === "builder" ? (
             <>
               <div className="admin-stat-card">
@@ -2849,7 +3051,7 @@ function AdminPage() {
                   <select
                     className="toolbar-select"
                     value={selectedAdminYear}
-                    onChange={(event) => setSelectedAdminYear(Number(event.target.value))}
+                    onChange={(event) => handleAdminYearChange(Number(event.target.value))}
                     aria-label="Select admin year"
                   >
                     {ADMIN_YEAR_OPTIONS.map((year) => (
@@ -2877,7 +3079,7 @@ function AdminPage() {
                 <p className="toolbar-value">{entrantRegistry.reduce((count, entrant) => count + (entrant.winningYears?.length || 0), 0)}</p>
               </div>
             </>
-          ) : (
+          ) : adminView === "entrants" ? (
             <>
               <div className="admin-stat-card">
                 <p className="toolbar-label">Total entrants</p>
@@ -2898,10 +3100,43 @@ function AdminPage() {
                 </p>
               </div>
             </>
+          ) : (
+            <>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Player year</p>
+                <label className="toolbar-select-shell admin-select-shell">
+                  <select
+                    className="toolbar-select"
+                    value={selectedAdminYear}
+                    onChange={(event) => handleAdminYearChange(Number(event.target.value))}
+                    aria-label="Select player year"
+                  >
+                    {ADMIN_YEAR_OPTIONS.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Players in field</p>
+                <p className="toolbar-value">{availablePlayersForOverrides.length}</p>
+              </div>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Custom bios</p>
+                <p className="toolbar-value">{playerOverrides.filter((override) => String(override.info || "").trim()).length}</p>
+              </div>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Custom photos</p>
+                <p className="toolbar-value">{playerOverrides.filter((override) => String(override.photo || "").trim()).length}</p>
+              </div>
+            </>
           )}
         </div>
 
         {error ? <p className="status-banner error">{error}</p> : null}
+        {adminLoadingNotice ? <p className="status-banner" aria-live="polite">{adminLoadingNotice}</p> : null}
         {adminView === "builder" ? <p className="status-banner">{status}</p> : null}
 
         {adminView === "builder" ? (
@@ -3165,7 +3400,7 @@ function AdminPage() {
             </div>
           ) : null}
         </section>
-        ) : (
+        ) : adminView === "entrants" ? (
         <section className="admin-builder-panel">
           <div className="admin-builder-header">
             <div>
@@ -3261,6 +3496,188 @@ function AdminPage() {
                   </div>
                 </article>
               ))}
+            </div>
+          )}
+        </section>
+        ) : (
+        <section className="admin-builder-panel">
+          <div className="admin-builder-header">
+            <div>
+              <p className="eyebrow">Player Overrides</p>
+              <h2>Override player bios, links, and photos</h2>
+              <p className="admin-copy">Leave any field blank to fall back to snooker.org. Saved overrides are used everywhere that player appears.</p>
+            </div>
+            <div className="admin-actions">
+              <button type="button" className="admin-secondary-button" onClick={loadPlayerOverrides} disabled={playerOverridesLoading}>
+                {playerOverridesLoading ? "Refreshing..." : "Refresh overrides"}
+              </button>
+            </div>
+          </div>
+
+          {playerOverrideStatus ? <p className="status-banner">{playerOverrideStatus}</p> : null}
+
+          {builderLoading ? (
+            <p className="admin-copy">Loading players for {selectedAdminYear}...</p>
+          ) : (
+            <div className="admin-player-overrides-layout">
+              <aside className="admin-player-directory">
+                <label className="admin-field" htmlFor="player-override-search">Find player</label>
+                <input
+                  id="player-override-search"
+                  className="admin-competitor-input"
+                  value={playerSearch}
+                  onChange={(event) => setPlayerSearch(event.target.value)}
+                  placeholder="Search by name or country"
+                />
+                <div className="admin-player-directory-list">
+                  {filteredPlayersForOverrides.length ? (
+                    filteredPlayersForOverrides.map((player) => (
+                      <button
+                        key={player.id}
+                        type="button"
+                        className={selectedOverridePlayer?.id === player.id ? "admin-player-directory-item active" : "admin-player-directory-item"}
+                        onClick={() => setSelectedPlayerOverrideId(String(player.id))}
+                      >
+                        <strong>{player.name}</strong>
+                        <span>{player.nationality || "Unknown nationality"}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="admin-empty-copy">No players match that search.</p>
+                  )}
+                </div>
+              </aside>
+
+              <section className="admin-player-override-editor">
+                {selectedOverridePlayer ? (
+                  <>
+                    <div className="admin-player-override-header">
+                      {selectedPlayerOverride?.photo || selectedOverridePlayer.photo ? (
+                        <img
+                          className="admin-player-override-photo"
+                          src={selectedPlayerOverride?.photo || selectedOverridePlayer.photo}
+                          alt=""
+                        />
+                      ) : (
+                        <div className="admin-player-override-photo fallback" aria-hidden="true">
+                          {selectedOverridePlayer.name.slice(0, 1)}
+                        </div>
+                      )}
+                      <div>
+                        <h3>{selectedOverridePlayer.name}</h3>
+                        <p className="admin-copy">
+                          {selectedPlayerOverride?.nationality || selectedOverridePlayer.nationality || "Unknown nationality"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="admin-submit admin-player-save-button"
+                        onClick={handleSavePlayerOverride}
+                        disabled={savingPlayerOverrides || playerOverridesLoading}
+                      >
+                        {savingPlayerOverrides ? "Saving..." : "Save player"}
+                      </button>
+                    </div>
+
+                    <div className="admin-player-override-grid">
+                      <div>
+                        <label className="admin-field" htmlFor="player-override-nickname">Nickname</label>
+                        <input
+                          id="player-override-nickname"
+                          className="admin-competitor-input"
+                          value={selectedPlayerOverride?.nickname || ""}
+                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "nickname", event.target.value)}
+                          placeholder="Only shown when set here"
+                        />
+                      </div>
+                      <div>
+                        <label className="admin-field" htmlFor="player-override-photo">Image URL</label>
+                        <input
+                          id="player-override-photo"
+                          className="admin-competitor-input"
+                          value={selectedPlayerOverride?.photo || ""}
+                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "photo", event.target.value)}
+                          placeholder={selectedOverridePlayer.photo || "Leave blank to use API image"}
+                        />
+                      </div>
+                      <div>
+                        <label className="admin-field" htmlFor="player-override-url">Profile URL</label>
+                        <input
+                          id="player-override-url"
+                          className="admin-competitor-input"
+                          value={selectedPlayerOverride?.websiteUrl || ""}
+                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "websiteUrl", event.target.value)}
+                          placeholder={selectedOverridePlayer.websiteUrl || "Leave blank to use API link"}
+                        />
+                      </div>
+                      <div>
+                        <label className="admin-field" htmlFor="player-override-twitter">Twitter/X</label>
+                        <input
+                          id="player-override-twitter"
+                          className="admin-competitor-input"
+                          value={selectedPlayerOverride?.twitter || ""}
+                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "twitter", event.target.value)}
+                          placeholder={selectedOverridePlayer.twitter || "Leave blank to use API handle"}
+                        />
+                      </div>
+                      <div>
+                        <label className="admin-field" htmlFor="player-override-photo-source">Photo source</label>
+                        <input
+                          id="player-override-photo-source"
+                          className="admin-competitor-input"
+                          value={selectedPlayerOverride?.photoSource || ""}
+                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "photoSource", event.target.value)}
+                          placeholder={selectedOverridePlayer.photoSource || "Optional"}
+                        />
+                      </div>
+                      <div>
+                        <label className="admin-field" htmlFor="player-override-nationality">Nationality</label>
+                        <input
+                          id="player-override-nationality"
+                          className="admin-competitor-input"
+                          value={selectedPlayerOverride?.nationality || ""}
+                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "nationality", event.target.value)}
+                          placeholder={selectedOverridePlayer.nationality || "Leave blank to use API nationality"}
+                        />
+                      </div>
+                      <div>
+                        <label className="admin-field" htmlFor="player-override-born">Born</label>
+                        <input
+                          id="player-override-born"
+                          className="admin-competitor-input"
+                          value={selectedPlayerOverride?.born || ""}
+                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "born", event.target.value)}
+                          placeholder={selectedOverridePlayer.born || "YYYY-MM-DD"}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="admin-player-override-field">
+                      <label className="admin-field" htmlFor="player-override-info">Admin info override</label>
+                      <textarea
+                        id="player-override-info"
+                        className="admin-player-override-textarea"
+                        value={selectedPlayerOverride?.info || ""}
+                        onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "info", event.target.value)}
+                        placeholder={selectedOverridePlayer.info || "Write the admin-controlled bio text here"}
+                      />
+                    </div>
+
+                    <div className="admin-actions">
+                      <button
+                        type="button"
+                        className="admin-secondary-button"
+                        onClick={handleClearSelectedPlayerOverride}
+                        disabled={savingPlayerOverrides}
+                      >
+                        Clear this player override
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="admin-copy">Choose a player from the list to edit their override data.</p>
+                )}
+              </section>
             </div>
           )}
         </section>

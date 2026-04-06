@@ -11,6 +11,7 @@ const BUNDLED_POOL_DIR = path.join(BUNDLED_DATA_DIR, "pools");
 const STATIC_DIR = path.join(BUNDLED_DATA_DIR, "static");
 const ENTRANT_REGISTRY_PATH = path.join(MUTABLE_DATA_DIR, "entrants.json");
 const BUNDLED_ENTRANT_REGISTRY_PATH = path.join(BUNDLED_DATA_DIR, "entrants.json");
+const PLAYER_OVERRIDES_PATH = path.join(MUTABLE_DATA_DIR, "player-overrides.json");
 
 export function getPoolFilePath(year) {
   return path.join(POOL_DIR, `world-championship-${year}.json`);
@@ -97,4 +98,16 @@ export async function readEntrantRegistry() {
 export async function writeEntrantRegistry(entrants) {
   await writeJson(ENTRANT_REGISTRY_PATH, { entrants });
   return ENTRANT_REGISTRY_PATH;
+}
+
+export async function readPlayerOverrides() {
+  const data = await seedFromBundledFileIfMissing(PLAYER_OVERRIDES_PATH, PLAYER_OVERRIDES_PATH, {
+    overrides: [],
+  });
+  return Array.isArray(data?.overrides) ? data.overrides : [];
+}
+
+export async function writePlayerOverrides(overrides) {
+  await writeJson(PLAYER_OVERRIDES_PATH, { overrides });
+  return PLAYER_OVERRIDES_PATH;
 }

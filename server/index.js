@@ -9,8 +9,10 @@ import { runtimeConfig } from "./env.mjs";
 import {
   getStaticSnapshotPath,
   readEntrantRegistry,
+  readPlayerOverrides,
   readPoolFileOptional,
   writeEntrantRegistry,
+  writePlayerOverrides,
   writePoolFile,
 } from "./storage.mjs";
 
@@ -355,14 +357,16 @@ async function writeStaticSnapshot(year, snapshot) {
 }
 
 async function getTournamentSnapshot(year) {
+  const playerOverrides = await readPlayerOverrides();
+
   if (!LIVE_TOURNAMENT_DATA) {
     try {
       const fallback = await readStaticSnapshot(year);
-      return {
+      return applyPlayerOverridesToSnapshot({
         ...fallback,
         dataSource: "static",
         liveError: null,
-      };
+      }, playerOverrides);
     } catch (error) {
       return buildEmptyTournamentSnapshot(year, String(error.message || error));
     }
@@ -375,14 +379,14 @@ async function getTournamentSnapshot(year) {
     } catch (writeError) {
       console.error("[writeStaticSnapshot] error:", writeError);
     }
-    return liveSnapshot;
+    return applyPlayerOverridesToSnapshot(liveSnapshot, playerOverrides);
   } catch (error) {
     try {
       const fallback = await readStaticSnapshot(year);
-      return {
+      return applyPlayerOverridesToSnapshot({
         ...fallback,
         liveError: String(error.message || error),
-      };
+      }, playerOverrides);
     } catch (fallbackError) {
       return buildEmptyTournamentSnapshot(
         year,
@@ -417,6 +421,105 @@ function normaliseWinningYears(years, label = "Winning years") {
   }
 
   return [...parsed].sort((left, right) => left - right);
+}
+
+function normalisePlayerOverrideText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalisePlayerOverrides(overrides) {
+  if (!Array.isArray(overrides)) {
+    throw new Error("Player overrides must be an array");
+  }
+
+  const seenIds = new Set();
+
+  return overrides.flatMap((override, index) => {
+    const playerId = Number(override?.playerId);
+    if (!Number.isInteger(playerId) || playerId <= 0) {
+      throw new Error(`Player override ${index + 1} needs a valid player id`);
+    }
+    if (seenIds.has(playerId)) {
+      throw new Error(`Duplicate player override found for player ${playerId}`);
+    }
+    seenIds.add(playerId);
+
+    const entry = {
+      playerId,
+      nickname: normalisePlayerOverrideText(override?.nickname),
+      nationality: normalisePlayerOverrideText(override?.nationality),
+      born: normalisePlayerOverrideText(override?.born),
+      photo: normalisePlayerOverrideText(override?.photo),
+      twitter: normalisePlayerOverrideText(override?.twitter),
+      websiteUrl: normalisePlayerOverrideText(override?.websiteUrl),
+      info: normalisePlayerOverrideText(override?.info),
+      photoSource: normalisePlayerOverrideText(override?.photoSource),
+    };
+
+    const hasOverride = Object.entries(entry).some(([key, value]) => key !== "playerId" && value);
+    return hasOverride ? [entry] : [];
+  });
+}
+
+function mergePlayerOverride(player, override) {
+  if (!player || !override) {
+    return player;
+  }
+
+  return {
+    ...player,
+    nickname: override.nickname || player.nickname || "",
+    nationality: override.nationality || player.nationality || "",
+    born: override.born || player.born || "",
+    photo: override.photo || player.photo || "",
+    twitter: override.twitter || player.twitter || "",
+    websiteUrl: override.websiteUrl || player.websiteUrl || "",
+    info: override.info || player.info || "",
+    photoSource: override.photoSource || player.photoSource || "",
+  };
+}
+
+function mergePlayerOverrideIntoMatchSide(side, entrantsById, overridesById) {
+  const entrantVersion = entrantsById.get(Number(side?.id));
+  if (entrantVersion) {
+    return {
+      ...entrantVersion,
+      seedNumber: side.seedNumber ?? entrantVersion.seedNumber ?? null,
+      isSeed: side.isSeed ?? entrantVersion.isSeed ?? false,
+      score: Number(side.score) || 0,
+    };
+  }
+
+  return mergePlayerOverride(side, overridesById.get(Number(side?.id)));
+}
+
+function applyPlayerOverridesToSnapshot(snapshot, playerOverrides) {
+  if (!snapshot || !Array.isArray(snapshot.entrants)) {
+    return snapshot;
+  }
+
+  const overridesById = new Map(playerOverrides.map((override) => [override.playerId, override]));
+  if (!overridesById.size) {
+    return snapshot;
+  }
+
+  const entrants = snapshot.entrants.map((entry) => mergePlayerOverride(entry, overridesById.get(Number(entry.id))));
+  const entrantsById = new Map(entrants.map((entry) => [entry.id, entry]));
+
+  return {
+    ...snapshot,
+    entrants,
+    seeds: entrants.filter((entry) => entry.isSeed && !entry.isPlaceholder),
+    qualifiers: entrants.filter((entry) => !entry.isSeed && !entry.isPlaceholder),
+    rounds: (snapshot.rounds || []).map((round) => ({
+      ...round,
+      matches: (round.matches || []).map((match) => ({
+        ...match,
+        player1: mergePlayerOverrideIntoMatchSide(match.player1, entrantsById, overridesById),
+        player2: mergePlayerOverrideIntoMatchSide(match.player2, entrantsById, overridesById),
+      })),
+    })),
+  };
 }
 
 function normaliseEntrantRegistry(entrants) {
@@ -718,6 +821,15 @@ app.get("/api/entrants", async (_req, res) => {
   }
 });
 
+app.get("/api/player-overrides", async (_req, res) => {
+  try {
+    const overrides = await readPlayerOverrides();
+    res.json({ overrides: normalisePlayerOverrides(overrides) });
+  } catch (error) {
+    res.status(500).json({ error: String(error.message || error) });
+  }
+});
+
 app.put("/api/entrants", async (req, res) => {
   try {
     const payload = req.body;
@@ -729,6 +841,71 @@ app.put("/api/entrants", async (req, res) => {
     const entrantRegistry = normaliseEntrantRegistry(payload.entrants || []);
     await writeEntrantRegistry(entrantRegistry);
     res.json({ entrants: entrantRegistry });
+  } catch (error) {
+    res.status(400).json({ error: String(error.message || error) });
+  }
+});
+
+app.put("/api/player-overrides", async (req, res) => {
+  try {
+    const payload = req.body;
+
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({ error: "Player overrides save body must be JSON" });
+    }
+
+    const overrides = normalisePlayerOverrides(payload.overrides || []);
+    await writePlayerOverrides(overrides);
+    res.json({ overrides });
+  } catch (error) {
+    res.status(400).json({ error: String(error.message || error) });
+  }
+});
+
+app.put("/api/player-overrides/:playerId", async (req, res) => {
+  try {
+    const playerId = Number(req.params.playerId);
+    const payload = req.body;
+
+    if (!Number.isInteger(playerId) || playerId <= 0) {
+      return res.status(400).json({ error: "Player id must be a valid number" });
+    }
+
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({ error: "Player override save body must be JSON" });
+    }
+
+    const existingOverrides = normalisePlayerOverrides(await readPlayerOverrides());
+    const nextOverrides = existingOverrides.filter((override) => Number(override.playerId) !== playerId);
+    const candidate = normalisePlayerOverrides([{ ...payload, playerId }])[0];
+
+    if (candidate) {
+      nextOverrides.push(candidate);
+      nextOverrides.sort((left, right) => left.playerId - right.playerId);
+    }
+
+    await writePlayerOverrides(nextOverrides);
+    res.json({
+      override: candidate || null,
+      overrides: nextOverrides,
+    });
+  } catch (error) {
+    res.status(400).json({ error: String(error.message || error) });
+  }
+});
+
+app.delete("/api/player-overrides/:playerId", async (req, res) => {
+  try {
+    const playerId = Number(req.params.playerId);
+
+    if (!Number.isInteger(playerId) || playerId <= 0) {
+      return res.status(400).json({ error: "Player id must be a valid number" });
+    }
+
+    const existingOverrides = normalisePlayerOverrides(await readPlayerOverrides());
+    const nextOverrides = existingOverrides.filter((override) => Number(override.playerId) !== playerId);
+    await writePlayerOverrides(nextOverrides);
+    res.json({ overrides: nextOverrides });
   } catch (error) {
     res.status(400).json({ error: String(error.message || error) });
   }
