@@ -5,6 +5,7 @@ import { existsSync, promises as fs } from "fs";
 import { randomUUID } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
+import { runtimeConfig } from "./env.mjs";
 import {
   getStaticSnapshotPath,
   readEntrantRegistry,
@@ -20,9 +21,9 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
-const PORT = Number(process.env.PORT || 5174);
+const PORT = runtimeConfig.port;
 const SN_API = "https://api.snooker.org";
-const SN_REQUESTED_BY = process.env.SNOOKER_ORG_REQUESTED_BY || "NicholasAndroidApp";
+const SN_REQUESTED_BY = runtimeConfig.snookerRequestedBy;
 const WORLD_CHAMPIONSHIP_EVENT_IDS = {
   2025: 1942,
   2024: 1460,
@@ -35,7 +36,7 @@ const MAIN_DRAW_ROUNDS = [
   { key: "final", id: 15, name: "Final", shortLabel: "F", entrantsLeft: 2 },
 ];
 const ROUND_ONE_SIZE = 32;
-const LIVE_TOURNAMENT_DATA = process.env.LIVE_TOURNAMENT_DATA === "true";
+const LIVE_TOURNAMENT_DATA = runtimeConfig.liveTournamentData;
 
 let sqliteCacheModulePromise = null;
 
@@ -623,7 +624,13 @@ function mergeRegistryWithCompetitors(existingRegistry, competitors) {
 }
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true });
+  res.json({
+    ok: true,
+    environment: runtimeConfig.appEnvironment,
+    isRailway: runtimeConfig.isRailway,
+    liveTournamentData: LIVE_TOURNAMENT_DATA,
+    dataDirectory: runtimeConfig.mutableDataDir,
+  });
 });
 
 app.get("/api/world-championship/:year", async (req, res) => {
@@ -761,7 +768,9 @@ const isDirectRun = process.argv[1]
 if (isDirectRun) {
   app.listen(PORT, () => {
     console.log(`Snooker pool server listening on http://localhost:${PORT}`);
+    console.log(`Application environment: ${runtimeConfig.appEnvironment}`);
+    console.log(`Running on Railway: ${runtimeConfig.isRailway ? "yes" : "no"}`);
     console.log(`snooker.org live mode ${LIVE_TOURNAMENT_DATA ? "enabled" : "disabled"} using X-Requested-By: ${SN_REQUESTED_BY}`);
-    console.log(`Mutable pool data directory: ${process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, "data")}`);
+    console.log(`Mutable pool data directory: ${runtimeConfig.mutableDataDir}`);
   });
 }

@@ -1,10 +1,11 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { runtimeConfig } from "./env.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BUNDLED_DATA_DIR = path.join(__dirname, "data");
-const MUTABLE_DATA_DIR = process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || BUNDLED_DATA_DIR;
+const MUTABLE_DATA_DIR = runtimeConfig.mutableDataDir;
 const POOL_DIR = path.join(MUTABLE_DATA_DIR, "pools");
 const BUNDLED_POOL_DIR = path.join(BUNDLED_DATA_DIR, "pools");
 const STATIC_DIR = path.join(BUNDLED_DATA_DIR, "static");

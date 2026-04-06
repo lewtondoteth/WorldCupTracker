@@ -76,6 +76,23 @@ The backend still runs on `http://localhost:5174`, and the Vite dev server proxi
 
 In local development, the Vite dev server now proxies `/api/*` requests to the backend automatically, so you can also just use the Vite URL without setting `VITE_API_BASE`.
 
+## Environment-aware behaviour
+
+The app now chooses sensible defaults based on where it is running:
+
+- Local development:
+  - environment defaults to `local`
+  - API calls use the Vite dev proxy unless you set `VITE_API_BASE`
+  - mutable data defaults to `server/data`
+  - live tournament refresh defaults to on
+- Railway deployment:
+  - environment defaults to `railway`
+  - API calls use same-origin `/api`
+  - mutable data defaults to `DATA_DIR` or Railway's `RAILWAY_VOLUME_MOUNT_PATH`
+  - live tournament refresh defaults to off unless you enable it
+
+You can inspect the active backend environment at `GET /api/health`.
+
 ## Backend endpoints
 
 - `GET /api/health` checks that the server is alive
@@ -118,7 +135,10 @@ Tournament snapshots remain checked-in static JSON by default so the deployed ap
 
 Optional environment variables:
 
+- `APP_ENV` if you want to force a label such as `local`, `staging`, or `railway`.
 - `LIVE_TOURNAMENT_DATA=true` if you want the server to refresh tournament snapshots from snooker.org instead of relying on checked-in static files.
+- `VITE_APP_ENV` if you want the frontend to expose a custom environment label.
+- `VITE_API_BASE` if you want the frontend to target a specific API origin during development.
 
 ## Next step after this
 
