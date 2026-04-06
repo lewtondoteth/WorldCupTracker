@@ -149,7 +149,6 @@ function PickList({ title, players, showPhotos }) {
     <section className="pick-group">
       <div className="pick-group-header">
         <h3>{title}</h3>
-        <span>{players.filter((player) => !player.eliminated).length} still alive</span>
       </div>
       <ul className="pick-list">
         {players.map((player) => (
@@ -188,6 +187,209 @@ function isPlaceholderMatchPlayer(player) {
 function isPlaceholderEntrant(entry) {
   const name = String(entry?.name || "").trim();
   return !name || /^tbd$/i.test(name);
+}
+
+function shuffleArray(items) {
+  const nextItems = [...items];
+  for (let index = nextItems.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [nextItems[index], nextItems[swapIndex]] = [nextItems[swapIndex], nextItems[index]];
+  }
+  return nextItems;
+}
+
+function buildBalancedTargetCounts(total, entrantIds) {
+  const targets = new Map(entrantIds.map((entrantId) => [entrantId, Math.floor(total / entrantIds.length)]));
+  const remainder = total % entrantIds.length;
+  for (const entrantId of shuffleArray(entrantIds).slice(0, remainder)) {
+    targets.set(entrantId, (targets.get(entrantId) || 0) + 1);
+  }
+  return targets;
+}
+
+function buildSuggestedTargetCounts(total, entrantIds) {
+  const targets = new Map(entrantIds.map((entrantId) => [entrantId, Math.floor(total / entrantIds.length)]));
+  const remainder = total % entrantIds.length;
+  entrantIds.slice(0, remainder).forEach((entrantId) => {
+    targets.set(entrantId, (targets.get(entrantId) || 0) + 1);
+  });
+  return targets;
+}
+
+function normaliseTargetCountInput(value) {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function buildAutoAssignment(snapshot, competitors, targetCountsOverride = null) {
+  const roundOne = snapshot.rounds.find((round) => round.key === "round-1") || snapshot.rounds[0];
+  const actualPlayers = snapshot.entrants.filter((entry) => !isPlaceholderEntrant(entry));
+  const entrantOrder = new Map(snapshot.entrants.map((entry, index) => [entry.id, index]));
+  const entrantIds = competitors.map((competitor, index) => competitor.entrantId || `competitor-${index}`);
+
+  if (!entrantIds.length) {
+    throw new Error("Add at least one entrant before running automatic assignment.");
+  }
+
+  if (entrantIds.length < 2 && roundOne?.matches.some((match) => (
+    !isPlaceholderMatchPlayer(match.player1) && !isPlaceholderMatchPlayer(match.player2)
+  ))) {
+    throw new Error("At least two entrants are needed to separate first-round opponents.");
+  }
+
+  const bucketKeyForPlayer = (player) => (player.isSeed ? "seedIds" : "qualifierIds");
+  const allSeeds = actualPlayers.filter((player) => player.isSeed);
+  const allQualifiers = actualPlayers.filter((player) => !player.isSeed);
+  const targetCounts = targetCountsOverride || {
+    seedIds: buildBalancedTargetCounts(allSeeds.length, entrantIds),
+    qualifierIds: buildBalancedTargetCounts(allQualifiers.length, entrantIds),
+  };
+
+  const candidateMatches = shuffleArray(roundOne?.matches || []);
+
+  for (let attempt = 0; attempt < 300; attempt += 1) {
+    const nextCompetitors = competitors.map((competitor) => ({
+      ...competitor,
+      seedIds: [],
+      qualifierIds: [],
+    }));
+    const competitorIndexById = new Map(nextCompetitors.map((competitor, index) => [
+      competitor.entrantId || `competitor-${index}`,
+      index,
+    ]));
+    const bucketCountsByEntrant = new Map(entrantIds.map((entrantId) => [
+      entrantId,
+      { seedIds: 0, qualifierIds: 0 },
+    ]));
+    const ownerByPlayerId = new Map();
+    const assignedPlayerIds = new Set();
+
+    function assignPlayerToEntrant(player, excludedEntrantId = null) {
+      const bucket = bucketKeyForPlayer(player);
+      const eligibleEntrants = entrantIds.filter((entrantId) => entrantId !== excludedEntrantId);
+      if (!eligibleEntrants.length) {
+        return null;
+      }
+
+      const withCapacity = eligibleEntrants.filter((entrantId) => (
+        (bucketCountsByEntrant.get(entrantId)?.[bucket] || 0) < (targetCounts[bucket].get(entrantId) || 0)
+      ));
+      const candidateEntrants = (withCapacity.length ? withCapacity : eligibleEntrants)
+        .map((entrantId) => ({
+          entrantId,
+          count: bucketCountsByEntrant.get(entrantId)?.[bucket] || 0,
+        }));
+      const minCount = Math.min(...candidateEntrants.map((candidate) => candidate.count));
+      const lowestFilled = candidateEntrants.filter((candidate) => candidate.count === minCount);
+      const chosen = lowestFilled[Math.floor(Math.random() * lowestFilled.length)];
+      if (!chosen) {
+        return null;
+      }
+
+      const competitorIndex = competitorIndexById.get(chosen.entrantId);
+      if (competitorIndex === undefined) {
+        return null;
+      }
+
+      nextCompetitors[competitorIndex] = {
+        ...nextCompetitors[competitorIndex],
+        [bucket]: [...nextCompetitors[competitorIndex][bucket], player.id],
+      };
+      bucketCountsByEntrant.set(chosen.entrantId, {
+        ...bucketCountsByEntrant.get(chosen.entrantId),
+        [bucket]: (bucketCountsByEntrant.get(chosen.entrantId)?.[bucket] || 0) + 1,
+      });
+      ownerByPlayerId.set(player.id, chosen.entrantId);
+      assignedPlayerIds.add(player.id);
+      return chosen.entrantId;
+    }
+
+    let failed = false;
+
+    for (const match of candidateMatches) {
+      const sides = [match.player1, match.player2].filter((player) => !isPlaceholderMatchPlayer(player));
+      if (!sides.length) {
+        continue;
+      }
+
+      const unassignedSides = shuffleArray(sides.filter((player) => !assignedPlayerIds.has(player.id)));
+      if (!unassignedSides.length) {
+        continue;
+      }
+
+      if (unassignedSides.length === 2) {
+        const [firstSide, secondSide] = unassignedSides;
+        const firstOwner = assignPlayerToEntrant(firstSide);
+        if (!firstOwner) {
+          failed = true;
+          break;
+        }
+        const secondOwner = assignPlayerToEntrant(secondSide, firstOwner);
+        if (!secondOwner) {
+          failed = true;
+          break;
+        }
+        continue;
+      }
+
+      const soloSide = unassignedSides[0];
+      const opponent = sides.find((player) => player.id !== soloSide.id);
+      const blockedEntrantId = opponent ? ownerByPlayerId.get(opponent.id) || null : null;
+      if (!assignPlayerToEntrant(soloSide, blockedEntrantId)) {
+        failed = true;
+        break;
+      }
+    }
+
+    if (failed) {
+      continue;
+    }
+
+    const leftoverPlayers = shuffleArray(actualPlayers.filter((player) => !assignedPlayerIds.has(player.id)));
+    for (const player of leftoverPlayers) {
+      if (!assignPlayerToEntrant(player)) {
+        failed = true;
+        break;
+      }
+    }
+
+    if (failed) {
+      continue;
+    }
+
+    const hasConflict = (roundOne?.matches || []).some((match) => {
+      if (isPlaceholderMatchPlayer(match.player1) || isPlaceholderMatchPlayer(match.player2)) {
+        return false;
+      }
+      const leftOwner = ownerByPlayerId.get(match.player1.id);
+      const rightOwner = ownerByPlayerId.get(match.player2.id);
+      return Boolean(leftOwner && rightOwner && leftOwner === rightOwner);
+    });
+
+    if (hasConflict || assignedPlayerIds.size !== actualPlayers.length) {
+      continue;
+    }
+
+    const sortedCompetitors = nextCompetitors.map((competitor) => ({
+      ...competitor,
+      seedIds: [...competitor.seedIds].sort((left, right) => (entrantOrder.get(left) ?? 999) - (entrantOrder.get(right) ?? 999)),
+      qualifierIds: [...competitor.qualifierIds].sort((left, right) => (entrantOrder.get(left) ?? 999) - (entrantOrder.get(right) ?? 999)),
+    }));
+
+    return {
+      competitors: sortedCompetitors,
+      assignedSeedCount: allSeeds.length,
+      assignedQualifierCount: allQualifiers.length,
+    };
+  }
+
+  throw new Error("Automatic assignment could not find a valid draw. Try adding more entrants or refreshing the player list.");
 }
 
 function SiteHeader({ mode = "home", poolConfigured = false }) {
@@ -665,8 +867,19 @@ function HomePage() {
     const qualifiedEntrantsCount = snapshot.entrants.filter((entry) => !isPlaceholderEntrant(entry)).length;
     const spacesLeftCount = Math.max(0, totalFieldSize - qualifiedEntrantsCount);
     const hasTbdEntrants = spacesLeftCount > 0;
+    const finalRound = snapshot.rounds[snapshot.rounds.length - 1] || null;
+    const tournamentComplete = Boolean(finalRound?.matches?.length) && finalRound.matches.every((match) => Boolean(match.winnerId));
+    const championPlayer = snapshot.entrants.find((entry) => entry.isChampion && !entry.isPlaceholder) || null;
+    const winningCompetitor = championPlayer
+      ? decoratedCompetitors.find((competitor) => (
+        competitor.seeds.some((player) => player?.id === championPlayer.id)
+        || competitor.qualifiers.some((player) => player?.id === championPlayer.id)
+      )) || null
+      : null;
     const unresolvedScheduledMatches = selectedRound.matches.filter((match) => !match.winnerId).length;
-    const unplayedMatchCount = unresolvedScheduledMatches || selectedRound.matchCount || 0;
+    const unplayedMatchCount = selectedRound.matches.length
+      ? unresolvedScheduledMatches
+      : (selectedRound.matchCount || 0);
 
     return {
       selectedRound,
@@ -675,6 +888,9 @@ function HomePage() {
       qualifiedEntrantsCount,
       spacesLeftCount,
       hasTbdEntrants,
+      tournamentComplete,
+      winningCompetitorName: winningCompetitor?.name || championPlayer?.name || "",
+      championPlayerName: championPlayer?.name || "",
       unplayedMatchCount,
       decoratedCompetitors,
     };
@@ -696,14 +912,24 @@ function HomePage() {
     qualifiedEntrantsCount,
     spacesLeftCount,
     hasTbdEntrants,
+    tournamentComplete,
+    winningCompetitorName,
+    championPlayerName,
     unplayedMatchCount,
     decoratedCompetitors,
   } = derived;
   const poolConfigured = data.poolConfigured !== false;
+  const isYearSwitching = loading && Boolean(data) && data.snapshot?.year !== selectedYear;
 
   return (
     <main className="app-shell">
       <SiteHeader mode="home" poolConfigured={poolConfigured} />
+
+      {isYearSwitching ? (
+        <p className="status-banner" aria-live="polite">
+          Loading the {selectedYear} overview. You are still seeing {data.snapshot?.year} until the new tournament finishes loading.
+        </p>
+      ) : null}
 
       <section className="hero-card" id="overview">
         <div className="hero-orbit hero-orbit-one" />
@@ -751,13 +977,21 @@ function HomePage() {
         </article>
         <article className="summary-card">
           <p className="toolbar-label">Current live round</p>
-          <p className="summary-value">{currentRound.name}</p>
+          <p className="summary-value">{tournamentComplete ? "Completed" : currentRound.name}</p>
         </article>
         <article className="summary-card">
-          <p className="toolbar-label">{hasTbdEntrants ? "Qualified so far" : "Entrants alive"}</p>
-          <p className="summary-value">{hasTbdEntrants ? qualifiedEntrantsCount : aliveEntrantsCount}</p>
+          <p className="toolbar-label">{tournamentComplete ? "Winner" : hasTbdEntrants ? "Qualified so far" : "Entrants alive"}</p>
+          <p className="summary-value">
+            {tournamentComplete
+              ? `${winningCompetitorName}${championPlayerName ? ` (${championPlayerName})` : ""}`
+              : hasTbdEntrants
+                ? qualifiedEntrantsCount
+                : aliveEntrantsCount}
+          </p>
           <p className="summary-copy">
-            {hasTbdEntrants
+            {tournamentComplete
+              ? `Champion of the ${selectedYear} tournament`
+              : hasTbdEntrants
               ? `${spacesLeftCount} space${spacesLeftCount === 1 ? "" : "s"} left to fill`
               : "Still live across the championship draw"}
           </p>
@@ -847,10 +1081,10 @@ function HomePage() {
                   <article key={competitor.name} className="competitor-card">
                     <div className="competitor-header">
                       <div className="competitor-heading">
-                        <p className="eyebrow">Tournament entrant</p>
                         <div className="collapsible-title-row">
-                          <div className="competitor-title-wrap">
+                          <div className="competitor-title-inline">
                             <h2>{competitor.name}</h2>
+                            <span className="live-pill inline">{liveCount} alive</span>
                             {(competitor.winningYears || []).length ? (
                               <div className="competitor-crowns" aria-label={`${competitor.winningYears.length} wins`}>
                                 {competitor.winningYears.map((year) => (
@@ -872,8 +1106,8 @@ function HomePage() {
                             label={`${competitor.name} picks`}
                           />
                         </div>
+                        <p className="competitor-meta-copy">{totalCount} picks</p>
                       </div>
-                      <div className="live-pill">{liveCount} alive</div>
                     </div>
                     {isExpanded ? (
                       <div className="pick-columns">
@@ -1291,6 +1525,7 @@ function AdminPage() {
   const [uploading, setUploading] = useState(false);
   const [builderLoading, setBuilderLoading] = useState(false);
   const [savingBuilder, setSavingBuilder] = useState(false);
+  const [autoAssigning, setAutoAssigning] = useState(false);
   const [entrantsLoading, setEntrantsLoading] = useState(false);
   const [savingEntrants, setSavingEntrants] = useState(false);
   const [status, setStatus] = useState("Build the current year's tournament by dragging players into each entrant, then save it.");
@@ -1299,6 +1534,9 @@ function AdminPage() {
   const [entrantRegistry, setEntrantRegistry] = useState([]);
   const [selectedRegistryEntrantId, setSelectedRegistryEntrantId] = useState("");
   const [newEntrantName, setNewEntrantName] = useState("");
+  const [showAutoAssignConfirm, setShowAutoAssignConfirm] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [autoAssignTargets, setAutoAssignTargets] = useState({});
   const entrantRegistryLoadedRef = useRef(false);
   const lastSavedEntrantsRef = useRef("[]");
 
@@ -1345,6 +1583,9 @@ function AdminPage() {
     if (authenticated) {
       loadBuilder();
       setSelectedRegistryEntrantId("");
+      setShowAutoAssignConfirm(false);
+      setShowResetConfirm(false);
+      setAutoAssignTargets({});
     }
   }, [authenticated, selectedAdminYear]);
 
@@ -1468,6 +1709,54 @@ function AdminPage() {
     };
   }, [builder, entrantRegistry]);
 
+  const autoAssignDerived = useMemo(() => {
+    if (!builder?.snapshot || !builderDerived?.competitors?.length) {
+      return null;
+    }
+
+    const entrantIds = builderDerived.competitors.map((competitor, index) => competitor.entrantId || `competitor-${index}`);
+    const totalSeeds = builder.snapshot.seeds.length;
+    const totalQualifiers = builder.snapshot.qualifiers.length;
+    const requiresCustomTargets = (
+      totalSeeds % entrantIds.length !== 0
+      || totalQualifiers % entrantIds.length !== 0
+    );
+    const suggestedSeedTargets = buildSuggestedTargetCounts(totalSeeds, entrantIds);
+    const suggestedQualifierTargets = buildSuggestedTargetCounts(totalQualifiers, entrantIds);
+
+    return {
+      entrantIds,
+      totalSeeds,
+      totalQualifiers,
+      requiresCustomTargets,
+      suggestedSeedTargets,
+      suggestedQualifierTargets,
+    };
+  }, [builder, builderDerived]);
+
+  const autoAssignProgress = useMemo(() => {
+    if (!autoAssignDerived || !builderDerived?.competitors?.length) {
+      return null;
+    }
+
+    let assignedSeeds = 0;
+    let assignedQualifiers = 0;
+
+    for (const [index, competitor] of builderDerived.competitors.entries()) {
+      const entrantId = competitor.entrantId || `competitor-${index}`;
+      const target = autoAssignTargets[entrantId] || {};
+      assignedSeeds += normaliseTargetCountInput(target.seedIds) || 0;
+      assignedQualifiers += normaliseTargetCountInput(target.qualifierIds) || 0;
+    }
+
+    return {
+      assignedSeeds,
+      assignedQualifiers,
+      totalSeeds: autoAssignDerived.totalSeeds,
+      totalQualifiers: autoAssignDerived.totalQualifiers,
+    };
+  }, [autoAssignDerived, autoAssignTargets, builderDerived]);
+
   function setCompetitors(updater) {
     setBuilder((current) => ({
       ...current,
@@ -1480,6 +1769,90 @@ function AdminPage() {
 
   function setRegistry(updater) {
     setEntrantRegistry((current) => updater(current));
+  }
+
+  function openAutoAssignWizard() {
+    if (!autoAssignDerived || !builderDerived?.competitors?.length) {
+      return;
+    }
+
+    setError("");
+    setShowAutoAssignConfirm(true);
+    setAutoAssignTargets(Object.fromEntries(
+      builderDerived.competitors.map((competitor, index) => {
+        const entrantId = competitor.entrantId || `competitor-${index}`;
+        return [entrantId, {
+          seedIds: String(autoAssignDerived.suggestedSeedTargets.get(entrantId) || 0),
+          qualifierIds: String(autoAssignDerived.suggestedQualifierTargets.get(entrantId) || 0),
+        }];
+      }),
+    ));
+  }
+
+  function handleAutoAssignTargetChange(entrantId, bucket, value) {
+    if (!/^\d*$/.test(value)) {
+      return;
+    }
+
+    setAutoAssignTargets((current) => ({
+      ...current,
+      [entrantId]: {
+        ...(current[entrantId] || {}),
+        [bucket]: value,
+      },
+    }));
+  }
+
+  function validateAutoAssignTargets() {
+    if (!autoAssignDerived || !builderDerived?.competitors?.length) {
+      return { valid: false, message: "The tournament builder is still loading." };
+    }
+
+    const seedTargets = new Map();
+    const qualifierTargets = new Map();
+    let seedTotal = 0;
+    let qualifierTotal = 0;
+
+    for (const [index, competitor] of builderDerived.competitors.entries()) {
+      const entrantId = competitor.entrantId || `competitor-${index}`;
+      const target = autoAssignTargets[entrantId] || {};
+      const seedCount = normaliseTargetCountInput(target.seedIds);
+      const qualifierCount = normaliseTargetCountInput(target.qualifierIds);
+
+      if (seedCount === null || qualifierCount === null) {
+        return {
+          valid: false,
+          message: `Enter valid whole numbers for ${competitor.name}.`,
+        };
+      }
+
+      seedTargets.set(entrantId, seedCount);
+      qualifierTargets.set(entrantId, qualifierCount);
+      seedTotal += seedCount;
+      qualifierTotal += qualifierCount;
+    }
+
+    if (seedTotal !== autoAssignDerived.totalSeeds) {
+      return {
+        valid: false,
+        message: `Seed targets must add up to ${autoAssignDerived.totalSeeds}.`,
+      };
+    }
+
+    if (qualifierTotal !== autoAssignDerived.totalQualifiers) {
+      return {
+        valid: false,
+        message: `Qualifier targets must add up to ${autoAssignDerived.totalQualifiers}.`,
+      };
+    }
+
+    return {
+      valid: true,
+      targetCounts: {
+        seedIds: seedTargets,
+        qualifierIds: qualifierTargets,
+      },
+    };
   }
 
   function handleAddCompetitor(event) {
@@ -1648,6 +2021,77 @@ function AdminPage() {
     movePlayer(playerId, bucket, { type: "competitor", entrantId, bucket });
   }
 
+  function handleResetYearPicks() {
+    if (!builder?.poolData) {
+      setError("The tournament builder is still loading.");
+      return;
+    }
+
+    setError("");
+    setBuilder((current) => ({
+      ...current,
+      poolData: {
+        ...current.poolData,
+        competitors: (current.poolData?.competitors || []).map((competitor) => ({
+          ...competitor,
+          seedIds: [],
+          qualifierIds: [],
+        })),
+      },
+    }));
+    setShowAutoAssignConfirm(false);
+    setShowResetConfirm(false);
+    setAutoAssignTargets({});
+    setStatus(`Cleared all ${selectedAdminYear} picks. Entrants remain in place and can now be reassigned.`);
+  }
+
+  async function handleAutoAssignPlayers() {
+    if (!builder?.snapshot || !builder?.poolData || !builderDerived) {
+      setError("The tournament builder is still loading.");
+      return;
+    }
+
+    if (!builderDerived.competitors.length) {
+      setError("Add tournament entrants before running automatic assignment.");
+      return;
+    }
+
+    try {
+      setAutoAssigning(true);
+      setError("");
+      let targetCounts = null;
+      if (autoAssignDerived?.requiresCustomTargets) {
+        const validation = validateAutoAssignTargets();
+        if (!validation.valid) {
+          setError(validation.message);
+          return;
+        }
+        targetCounts = validation.targetCounts;
+      }
+
+      const result = buildAutoAssignment(
+        builder.snapshot,
+        builder.poolData.competitors || [],
+        targetCounts,
+      );
+      setBuilder((current) => ({
+        ...current,
+        poolData: {
+          ...current.poolData,
+          competitors: result.competitors,
+        },
+      }));
+      setShowAutoAssignConfirm(false);
+      setStatus(
+        `Assigned ${result.assignedSeedCount} seeds and ${result.assignedQualifierCount} qualifiers automatically. First-round opponents were kept apart.`,
+      );
+    } catch (assignError) {
+      setError(assignError.message || "Automatic assignment failed.");
+    } finally {
+      setAutoAssigning(false);
+    }
+  }
+
   async function handleSaveBuilder() {
     if (!builder?.poolData) {
       return;
@@ -1808,6 +2252,36 @@ function AdminPage() {
               <p className="admin-copy">Saved entrants are reused as the starting list for future years.</p>
             </div>
             <div className="admin-actions">
+              <button
+                type="button"
+                className="admin-secondary-button"
+                onClick={() => {
+                  if (showAutoAssignConfirm) {
+                    setShowAutoAssignConfirm(false);
+                    setAutoAssignTargets({});
+                    setError("");
+                    return;
+                  }
+                  setShowResetConfirm(false);
+                  openAutoAssignWizard();
+                }}
+                disabled={builderLoading || autoAssigning || !builderDerived?.competitors.length}
+              >
+                {showAutoAssignConfirm ? "Close auto-assign" : "Auto-assign players"}
+              </button>
+              <button
+                type="button"
+                className="admin-secondary-button admin-danger-button"
+                onClick={() => {
+                  setError("");
+                  setShowAutoAssignConfirm(false);
+                  setAutoAssignTargets({});
+                  setShowResetConfirm((current) => !current);
+                }}
+                disabled={builderLoading || autoAssigning || !builderDerived?.competitors.length}
+              >
+                {showResetConfirm ? "Close reset" : "Reset year picks"}
+              </button>
               <button type="button" className="admin-secondary-button" onClick={loadBuilder} disabled={builderLoading}>
                 {builderLoading ? "Refreshing..." : "Refresh"}
               </button>
@@ -1816,6 +2290,116 @@ function AdminPage() {
               </button>
             </div>
           </div>
+
+          {showAutoAssignConfirm ? (
+            <section className="admin-auto-assign-panel">
+              <div>
+                <p className="eyebrow">Auto-Assign Wizard</p>
+                <h3>Randomly distribute the current draw</h3>
+                <p className="admin-copy">
+                  This clears the current seed and qualifier assignments for {selectedAdminYear}, then redistributes all named players across the existing entrants.
+                  The wizard keeps round-one opponents away from the same entrant and balances the draw as evenly as possible.
+                </p>
+              </div>
+              <div className="admin-auto-assign-stats">
+                <span>{autoAssignDerived?.totalSeeds ?? 0} seeds</span>
+                <span>{autoAssignDerived?.totalQualifiers ?? 0} qualifiers</span>
+                <span>{builderDerived?.competitors?.length ?? 0} entrants</span>
+              </div>
+              {autoAssignDerived?.requiresCustomTargets ? (
+                <div className="admin-auto-assign-targets">
+                  <p className="admin-copy">
+                    This year cannot be split evenly, so enter how many seeds and qualifiers each entrant should receive before the wizard runs.
+                  </p>
+                  <div className="admin-auto-assign-progress">
+                    <span>
+                      Seeds assigned: <strong>{autoAssignProgress?.assignedSeeds ?? 0}</strong> / {autoAssignProgress?.totalSeeds ?? 0}
+                    </span>
+                    <span>
+                      Qualifiers assigned: <strong>{autoAssignProgress?.assignedQualifiers ?? 0}</strong> / {autoAssignProgress?.totalQualifiers ?? 0}
+                    </span>
+                  </div>
+                  <div className="admin-auto-assign-target-grid">
+                    {builderDerived.competitors.map((competitor, index) => {
+                      const entrantId = competitor.entrantId || `competitor-${index}`;
+                      const target = autoAssignTargets[entrantId] || {};
+                      return (
+                        <article key={entrantId} className="admin-auto-assign-target-card">
+                          <h4>{competitor.name}</h4>
+                          <label className="admin-field" htmlFor={`auto-seeds-${entrantId}`}>Seeds</label>
+                          <input
+                            id={`auto-seeds-${entrantId}`}
+                            className="admin-auto-assign-input"
+                            inputMode="numeric"
+                            value={target.seedIds ?? ""}
+                            onChange={(event) => handleAutoAssignTargetChange(entrantId, "seedIds", event.target.value)}
+                          />
+                          <label className="admin-field" htmlFor={`auto-qualifiers-${entrantId}`}>Qualifiers</label>
+                          <input
+                            id={`auto-qualifiers-${entrantId}`}
+                            className="admin-auto-assign-input"
+                            inputMode="numeric"
+                            value={target.qualifierIds ?? ""}
+                            onChange={(event) => handleAutoAssignTargetChange(entrantId, "qualifierIds", event.target.value)}
+                          />
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+              <div className="admin-actions">
+                <button
+                  type="button"
+                  className="admin-secondary-button"
+                  onClick={() => {
+                    setShowAutoAssignConfirm(false);
+                    setAutoAssignTargets({});
+                  }}
+                  disabled={autoAssigning}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="admin-submit"
+                  onClick={handleAutoAssignPlayers}
+                  disabled={autoAssigning}
+                >
+                  {autoAssigning ? "Assigning..." : "Are you sure?"}
+                </button>
+              </div>
+            </section>
+          ) : null}
+
+          {showResetConfirm ? (
+            <section className="admin-reset-panel">
+              <div>
+                <p className="eyebrow">Reset Picks</p>
+                <h3>Clear the {selectedAdminYear} assignments</h3>
+                <p className="admin-copy">
+                  This removes all current seed and qualifier picks for the selected year, but keeps the entrant list itself in place.
+                  You can then reassign players manually or run the auto-assign wizard again.
+                </p>
+              </div>
+              <div className="admin-actions">
+                <button
+                  type="button"
+                  className="admin-secondary-button"
+                  onClick={() => setShowResetConfirm(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="admin-danger-button"
+                  onClick={handleResetYearPicks}
+                >
+                  Are you sure?
+                </button>
+              </div>
+            </section>
+          ) : null}
 
           <form className="admin-add-form" onSubmit={handleAddCompetitor}>
             <div className="admin-add-field">
