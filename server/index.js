@@ -39,6 +39,9 @@ const MAIN_DRAW_ROUNDS = [
 ];
 const ROUND_ONE_SIZE = 32;
 const LIVE_TOURNAMENT_DATA = runtimeConfig.liveTournamentData;
+const LIVE_SNAPSHOT_CACHE_TTL_SECONDS = 300;
+const SEASON_EVENTS_CACHE_TTL_SECONDS = 86400;
+const HEAD_TO_HEAD_CACHE_TTL_SECONDS = 86400;
 
 let sqliteCacheModulePromise = null;
 
@@ -67,10 +70,10 @@ async function fetchJson(url) {
   const response = await fetch(url, { headers });
 
   if (!response.ok) {
-    const guidance = response.status === 403
-      ? " Set SNOOKER_ORG_REQUESTED_BY in the server environment to your approved snooker.org header value."
-      : "";
-    throw new Error(`snooker.org request failed (${response.status}).${guidance}`);
+    if (response.status === 403) {
+      throw new Error("Our live results supplier is receiving too many requests right now. Please try again in a few minutes.");
+    }
+    throw new Error(`snooker.org request failed (${response.status}).`);
   }
 
   return response.json();
@@ -82,7 +85,7 @@ async function resolveWorldChampionshipEventId(year) {
   }
 
   const season = year - 1;
-  const events = await fetchJson(`${SN_API}/?t=5&s=${season}&tr=main`);
+  const events = await fetchSeasonEvents(season);
   const event = events.find((item) => {
     const name = item.Name || item.Event || "";
     return /World Championship/i.test(name) && item.Stage === "F" && String(item.StartDate || "").startsWith(String(year));
@@ -93,6 +96,97 @@ async function resolveWorldChampionshipEventId(year) {
   }
 
   return Number(event.ID);
+}
+
+async function fetchSeasonEvents(season) {
+  const sqliteCache = await loadSqliteCacheModule();
+  const getCachedSeasonEvents = sqliteCache?.getCachedSeasonEvents;
+  const cacheSeasonEvents = sqliteCache?.cacheSeasonEvents;
+  const cached = getCachedSeasonEvents?.(season, SEASON_EVENTS_CACHE_TTL_SECONDS);
+  if (cached?.length) {
+    return cached;
+  }
+
+  const events = await fetchJson(`${SN_API}/?t=5&s=${season}&tr=main`);
+  if (Array.isArray(events) && events.length) {
+    cacheSeasonEvents?.(season, events);
+  }
+  return events;
+}
+
+function getSeasonStartYearForTournamentYear(year) {
+  return Number(year) - 1;
+}
+
+function getSeasonLabel(seasonStartYear) {
+  return `${seasonStartYear}/${seasonStartYear + 1}`;
+}
+
+async function fetchHeadToHead(player1Id, player2Id, year, options = {}) {
+  const forceRefresh = options.forceRefresh === true;
+  const season = getSeasonStartYearForTournamentYear(year);
+  const orderedIds = [Number(player1Id), Number(player2Id)].sort((left, right) => left - right);
+  const cacheKey = `${orderedIds[0]}:${orderedIds[1]}:${season}:main`;
+  const sqliteCache = await loadSqliteCacheModule();
+  const getCachedHeadToHead = sqliteCache?.getCachedHeadToHead;
+  const cacheHeadToHead = sqliteCache?.cacheHeadToHead;
+  const cached = !forceRefresh ? getCachedHeadToHead?.(cacheKey, HEAD_TO_HEAD_CACHE_TTL_SECONDS) : null;
+  if (cached) {
+    return cached;
+  }
+
+  const [matches, events] = await Promise.all([
+    fetchJson(`${SN_API}/?p1=${player1Id}&p2=${player2Id}&s=${season}&tr=main`),
+    fetchSeasonEvents(season),
+  ]);
+
+  const eventNamesById = new Map((events || []).map((event) => [
+    Number(event.ID),
+    String(event.Name || event.Event || "").trim(),
+  ]));
+
+  const formattedMatches = Array.isArray(matches)
+    ? matches.map((match) => ({
+      id: Number(match.ID),
+      eventId: Number(match.EventID) || null,
+      eventName: eventNamesById.get(Number(match.EventID)) || "Unknown event",
+      round: Number(match.Round) || null,
+      number: Number(match.Number) || null,
+      score1: Number(match.Score1) || 0,
+      score2: Number(match.Score2) || 0,
+      player1Id: Number(match.Player1ID) || null,
+      player2Id: Number(match.Player2ID) || null,
+      winnerId: Number(match.WinnerID) || null,
+      unfinished: Boolean(match.Unfinished),
+      scheduledDate: match.ScheduledDate || "",
+      startDate: match.StartDate || "",
+      endDate: match.EndDate || "",
+      note: match.Note || "",
+      extendedNote: match.ExtendedNote || "",
+      frameScores: match.FrameScores || "",
+      detailsUrl: match.DetailsUrl || "",
+      videoUrl: match.VideoURL || "",
+    }))
+    : [];
+
+  const wins = {
+    [player1Id]: formattedMatches.filter((match) => match.winnerId === player1Id).length,
+    [player2Id]: formattedMatches.filter((match) => match.winnerId === player2Id).length,
+  };
+
+  const result = {
+    season,
+    seasonLabel: getSeasonLabel(season),
+    matches: formattedMatches,
+    summary: {
+      totalMatches: formattedMatches.length,
+      player1Wins: wins[player1Id],
+      player2Wins: wins[player2Id],
+    },
+  };
+
+  cacheHeadToHead?.(cacheKey, result);
+  return result;
 }
 
 async function fetchLast32Players(year, eventId) {
@@ -356,7 +450,11 @@ async function writeStaticSnapshot(year, snapshot) {
   await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
 }
 
-async function getTournamentSnapshot(year) {
+async function getTournamentSnapshot(year, options = {}) {
+  const forceRefresh = options.forceRefresh === true;
+  const sqliteCache = await loadSqliteCacheModule();
+  const getCachedTournamentSnapshot = sqliteCache?.getCachedTournamentSnapshot;
+  const cacheTournamentSnapshot = sqliteCache?.cacheTournamentSnapshot;
   const playerOverrides = await readPlayerOverrides();
 
   if (!LIVE_TOURNAMENT_DATA) {
@@ -373,7 +471,15 @@ async function getTournamentSnapshot(year) {
   }
 
   try {
+    const cachedLiveSnapshot = !forceRefresh
+      ? getCachedTournamentSnapshot?.(year, LIVE_SNAPSHOT_CACHE_TTL_SECONDS)
+      : null;
+    if (cachedLiveSnapshot) {
+      return applyPlayerOverridesToSnapshot(cachedLiveSnapshot, playerOverrides);
+    }
+
     const liveSnapshot = await buildLiveTournamentSnapshot(year);
+    cacheTournamentSnapshot?.(year, liveSnapshot);
     try {
       await writeStaticSnapshot(year, liveSnapshot);
     } catch (writeError) {
@@ -750,7 +856,8 @@ app.get("/api/health", (_req, res) => {
 app.get("/api/world-championship/:year", async (req, res) => {
   try {
     const year = Number(req.params.year);
-    const snapshot = await getTournamentSnapshot(year);
+    const forceRefresh = String(req.query.refresh || "").trim() === "1";
+    const snapshot = await getTournamentSnapshot(year, { forceRefresh });
     res.json(snapshot);
   } catch (error) {
     res.status(500).json({ error: String(error.message || error) });
@@ -760,8 +867,31 @@ app.get("/api/world-championship/:year", async (req, res) => {
 app.get("/api/world-championship/:year/round-one", async (req, res) => {
   try {
     const year = Number(req.params.year);
-    const snapshot = await getTournamentSnapshot(year);
+    const forceRefresh = String(req.query.refresh || "").trim() === "1";
+    const snapshot = await getTournamentSnapshot(year, { forceRefresh });
     res.json(snapshot);
+  } catch (error) {
+    res.status(500).json({ error: String(error.message || error) });
+  }
+});
+
+app.get("/api/head-to-head", async (req, res) => {
+  try {
+    const player1Id = Number(req.query.p1);
+    const player2Id = Number(req.query.p2);
+    const year = Number(req.query.year);
+    const forceRefresh = String(req.query.refresh || "").trim() === "1";
+
+    if (!Number.isInteger(player1Id) || player1Id <= 0 || !Number.isInteger(player2Id) || player2Id <= 0) {
+      return res.status(400).json({ error: "Both player ids are required." });
+    }
+
+    if (!Number.isInteger(year) || year <= 0) {
+      return res.status(400).json({ error: "A valid tournament year is required." });
+    }
+
+    const headToHead = await fetchHeadToHead(player1Id, player2Id, year, { forceRefresh });
+    res.json(headToHead);
   } catch (error) {
     res.status(500).json({ error: String(error.message || error) });
   }
@@ -770,8 +900,9 @@ app.get("/api/world-championship/:year/round-one", async (req, res) => {
 app.get("/api/pool/:year", async (req, res) => {
   try {
     const year = Number(req.params.year);
+    const forceRefresh = String(req.query.refresh || "").trim() === "1";
     const [snapshot, poolFile, entrantRegistry] = await Promise.all([
-      getTournamentSnapshot(year),
+      getTournamentSnapshot(year, { forceRefresh }),
       readPoolFileOptional(year),
       readEntrantRegistry(),
     ]);

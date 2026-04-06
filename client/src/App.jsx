@@ -155,8 +155,12 @@ async function readJsonResponse(response, fallbackMessage) {
   return data;
 }
 
-async function fetchPool(year) {
-  const response = await fetch(`${API_BASE}/api/pool/${year}`);
+async function fetchPool(year, options = {}) {
+  const params = new URLSearchParams();
+  if (options.forceRefresh) {
+    params.set("refresh", "1");
+  }
+  const response = await fetch(`${API_BASE}/api/pool/${year}${params.toString() ? `?${params.toString()}` : ""}`);
   return readJsonResponse(response, "Failed to load pool data");
 }
 
@@ -224,6 +228,40 @@ async function deletePlayerOverride(playerId) {
     method: "DELETE",
   });
   return readJsonResponse(response, "Failed to clear player override");
+}
+
+async function fetchHeadToHead(player1Id, player2Id, year, options = {}) {
+  const params = new URLSearchParams({
+    p1: String(player1Id),
+    p2: String(player2Id),
+    year: String(year),
+  });
+  if (options.forceRefresh) {
+    params.set("refresh", "1");
+  }
+  const response = await fetch(`${API_BASE}/api/head-to-head?${params.toString()}`);
+  return readJsonResponse(response, "Failed to load head-to-head history");
+}
+
+function RefreshButton({ onClick, busy = false, label = "Refresh data", className = "" }) {
+  return (
+    <button
+      type="button"
+      className={`subtle-refresh-button${className ? ` ${className}` : ""}${busy ? " busy" : ""}`}
+      onClick={onClick}
+      disabled={busy}
+      aria-label={busy ? `${label}. Refreshing now.` : label}
+      title={busy ? "Refreshing..." : label}
+    >
+      <span className="subtle-refresh-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+          <path d="M20 4v6h-6" />
+        </svg>
+      </span>
+      <span>{busy ? "Refreshing" : "Refresh"}</span>
+    </button>
+  );
 }
 
 const NATIONALITY_FLAGS = {
@@ -645,7 +683,7 @@ function isOpenTournamentMatch(match) {
   return isActiveTournamentMatch(match) && (match.unfinished || !match.winnerId);
 }
 
-function MatchCard({ match, showPhotos, ownershipByPlayerId, onPlayerSelect }) {
+function MatchCard({ match, showPhotos, ownershipByPlayerId, onPlayerSelect, onHeadToHeadOpen = null }) {
   const metaBits = [
     match.tableNo ? `Table ${match.tableNo}` : null,
     match.startDate ? `Start ${match.startDate.slice(0, 10)}` : null,
@@ -682,9 +720,169 @@ function MatchCard({ match, showPhotos, ownershipByPlayerId, onPlayerSelect }) {
               : match.scheduledDate.slice(0, 10)}
         </span>
       </div>
+      {onHeadToHeadOpen && isActiveTournamentMatch(match) ? (
+        <div className="match-card-actions">
+          <button type="button" className="match-history-button" onClick={() => onHeadToHeadOpen(match)}>
+            Head to head
+          </button>
+        </div>
+      ) : null}
       {renderSide(match.player1, match.winnerId === match.player1.id)}
       {renderSide(match.player2, match.winnerId === match.player2.id)}
     </article>
+  );
+}
+
+function formatHeadToHeadDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return parsed.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function HeadToHeadDialog({ state, onClose }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [data, setData] = useState(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const forceRefresh = refreshNonce > 0;
+
+    async function loadHeadToHead() {
+      try {
+        setLoading(true);
+        setError("");
+        const response = await fetchHeadToHead(state.player1.id, state.player2.id, state.year, { forceRefresh });
+        if (!cancelled) {
+          setData(response);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(loadError.message || "Head-to-head history is unavailable.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
+    }
+
+    loadHeadToHead();
+    return () => {
+      cancelled = true;
+    };
+  }, [state, refreshNonce]);
+
+  const matches = data?.matches || [];
+  const player1Wins = data?.summary?.player1Wins || 0;
+  const player2Wins = data?.summary?.player2Wins || 0;
+
+  return (
+    <div className="player-bio-backdrop" onClick={onClose} role="presentation">
+      <section
+        className="player-bio-dialog head-to-head-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="head-to-head-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button type="button" className="player-bio-close" onClick={onClose} aria-label="Close head-to-head history">
+          ×
+        </button>
+        <div className="head-to-head-header">
+          <div>
+            <p className="eyebrow">Head to head</p>
+            <h2 id="head-to-head-title">{state.player1.name} vs {state.player2.name}</h2>
+            <p className="player-bio-subtitle">
+              <span>Season {data?.seasonLabel || `${state.year - 1}/${state.year}`}</span>
+              <span>Main tour</span>
+            </p>
+          </div>
+          <RefreshButton
+            onClick={() => {
+              setRefreshing(true);
+              setRefreshNonce((current) => current + 1);
+            }}
+            busy={refreshing}
+            label="Refresh head-to-head history"
+            className="dialog-refresh-button"
+          />
+        </div>
+
+        {loading ? <p className="status-banner">Loading head-to-head history...</p> : null}
+        {error ? <p className="status-banner error">{error}</p> : null}
+
+        {!loading && !error ? (
+          <>
+            <div className="head-to-head-summary">
+              <div>
+                <span>{state.player1.name}</span>
+                <small>Wins</small>
+                <strong>{player1Wins}</strong>
+              </div>
+              <div>
+                <span>Meetings</span>
+                <strong>{matches.length}</strong>
+              </div>
+              <div>
+                <span>{state.player2.name}</span>
+                <small>Wins</small>
+                <strong>{player2Wins}</strong>
+              </div>
+            </div>
+
+            {matches.length ? (
+              <div className="head-to-head-list">
+                {matches.map((historyMatch) => {
+                  const player1Won = historyMatch.winnerId === state.player1.id;
+                  const player2Won = historyMatch.winnerId === state.player2.id;
+                  return (
+                    <article key={historyMatch.id} className="head-to-head-item">
+                      <div className="head-to-head-item-top">
+                        <strong>{historyMatch.eventName}</strong>
+                        <span>{formatHeadToHeadDate(historyMatch.scheduledDate || historyMatch.startDate)}</span>
+                      </div>
+                      <div className="head-to-head-item-score">
+                        <span className={player1Won ? "winner" : ""}>{state.player1.name}</span>
+                        <strong>{historyMatch.score1} - {historyMatch.score2}</strong>
+                        <span className={player2Won ? "winner" : ""}>{state.player2.name}</span>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="status-banner">No meetings found for this season.</p>
+            )}
+          </>
+        ) : null}
+      </section>
+    </div>
   );
 }
 
@@ -1024,9 +1222,14 @@ function usePublicTournamentData(selectedYear) {
   const [publicEntrants, setPublicEntrants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const manualRefreshRequestedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    const forceRefresh = manualRefreshRequestedRef.current;
+    manualRefreshRequestedRef.current = false;
 
     async function load(showLoadingState = true) {
       if (showLoadingState) {
@@ -1035,7 +1238,7 @@ function usePublicTournamentData(selectedYear) {
       setError("");
       try {
         const [nextData, entrantsResponse] = await Promise.all([
-          fetchPool(selectedYear),
+          fetchPool(selectedYear, { forceRefresh }),
           fetchEntrants(),
         ]);
         if (!cancelled) {
@@ -1047,8 +1250,13 @@ function usePublicTournamentData(selectedYear) {
           setError(loadError.message || "Failed to load tournament data.");
         }
       } finally {
-        if (!cancelled && showLoadingState) {
-          setLoading(false);
+        if (!cancelled) {
+          if (showLoadingState) {
+            setLoading(false);
+          }
+          if (forceRefresh) {
+            setRefreshing(false);
+          }
         }
       }
     }
@@ -1065,13 +1273,19 @@ function usePublicTournamentData(selectedYear) {
       cancelled = true;
       window.clearInterval(refreshId);
     };
-  }, [selectedYear]);
+  }, [selectedYear, refreshNonce]);
 
-  return { data, publicEntrants, loading, error };
+  function refresh() {
+    manualRefreshRequestedRef.current = true;
+    setRefreshing(true);
+    setRefreshNonce((current) => current + 1);
+  }
+
+  return { data, publicEntrants, loading, error, refresh, refreshing };
 }
 
 function useTournamentOverview(selectedYear) {
-  const { data, publicEntrants, loading, error } = usePublicTournamentData(selectedYear);
+  const { data, publicEntrants, loading, error, refresh, refreshing } = usePublicTournamentData(selectedYear);
   const [selectedRoundKey, setSelectedRoundKey] = useState("");
   const autoSelectedRoundYearRef = useRef(null);
 
@@ -1082,10 +1296,13 @@ function useTournamentOverview(selectedYear) {
 
     const preferredRoundKey = getDefaultRoundKey(data.snapshot);
     const roundExists = data.snapshot.rounds.some((round) => round.key === selectedRoundKey);
-    const shouldAutoSelect = autoSelectedRoundYearRef.current !== data.snapshot.year;
+    const yearChanged = autoSelectedRoundYearRef.current !== data.snapshot.year;
 
-    if (shouldAutoSelect || !roundExists) {
+    if (!selectedRoundKey || !roundExists) {
       setSelectedRoundKey(preferredRoundKey);
+    }
+
+    if (yearChanged) {
       autoSelectedRoundYearRef.current = data.snapshot.year;
     }
   }, [data, selectedRoundKey]);
@@ -1205,6 +1422,8 @@ function useTournamentOverview(selectedYear) {
     data,
     loading,
     error,
+    refresh,
+    refreshing,
     selectedRoundKey,
     setSelectedRoundKey,
     derived,
@@ -1217,6 +1436,8 @@ function HomePage() {
     data,
     loading,
     error,
+    refresh,
+    refreshing,
     selectedRoundKey,
     setSelectedRoundKey,
     derived,
@@ -1285,6 +1506,7 @@ function HomePage() {
               <Link className="admin-pill-link subtle" to="/bracket">Open bracket</Link>
               <Link className="admin-pill-link subtle" to="/matches">Open matches</Link>
             </div>
+            <RefreshButton onClick={refresh} busy={refreshing} label={`Refresh ${selectedYear} tournament data`} className="hero-refresh-button" />
           </div>
         </div>
         <div className="hero-image-shell">
@@ -1341,7 +1563,7 @@ function HomePage() {
 function EntrantsPage() {
   const [selectedYear, setSelectedYear] = usePublicSelectedYear();
   const [showPhotos, setShowPhotos] = usePublicShowPhotos();
-  const { data, loading, error, derived } = useTournamentOverview(selectedYear);
+  const { data, loading, error, derived, refresh, refreshing } = useTournamentOverview(selectedYear);
   const [expandedCompetitors, setExpandedCompetitors] = useState({});
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const isCompactViewport = useIsCompactViewport();
@@ -1379,6 +1601,7 @@ function EntrantsPage() {
         </div>
         <div className="entrants-hero-tools">
           <div className="matches-settings-shell entrants-settings-shell">
+            <RefreshButton onClick={refresh} busy={refreshing} label={`Refresh ${selectedYear} entrant data`} />
             <button
               type="button"
               className={`matches-settings-button${settingsMenuOpen ? " open" : ""}`}
@@ -1510,7 +1733,7 @@ function EntrantsPage() {
 
 function MatchesPage() {
   const [selectedYear, setSelectedYear] = usePublicSelectedYear();
-  const { data, loading, error } = usePublicTournamentData(selectedYear);
+  const { data, loading, error, refresh, refreshing } = usePublicTournamentData(selectedYear);
   const [selectedRoundKey, setSelectedRoundKey] = useSessionState(MATCHES_ROUND_SESSION_KEY, "");
   const [selectedEntrantFiltersRaw, setSelectedEntrantFilters] = useSessionState(MATCHES_ENTRANT_FILTERS_SESSION_KEY, []);
   const [selectedPlayerFiltersRaw, setSelectedPlayerFilters] = useSessionState(MATCHES_PLAYER_FILTERS_SESSION_KEY, []);
@@ -1518,7 +1741,9 @@ function MatchesPage() {
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [selectedBioPlayer, setSelectedBioPlayer] = useState(null);
+  const [selectedHeadToHead, setSelectedHeadToHead] = useState(null);
   const [showPhotos, setShowPhotos] = usePublicShowPhotos();
+  const [displayRoundKey, setDisplayRoundKey] = useState("");
   const autoSelectedRoundYearRef = useRef(null);
   const selectedEntrantFilters = normaliseSessionList(selectedEntrantFiltersRaw);
   const selectedPlayerFilters = normaliseSessionList(selectedPlayerFiltersRaw);
@@ -1534,13 +1759,29 @@ function MatchesPage() {
 
     const preferredRoundKey = getDefaultRoundKey(data.snapshot);
     const roundExists = data.snapshot.rounds.some((round) => round.key === selectedRoundKey);
-    const shouldAutoSelect = autoSelectedRoundYearRef.current !== data.snapshot.year;
+    const yearChanged = autoSelectedRoundYearRef.current !== data.snapshot.year;
 
-    if (shouldAutoSelect || !roundExists) {
+    if (!selectedRoundKey || !roundExists) {
       setSelectedRoundKey(preferredRoundKey);
+    }
+
+    if (yearChanged) {
       autoSelectedRoundYearRef.current = data.snapshot.year;
     }
   }, [data, selectedRoundKey]);
+
+  useEffect(() => {
+    if (!displayRoundKey && selectedRoundKey) {
+      setDisplayRoundKey(selectedRoundKey);
+    }
+  }, [displayRoundKey, selectedRoundKey]);
+
+  useEffect(() => {
+    const firstRoundKey = snapshotRounds[0]?.key || "";
+    if (!loading) {
+      setDisplayRoundKey(selectedRoundKey || firstRoundKey);
+    }
+  }, [loading, selectedRoundKey, snapshotRounds]);
 
   const ownershipByPlayerId = useMemo(
     () => buildOwnershipMap(data?.competitors || []),
@@ -1606,6 +1847,10 @@ function MatchesPage() {
 
   const { snapshot } = data;
   const selectedRound = snapshot.rounds.find((round) => round.key === selectedRoundKey) || snapshot.rounds[0];
+  const displayRound = snapshot.rounds.find((round) => round.key === displayRoundKey) || selectedRound;
+  const isYearSwitching = loading && Boolean(data) && data.snapshot?.year !== selectedYear;
+  const isRoundSwitching = displayRoundKey && selectedRoundKey !== displayRoundKey;
+  const hideMatchesDuringSwitch = isYearSwitching || isRoundSwitching;
   const unresolvedScheduledMatches = selectedRound.matches.filter((match) => !match.winnerId).length;
   const unplayedMatchCount = selectedRound.matches.length
     ? unresolvedScheduledMatches
@@ -1655,6 +1900,7 @@ function MatchesPage() {
         </div>
         <div className="matches-hero-tools">
           <div className="matches-settings-shell">
+            <RefreshButton onClick={refresh} busy={refreshing} label={`Refresh ${selectedYear} match data`} />
             <button
               type="button"
               className={`matches-settings-button${settingsMenuOpen ? " open" : ""}`}
@@ -1738,6 +1984,13 @@ function MatchesPage() {
       </section>
 
       {error ? <p className="status-banner error">{error}</p> : null}
+      {hideMatchesDuringSwitch ? (
+        <p className="status-banner" aria-live="polite">
+          {isYearSwitching
+            ? `Loading matches for ${selectedYear}...`
+            : `Loading ${selectedRound.name}...`}
+        </p>
+      ) : null}
       {!poolConfigured ? (
         <p className="status-banner">
           The tournament is not fully configured yet. Match data is still available while the entrant assignments are completed.
@@ -1747,7 +2000,7 @@ function MatchesPage() {
       <section className="section-heading draw-heading">
         <div>
           <p className="eyebrow">Matches</p>
-          <h2>{selectedRound.name}</h2>
+          <h2>{hideMatchesDuringSwitch ? displayRound.name : selectedRound.name}</h2>
         </div>
         <div className="matches-heading-actions">
           <button
@@ -1858,6 +2111,7 @@ function MatchesPage() {
         </section>
       ) : null}
 
+      {!hideMatchesDuringSwitch ? (
       <section className="matches-grid">
         {filteredMatches.length ? (
           filteredMatches.map((match) => (
@@ -1867,6 +2121,11 @@ function MatchesPage() {
               showPhotos={showPhotos}
               ownershipByPlayerId={ownershipByPlayerId}
               onPlayerSelect={setSelectedBioPlayer}
+              onHeadToHeadOpen={(selectedMatch) => setSelectedHeadToHead({
+                year: selectedYear,
+                player1: selectedMatch.player1,
+                player2: selectedMatch.player2,
+              })}
             />
           ))
         ) : (
@@ -1883,7 +2142,9 @@ function MatchesPage() {
           </article>
         )}
       </section>
+      ) : null}
       {selectedBioPlayer ? <PlayerBioDialog player={selectedBioPlayer} onClose={() => setSelectedBioPlayer(null)} /> : null}
+      {selectedHeadToHead ? <HeadToHeadDialog state={selectedHeadToHead} onClose={() => setSelectedHeadToHead(null)} /> : null}
     </main>
   );
 }
@@ -1894,12 +2155,17 @@ function BracketPage() {
   const [error, setError] = useState("");
   const [selectedYear, setSelectedYear] = usePublicSelectedYear();
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const autoAdjustedYearRef = useRef(false);
+  const manualRefreshRequestedRef = useRef(false);
   const isCompactViewport = useIsCompactViewport();
   const isVeryCompactViewport = useIsCompactViewport(480);
 
   useEffect(() => {
     let cancelled = false;
+    const forceRefresh = manualRefreshRequestedRef.current;
+    manualRefreshRequestedRef.current = false;
 
     async function load(showLoadingState = true) {
       if (showLoadingState) {
@@ -1908,7 +2174,7 @@ function BracketPage() {
       setError("");
 
       try {
-        const nextData = await fetchPool(selectedYear);
+        const nextData = await fetchPool(selectedYear, { forceRefresh });
         if (!cancelled) {
           if (
             !autoAdjustedYearRef.current
@@ -1927,8 +2193,13 @@ function BracketPage() {
           setError(loadError.message || "Failed to load bracket data.");
         }
       } finally {
-        if (!cancelled && showLoadingState) {
-          setLoading(false);
+        if (!cancelled) {
+          if (showLoadingState) {
+            setLoading(false);
+          }
+          if (forceRefresh) {
+            setRefreshing(false);
+          }
         }
       }
     }
@@ -1944,7 +2215,7 @@ function BracketPage() {
       cancelled = true;
       window.clearInterval(refreshId);
     };
-  }, [selectedYear]);
+  }, [selectedYear, refreshNonce]);
 
   const derived = useMemo(() => {
     if (!data?.snapshot?.rounds?.length) {
@@ -1954,6 +2225,15 @@ function BracketPage() {
     const activeRoundKey = getDefaultRoundKey(data.snapshot);
     const bracketRounds = buildBracketRounds(data.snapshot.rounds, data.competitors || []);
     const maxSlots = 2 ** bracketRounds.length;
+    const finalRound = data.snapshot.rounds[data.snapshot.rounds.length - 1] || null;
+    const tournamentComplete = Boolean(finalRound?.matches?.length) && finalRound.matches.every((match) => Boolean(match.winnerId));
+    const championPlayer = data.snapshot.entrants.find((entry) => entry.isChampion && !entry.isPlaceholder) || null;
+    const winningCompetitor = championPlayer
+      ? (data.competitors || []).find((competitor) => (
+        competitor.seeds.some((player) => player?.id === championPlayer.id)
+        || competitor.qualifiers.some((player) => player?.id === championPlayer.id)
+      )) || null
+      : null;
     const completedMatches = bracketRounds.reduce(
       (count, round) => count + round.bracketMatches.filter((match) => match.state === "finished").length,
       0,
@@ -1964,6 +2244,9 @@ function BracketPage() {
       bracketRounds,
       maxSlots,
       completedMatches,
+      tournamentComplete,
+      winningCompetitorName: winningCompetitor?.name || championPlayer?.name || "",
+      championPlayerName: championPlayer?.name || "",
     };
   }, [data]);
 
@@ -1979,6 +2262,21 @@ function BracketPage() {
   const bracketUnit = isVeryCompactViewport ? 320 : isCompactViewport ? 280 : 208;
   const bracketHeight = derived.bracketRounds[0].bracketMatches.length * bracketUnit;
 
+  function jumpToMatchesRound(roundKey) {
+    try {
+      window.sessionStorage.setItem(PUBLIC_YEAR_SESSION_KEY, JSON.stringify(selectedYear));
+      window.sessionStorage.setItem(MATCHES_ROUND_SESSION_KEY, JSON.stringify(roundKey));
+    } catch {
+      // Ignore session storage failures and allow normal navigation.
+    }
+  }
+
+  function refreshBracketData() {
+    manualRefreshRequestedRef.current = true;
+    setRefreshing(true);
+    setRefreshNonce((current) => current + 1);
+  }
+
   return (
     <main className="app-shell bracket-page-shell">
       <SiteHeader mode="bracket" poolConfigured={poolConfigured} />
@@ -1993,37 +2291,48 @@ function BracketPage() {
               : "Waiting for live data"}
           </p>
         </div>
-        <div className="bracket-toolbar bracket-toolbar-compact">
-          <div className="bracket-control bracket-control-year">
-            <p className="toolbar-label">Year</p>
-            <label className="toolbar-select-shell">
-              <select
-                className="toolbar-select"
-                value={selectedYear}
-                onChange={(event) => setSelectedYear(Number(event.target.value))}
-                aria-label="Select tournament year"
-              >
-                {PUBLIC_YEAR_OPTIONS.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="bracket-control">
-            <span className="bracket-inline-label">Active round</span>
-            <strong className="bracket-inline-value">{derived.bracketRounds.find((round) => round.key === derived.activeRoundKey)?.name || "Round 1"}</strong>
-          </div>
-          <div className="bracket-control">
-            <span className="bracket-inline-label">Completed</span>
-            <strong className="bracket-inline-value">{derived.completedMatches}</strong>
-          </div>
-          <div className="bracket-control">
-            <span className="bracket-inline-label">Assignments</span>
-            <strong className={`bracket-inline-value bracket-status-value ${poolConfigured ? "live" : "incomplete"}`}>
-              {poolConfigured ? "Live" : "Incomplete"}
-            </strong>
+        <div className="matches-hero-tools">
+          <RefreshButton onClick={refreshBracketData} busy={refreshing} label={`Refresh ${selectedYear} bracket data`} />
+          <div className="bracket-toolbar bracket-toolbar-compact">
+            <div className="bracket-control bracket-control-year">
+              <p className="toolbar-label">Year</p>
+              <label className="toolbar-select-shell">
+                <select
+                  className="toolbar-select"
+                  value={selectedYear}
+                  onChange={(event) => setSelectedYear(Number(event.target.value))}
+                  aria-label="Select tournament year"
+                >
+                  {PUBLIC_YEAR_OPTIONS.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="bracket-control">
+              <span className="bracket-inline-label">{derived.tournamentComplete ? "Status" : "Active round"}</span>
+              <strong className="bracket-inline-value">
+                {derived.tournamentComplete
+                  ? "Complete"
+                  : derived.bracketRounds.find((round) => round.key === derived.activeRoundKey)?.name || "Round 1"}
+              </strong>
+            </div>
+            <div className="bracket-control">
+              <span className="bracket-inline-label">{derived.tournamentComplete ? "Winner" : "Completed"}</span>
+              <strong className={`bracket-inline-value${derived.tournamentComplete ? " bracket-inline-value-wrap" : ""}`}>
+                {derived.tournamentComplete
+                  ? `${derived.winningCompetitorName}${derived.championPlayerName ? ` (${derived.championPlayerName})` : ""}`
+                  : derived.completedMatches}
+              </strong>
+            </div>
+            <div className="bracket-control">
+              <span className="bracket-inline-label">Assignments</span>
+              <strong className={`bracket-inline-value bracket-status-value ${poolConfigured ? "live" : "incomplete"}`}>
+                {poolConfigured ? "Live" : "Incomplete"}
+              </strong>
+            </div>
           </div>
         </div>
       </section>
@@ -2049,11 +2358,17 @@ function BracketPage() {
               key={round.key}
               className={`bracket-round-column${round.key === derived.activeRoundKey ? " active" : ""}`}
             >
-              <div className="bracket-round-header">
+              <Link
+                className="bracket-round-header"
+                to="/matches"
+                onClick={() => jumpToMatchesRound(round.key)}
+                aria-label={`Open ${round.name} matches for ${selectedYear}`}
+                title={`Open ${round.name} matches`}
+              >
                 <p className="eyebrow">Round</p>
                 <h3>{round.name}</h3>
                 <span>{round.bracketMatches.length} matches</span>
-              </div>
+              </Link>
               <div className="bracket-round-stack" style={{ minHeight: `${bracketHeight}px` }}>
                 {round.bracketMatches.map((match, matchIndex) => {
                   const winnerId = match.winnerSide?.id || null;
