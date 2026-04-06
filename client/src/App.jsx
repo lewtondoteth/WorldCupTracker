@@ -207,9 +207,62 @@ function getNationalityFlag(nationality) {
     .join("");
 }
 
-function PlayerIdentity({ player, compact = false, showPhoto = true, ownerName = "" }) {
+function formatPlayerBirthDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return parsed.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function getPlayerAge(value) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  const today = new Date();
+  let age = today.getFullYear() - parsed.getFullYear();
+  const birthdayPassed = (
+    today.getMonth() > parsed.getMonth()
+    || (today.getMonth() === parsed.getMonth() && today.getDate() >= parsed.getDate())
+  );
+
+  if (!birthdayPassed) {
+    age -= 1;
+  }
+
+  return age >= 0 ? age : null;
+}
+
+function normaliseExternalUrl(value, fallbackPrefix = "https://") {
+  const nextValue = String(value || "").trim();
+  if (!nextValue) {
+    return "";
+  }
+  if (/^https?:\/\//i.test(nextValue)) {
+    return nextValue;
+  }
+  return `${fallbackPrefix}${nextValue.replace(/^\/+/, "")}`;
+}
+
+function PlayerIdentity({ player, compact = false, showPhoto = true, ownerName = "", onNameClick = null }) {
   const flag = getNationalityFlag(player.nationality);
   const identityClassName = `${compact ? "player-identity compact" : "player-identity"}${player.eliminated ? " eliminated" : ""}`;
+  const canOpenBio = typeof onNameClick === "function" && player && !isPlaceholderMatchPlayer(player);
 
   return (
     <div className={identityClassName}>
@@ -225,7 +278,13 @@ function PlayerIdentity({ player, compact = false, showPhoto = true, ownerName =
         </div>
       ) : null}
       <div className="player-text">
-        <strong>{player.name}{ownerName ? ` (${ownerName})` : ""}</strong>
+        {canOpenBio ? (
+          <button type="button" className="player-name-button" onClick={() => onNameClick(player)}>
+            {player.name}{ownerName ? ` (${ownerName})` : ""}
+          </button>
+        ) : (
+          <strong>{player.name}{ownerName ? ` (${ownerName})` : ""}</strong>
+        )}
         <small>
           {flag ? <span className="player-flag" aria-hidden="true">{flag}</span> : null}
           <span>{player.nationality || "Unknown"}</span>
@@ -538,7 +597,7 @@ function isOpenTournamentMatch(match) {
   return isActiveTournamentMatch(match) && (match.unfinished || !match.winnerId);
 }
 
-function MatchCard({ match, showPhotos, ownershipByPlayerId }) {
+function MatchCard({ match, showPhotos, ownershipByPlayerId, onPlayerSelect }) {
   const metaBits = [
     match.tableNo ? `Table ${match.tableNo}` : null,
     match.startDate ? `Start ${match.startDate.slice(0, 10)}` : null,
@@ -552,6 +611,7 @@ function MatchCard({ match, showPhotos, ownershipByPlayerId }) {
         compact
         showPhoto={showPhotos}
         ownerName={ownershipByPlayerId?.get(player.id)?.entrantName || ""}
+        onNameClick={onPlayerSelect}
       />
       <strong>{player.score}</strong>
     </div>
@@ -577,6 +637,86 @@ function MatchCard({ match, showPhotos, ownershipByPlayerId }) {
       {renderSide(match.player1, match.winnerId === match.player1.id)}
       {renderSide(match.player2, match.winnerId === match.player2.id)}
     </article>
+  );
+}
+
+function PlayerBioDialog({ player, onClose }) {
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const flag = getNationalityFlag(player?.nationality);
+  const bornLabel = formatPlayerBirthDate(player?.born);
+  const age = getPlayerAge(player?.born);
+  const careerLabel = player?.firstSeasonAsPro
+    ? `${player.firstSeasonAsPro} - ${player.lastSeasonAsPro || "present"}`
+    : "";
+  const twitterUrl = player?.twitter ? `https://x.com/${String(player.twitter).replace(/^@/, "")}` : "";
+  const externalUrl = normaliseExternalUrl(player?.websiteUrl);
+  const photoSource = String(player?.photoSource || "").trim();
+
+  if (!player) {
+    return null;
+  }
+
+  return (
+    <div className="player-bio-backdrop" onClick={onClose} role="presentation">
+      <section
+        className="player-bio-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="player-bio-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button type="button" className="player-bio-close" onClick={onClose} aria-label="Close player bio">
+          ×
+        </button>
+        <div className="player-bio-header">
+          {player.photo ? (
+            <img className="player-bio-photo" src={player.photo} alt="" />
+          ) : (
+            <div className="player-bio-photo fallback" aria-hidden="true">
+              {String(player.name || "?").trim().slice(0, 1)}
+            </div>
+          )}
+          <div className="player-bio-copy">
+            <p className="eyebrow">Player bio</p>
+            <h2 id="player-bio-title">{player.name}</h2>
+            <p className="player-bio-subtitle">
+              {flag ? <span aria-hidden="true">{flag}</span> : null}
+              <span>{player.nationality || "Unknown nationality"}</span>
+            </p>
+          </div>
+        </div>
+        <div className="player-bio-grid">
+          {age !== null ? <div><span>Age</span><strong>{age}</strong></div> : null}
+          {bornLabel ? <div><span>Born</span><strong>{bornLabel}</strong></div> : null}
+          {careerLabel ? <div><span>Pro seasons</span><strong>{careerLabel}</strong></div> : null}
+          <div><span>Ranking titles</span><strong>{player.numRankingTitles || 0}</strong></div>
+          <div><span>Maximums</span><strong>{player.numMaximums || 0}</strong></div>
+        </div>
+        {player.info ? (
+          <div className="player-bio-info-block">
+            <span>Info</span>
+            <p className="player-bio-info">{player.info}</p>
+          </div>
+        ) : null}
+        {(twitterUrl || externalUrl) ? (
+          <div className="player-bio-links">
+            {twitterUrl ? <a href={twitterUrl} target="_blank" rel="noreferrer">Twitter/X</a> : null}
+            {externalUrl ? <a href={externalUrl} target="_blank" rel="noreferrer">Profile link</a> : null}
+          </div>
+        ) : null}
+        {photoSource ? <p className="player-bio-source">Photo source: {photoSource}</p> : null}
+      </section>
+    </div>
   );
 }
 
@@ -1328,6 +1468,7 @@ function MatchesPage() {
   const [selectedCountryFiltersRaw, setSelectedCountryFilters] = useSessionState(MATCHES_COUNTRY_FILTERS_SESSION_KEY, []);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
+  const [selectedBioPlayer, setSelectedBioPlayer] = useState(null);
   const [showPhotos, setShowPhotos] = usePublicShowPhotos();
   const autoSelectedRoundYearRef = useRef(null);
   const selectedEntrantFilters = normaliseSessionList(selectedEntrantFiltersRaw);
@@ -1676,6 +1817,7 @@ function MatchesPage() {
               match={match}
               showPhotos={showPhotos}
               ownershipByPlayerId={ownershipByPlayerId}
+              onPlayerSelect={setSelectedBioPlayer}
             />
           ))
         ) : (
@@ -1692,6 +1834,7 @@ function MatchesPage() {
           </article>
         )}
       </section>
+      {selectedBioPlayer ? <PlayerBioDialog player={selectedBioPlayer} onClose={() => setSelectedBioPlayer(null)} /> : null}
     </main>
   );
 }
