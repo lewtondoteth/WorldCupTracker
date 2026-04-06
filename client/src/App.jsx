@@ -1703,6 +1703,7 @@ function BracketPage() {
   const [selectedYear, setSelectedYear] = usePublicSelectedYear();
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const autoAdjustedYearRef = useRef(false);
+  const isCompactViewport = useIsCompactViewport();
 
   useEffect(() => {
     let cancelled = false;
@@ -1782,7 +1783,7 @@ function BracketPage() {
   }
 
   const poolConfigured = data.poolConfigured !== false;
-  const bracketUnit = 208;
+  const bracketUnit = isCompactViewport ? 252 : 208;
   const bracketHeight = derived.bracketRounds[0].bracketMatches.length * bracketUnit;
 
   return (
