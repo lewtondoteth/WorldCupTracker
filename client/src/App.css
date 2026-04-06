@@ -1427,6 +1427,28 @@
   width: min(100%, 560px);
 }
 
+.bracket-toolbar-compact {
+  width: min(100%, 500px);
+  grid-template-columns: minmax(146px, 1.2fr) repeat(3, minmax(0, 0.82fr));
+  gap: 8px;
+}
+
+.bracket-toolbar-compact .bracket-control {
+  min-height: 68px;
+  padding: 10px 12px;
+  gap: 4px;
+}
+
+.bracket-toolbar-compact .bracket-inline-label,
+.bracket-toolbar-compact .toolbar-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+}
+
+.bracket-toolbar-compact .bracket-inline-value {
+  font-size: 1.05rem;
+}
+
 .matches-toolbar-top {
   width: min(100%, 520px);
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1962,6 +1984,14 @@
 .bracket-side-row.winner {
   border-color: rgba(15, 90, 70, 0.2);
   background: rgba(226, 248, 238, 0.92);
+}
+
+.bracket-side-row.loser .bracket-entrant-name,
+.bracket-side-row.loser .bracket-player-name {
+  color: #8b7a72;
+  text-decoration: line-through;
+  text-decoration-color: rgba(139, 122, 114, 0.72);
+  text-decoration-thickness: 1.5px;
 }
 
 .bracket-side-row.placeholder {

@@ -1944,7 +1944,7 @@ function BracketPage() {
               : "Waiting for live data"}
           </p>
         </div>
-        <div className="bracket-toolbar">
+        <div className="bracket-toolbar bracket-toolbar-compact">
           <div className="bracket-control bracket-control-year">
             <p className="toolbar-label">Year</p>
             <label className="toolbar-select-shell">
@@ -2029,7 +2029,7 @@ function BracketPage() {
                         {[match.side1, match.side2].map((side) => (
                           <div
                             key={`${match.key}-${side.id}`}
-                            className={`bracket-side-row${side.id === winnerId ? " winner" : ""}${side.isPlaceholder ? " placeholder" : ""}${side.isUnassigned ? " unassigned" : ""}`}
+                            className={`bracket-side-row${side.id === winnerId ? " winner" : ""}${winnerId && side.id !== winnerId ? " loser" : ""}${side.isPlaceholder ? " placeholder" : ""}${side.isUnassigned ? " unassigned" : ""}`}
                           >
                             <div className="bracket-side-copy">
                               <span className="bracket-entrant-name">
