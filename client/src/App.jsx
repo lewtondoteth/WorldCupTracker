@@ -402,13 +402,14 @@ function SiteHeader({ mode = "home", poolConfigured = false }) {
             <>
               <a className="site-menu-link" href="#overview">Overview</a>
               {poolConfigured ? <a className="site-menu-link" href="#entrants">Entrants</a> : null}
-              <a className="site-menu-link" href="#matches">Matches</a>
+              <Link className="site-menu-link" to="/matches">Matches</Link>
               <Link className="site-menu-link" to="/bracket">Bracket</Link>
               <Link className="site-menu-link" to="/winners">Winners</Link>
             </>
           ) : (
             <>
               <Link className="site-menu-link" to="/">Tournament</Link>
+              <Link className={`site-menu-link${mode === "matches" ? " current" : ""}`} to="/matches">Matches</Link>
               <Link className={`site-menu-link${mode === "bracket" ? " current" : ""}`} to="/bracket">Bracket</Link>
               <Link className={`site-menu-link${mode === "winners" ? " current" : ""}`} to="/winners">Winners</Link>
             </>
@@ -715,18 +716,11 @@ function buildBracketRounds(snapshotRounds, competitors) {
   return builtRounds;
 }
 
-function HomePage() {
+function usePublicTournamentData(selectedYear) {
   const [data, setData] = useState(null);
   const [publicEntrants, setPublicEntrants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showPhotos, setShowPhotos] = useState(true);
-  const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
-  const [selectedRoundKey, setSelectedRoundKey] = useState("");
-  const [competitorsSectionExpanded, setCompetitorsSectionExpanded] = useState(true);
-  const [expandedCompetitors, setExpandedCompetitors] = useState({});
-  const [matchesExpanded, setMatchesExpanded] = useState(true);
-  const autoSelectedRoundYearRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -744,11 +738,10 @@ function HomePage() {
         if (!cancelled) {
           setData(nextData);
           setPublicEntrants(entrantsResponse.entrants || []);
-          setExpandedCompetitors({});
         }
       } catch (loadError) {
         if (!cancelled) {
-          setError(loadError.message);
+          setError(loadError.message || "Failed to load tournament data.");
         }
       } finally {
         if (!cancelled && showLoadingState) {
@@ -770,6 +763,22 @@ function HomePage() {
       window.clearInterval(refreshId);
     };
   }, [selectedYear]);
+
+  return { data, publicEntrants, loading, error };
+}
+
+function HomePage() {
+  const [showPhotos, setShowPhotos] = useState(true);
+  const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
+  const { data, publicEntrants, loading, error } = usePublicTournamentData(selectedYear);
+  const [selectedRoundKey, setSelectedRoundKey] = useState("");
+  const [competitorsSectionExpanded, setCompetitorsSectionExpanded] = useState(true);
+  const [expandedCompetitors, setExpandedCompetitors] = useState({});
+  const autoSelectedRoundYearRef = useRef(null);
+
+  useEffect(() => {
+    setExpandedCompetitors({});
+  }, [data?.snapshot?.year]);
 
   useEffect(() => {
     if (!data?.snapshot?.rounds?.length) {
@@ -962,7 +971,7 @@ function HomePage() {
             <div className="hero-actions">
               {poolConfigured ? <a className="admin-pill-link" href="#entrants">View entrants</a> : null}
               <Link className="admin-pill-link subtle" to="/bracket">Open bracket</Link>
-              <a className="admin-pill-link subtle" href="#matches">Open matches</a>
+              <Link className="admin-pill-link subtle" to="/matches">Open matches</Link>
             </div>
           </div>
         </div>
@@ -1130,48 +1139,147 @@ function HomePage() {
         </>
       ) : null}
 
-      <section className="section-heading draw-heading" id="matches">
-        <div className="collapsible-title-row">
-          <div>
-            <p className="eyebrow">Matches</p>
-            <h2>{selectedRound.name}</h2>
+    </main>
+  );
+}
+
+function MatchesPage() {
+  const [selectedYear, setSelectedYear] = useState(PUBLIC_DEFAULT_YEAR);
+  const { data, loading, error } = usePublicTournamentData(selectedYear);
+  const [selectedRoundKey, setSelectedRoundKey] = useState("");
+  const [showPhotos, setShowPhotos] = useState(true);
+  const autoSelectedRoundYearRef = useRef(null);
+
+  useEffect(() => {
+    if (!data?.snapshot?.rounds?.length) {
+      return;
+    }
+
+    const preferredRoundKey = getDefaultRoundKey(data.snapshot);
+    const roundExists = data.snapshot.rounds.some((round) => round.key === selectedRoundKey);
+    const shouldAutoSelect = autoSelectedRoundYearRef.current !== data.snapshot.year;
+
+    if (shouldAutoSelect || !roundExists) {
+      setSelectedRoundKey(preferredRoundKey);
+      autoSelectedRoundYearRef.current = data.snapshot.year;
+    }
+  }, [data, selectedRoundKey]);
+
+  if (loading && !data) {
+    return <main className="app-shell"><p className="status-banner">Loading matches...</p></main>;
+  }
+
+  if (!data || !data.snapshot?.rounds?.length) {
+    return <main className="app-shell"><p className="status-banner error">{error || "Match data is unavailable."}</p></main>;
+  }
+
+  const { snapshot } = data;
+  const selectedRound = snapshot.rounds.find((round) => round.key === selectedRoundKey) || snapshot.rounds[0];
+  const unresolvedScheduledMatches = selectedRound.matches.filter((match) => !match.winnerId).length;
+  const unplayedMatchCount = selectedRound.matches.length
+    ? unresolvedScheduledMatches
+    : (selectedRound.matchCount || 0);
+  const poolConfigured = data.poolConfigured !== false;
+
+  return (
+    <main className="app-shell">
+      <SiteHeader mode="matches" poolConfigured={poolConfigured} />
+
+      <section className="bracket-hero-card">
+        <div className="bracket-hero-copy">
+          <p className="hero-kicker">Round-by-round match centre</p>
+          <h1>{BRAND_SHORT_NAME} Matches</h1>
+          <p className="hero-summary">
+            Follow every scheduled and in-play match on its own page without crowding the tournament overview.
+          </p>
+        </div>
+        <div className="bracket-toolbar">
+          <div className="bracket-control bracket-control-year">
+            <p className="toolbar-label">Year</p>
+            <label className="toolbar-select-shell">
+              <select
+                className="toolbar-select"
+                value={selectedYear}
+                onChange={(event) => setSelectedYear(Number(event.target.value))}
+                aria-label="Select tournament year"
+              >
+                {PUBLIC_YEAR_OPTIONS.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-          <ChevronToggle
-            expanded={matchesExpanded}
-            onToggle={() => setMatchesExpanded((current) => !current)}
-            label={selectedRound.name}
-            className="section-heading-toggle"
-          />
+          <div className="bracket-control">
+            <p className="toolbar-label">Round</p>
+            <label className="toolbar-select-shell">
+              <select
+                className="toolbar-select"
+                value={selectedRound.key}
+                onChange={(event) => setSelectedRoundKey(event.target.value)}
+                aria-label="Select round"
+              >
+                {snapshot.rounds.map((round) => (
+                  <option key={round.key} value={round.key}>
+                    {round.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="bracket-control">
+            <span className="bracket-inline-label">Live matches</span>
+            <strong className="bracket-inline-value">{unplayedMatchCount}</strong>
+          </div>
+          <div className="bracket-control">
+            <span className="bracket-inline-label">Player photos</span>
+            <label className="toolbar-switch">
+              <input
+                type="checkbox"
+                checked={showPhotos}
+                onChange={(event) => setShowPhotos(event.target.checked)}
+              />
+              <span className="toolbar-switch-track">
+                <span className="toolbar-switch-thumb" />
+              </span>
+              <span className="toolbar-switch-label">{showPhotos ? "On" : "Off"}</span>
+            </label>
+          </div>
         </div>
       </section>
 
-      {matchesExpanded ? (
-        <section className="matches-grid">
-          {selectedRound.matches.length ? (
-            selectedRound.matches.map((match) => (
-              <MatchCard key={match.id} match={match} showPhotos={showPhotos} />
-            ))
-          ) : (
-            <article className="match-card empty-round-card">
-              <div className="match-meta">
-                <span>{selectedRound.name}</span>
-                <span>Not populated yet</span>
-              </div>
-              <p className="empty-round-copy">
-                This round has not been populated with match data yet, so players who are still alive are shown as waiting for the round to begin.
-              </p>
-            </article>
-          )}
-        </section>
-      ) : (
-        <section className="matches-collapsed">
-          <p>
-            {selectedRound.matches.length
-              ? `${selectedRound.matchCount} matches are hidden for a cleaner overview.`
-              : "This round does not have match data populated yet."}
-          </p>
-        </section>
-      )}
+      {error ? <p className="status-banner error">{error}</p> : null}
+      {!poolConfigured ? (
+        <p className="status-banner">
+          The tournament is not fully configured yet. Match data is still available while the entrant assignments are completed.
+        </p>
+      ) : null}
+
+      <section className="section-heading draw-heading">
+        <div>
+          <p className="eyebrow">Matches</p>
+          <h2>{selectedRound.name}</h2>
+        </div>
+      </section>
+
+      <section className="matches-grid">
+        {selectedRound.matches.length ? (
+          selectedRound.matches.map((match) => (
+            <MatchCard key={match.id} match={match} showPhotos={showPhotos} />
+          ))
+        ) : (
+          <article className="match-card empty-round-card">
+            <div className="match-meta">
+              <span>{selectedRound.name}</span>
+              <span>Not populated yet</span>
+            </div>
+            <p className="empty-round-copy">
+              This round has not been populated with match data yet, so players who are still alive are shown as waiting for the round to begin.
+            </p>
+          </article>
+        )}
+      </section>
     </main>
   );
 }
@@ -2623,6 +2731,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/matches" element={<MatchesPage />} />
       <Route path="/bracket" element={<BracketPage />} />
       <Route path="/winners" element={<WinnersPage />} />
       <Route path="/admin" element={<ProtectedAdminRoute />} />
