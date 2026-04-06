@@ -1110,7 +1110,9 @@ function HomePage() {
         </article>
         <article className="summary-card">
           <p className="toolbar-label">Current live round</p>
-          <p className="summary-value">{tournamentComplete ? "Completed" : currentRound.name}</p>
+          <p className="summary-value">
+            {tournamentComplete ? "Completed" : hasTbdEntrants ? "Awaiting qualification" : currentRound.name}
+          </p>
         </article>
         <article className="summary-card">
           <p className="toolbar-label">{tournamentComplete ? "Winner" : hasTbdEntrants ? "Qualified so far" : "Entrants alive"}</p>
