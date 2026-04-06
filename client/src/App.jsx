@@ -21,7 +21,7 @@ const PUBLIC_YEAR_SESSION_KEY = "snooker-public-selected-year";
 const PUBLIC_SHOW_PHOTOS_SESSION_KEY = "snooker-public-show-photos";
 const MATCHES_ROUND_SESSION_KEY = "snooker-public-matches-round";
 const MATCHES_ENTRANT_FILTERS_SESSION_KEY = "snooker-public-matches-entrant-filters";
-const MATCHES_PLAYER_FILTER_TEXT_SESSION_KEY = "snooker-public-matches-player-filter";
+const MATCHES_PLAYER_FILTERS_SESSION_KEY = "snooker-public-matches-player-filters";
 const MATCHES_COUNTRY_FILTERS_SESSION_KEY = "snooker-public-matches-country-filters";
 
 function createEntrantId() {
@@ -1279,21 +1279,18 @@ function MatchesPage() {
   const { data, loading, error } = usePublicTournamentData(selectedYear);
   const [selectedRoundKey, setSelectedRoundKey] = useSessionState(MATCHES_ROUND_SESSION_KEY, "");
   const [selectedEntrantFiltersRaw, setSelectedEntrantFilters] = useSessionState(MATCHES_ENTRANT_FILTERS_SESSION_KEY, []);
-  const [playerFilterText, setPlayerFilterText] = useSessionState(MATCHES_PLAYER_FILTER_TEXT_SESSION_KEY, "");
+  const [selectedPlayerFiltersRaw, setSelectedPlayerFilters] = useSessionState(MATCHES_PLAYER_FILTERS_SESSION_KEY, []);
   const [selectedCountryFiltersRaw, setSelectedCountryFilters] = useSessionState(MATCHES_COUNTRY_FILTERS_SESSION_KEY, []);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [showPhotos, setShowPhotos] = usePublicShowPhotos();
   const autoSelectedRoundYearRef = useRef(null);
   const selectedEntrantFilters = normaliseSessionList(selectedEntrantFiltersRaw);
+  const selectedPlayerFilters = normaliseSessionList(selectedPlayerFiltersRaw);
   const selectedCountryFilters = normaliseSessionList(selectedCountryFiltersRaw);
-  const playerNameTerms = useMemo(
-    () => String(playerFilterText || "")
-      .split(",")
-      .map((term) => term.trim().toLowerCase())
-      .filter(Boolean),
-    [playerFilterText],
-  );
+  const snapshotRounds = data?.snapshot?.rounds || [];
+  const selectedRoundSnapshot = snapshotRounds.find((round) => round.key === selectedRoundKey) || snapshotRounds[0] || null;
+  const selectedRoundMatches = selectedRoundSnapshot?.matches || [];
 
   useEffect(() => {
     if (!data?.snapshot?.rounds?.length) {
@@ -1316,21 +1313,31 @@ function MatchesPage() {
   );
   const entrantOptions = useMemo(
     () => [...new Set(
-      Array.from(ownershipByPlayerId.values())
-        .map((owner) => owner?.entrantName || "")
+      selectedRoundMatches.flatMap((match) => [
+        ownershipByPlayerId.get(match.player1.id)?.entrantName || "",
+        ownershipByPlayerId.get(match.player2.id)?.entrantName || "",
+      ])
         .filter(Boolean),
     )].sort((left, right) => left.localeCompare(right)),
-    [ownershipByPlayerId],
+    [ownershipByPlayerId, selectedRoundMatches],
+  );
+  const playerOptions = useMemo(
+    () => [...new Set(
+      selectedRoundMatches.flatMap((match) => [
+        match.player1?.name || "",
+        match.player2?.name || "",
+      ]).filter(Boolean),
+    )].sort((left, right) => left.localeCompare(right)),
+    [selectedRoundMatches],
   );
   const countryOptions = useMemo(
     () => [...new Set(
-      (data?.snapshot?.rounds || []).flatMap((round) => round.matches.flatMap((match) => [
+      selectedRoundMatches.flatMap((match) => [
         match.player1?.nationality || "",
         match.player2?.nationality || "",
-      ]))
-        .filter(Boolean),
+      ]).filter(Boolean),
     )].sort((left, right) => left.localeCompare(right)),
-    [data?.snapshot?.rounds],
+    [selectedRoundMatches],
   );
 
   useEffect(() => {
@@ -1339,6 +1346,13 @@ function MatchesPage() {
       setSelectedEntrantFilters(nextFilters);
     }
   }, [entrantOptions, selectedEntrantFilters, selectedEntrantFiltersRaw, setSelectedEntrantFilters]);
+
+  useEffect(() => {
+    const nextFilters = selectedPlayerFilters.filter((playerName) => playerOptions.includes(playerName));
+    if (JSON.stringify(nextFilters) !== JSON.stringify(selectedPlayerFiltersRaw)) {
+      setSelectedPlayerFilters(nextFilters);
+    }
+  }, [playerOptions, selectedPlayerFilters, selectedPlayerFiltersRaw, setSelectedPlayerFilters]);
 
   useEffect(() => {
     const nextFilters = selectedCountryFilters.filter((country) => countryOptions.includes(country));
@@ -1366,8 +1380,8 @@ function MatchesPage() {
     const playerOneOwner = ownershipByPlayerId.get(match.player1.id)?.entrantName || "";
     const playerTwoOwner = ownershipByPlayerId.get(match.player2.id)?.entrantName || "";
     const playerNames = [
-      String(match.player1?.name || "").toLowerCase(),
-      String(match.player2?.name || "").toLowerCase(),
+      match.player1?.name || "",
+      match.player2?.name || "",
     ];
     const playerCountries = [
       match.player1?.nationality || "",
@@ -1377,15 +1391,15 @@ function MatchesPage() {
     const entrantMatches = !selectedEntrantFilters.length
       || selectedEntrantFilters.includes(playerOneOwner)
       || selectedEntrantFilters.includes(playerTwoOwner);
-    const playerMatches = !playerNameTerms.length
-      || playerNames.some((name) => playerNameTerms.some((term) => name.includes(term)));
+    const playerMatches = !selectedPlayerFilters.length
+      || playerNames.some((name) => selectedPlayerFilters.includes(name));
     const countryMatches = !selectedCountryFilters.length
       || playerCountries.some((country) => selectedCountryFilters.includes(country));
 
     return entrantMatches && playerMatches && countryMatches;
   });
   const filteredUnplayedMatchCount = filteredMatches.filter((match) => !match.winnerId).length;
-  const activeFilterCount = selectedEntrantFilters.length + selectedCountryFilters.length + playerNameTerms.length;
+  const activeFilterCount = selectedEntrantFilters.length + selectedPlayerFilters.length + selectedCountryFilters.length;
 
   function toggleFilterItem(currentValues, nextValue, setter) {
     setter(
@@ -1531,7 +1545,7 @@ function MatchesPage() {
               className="matches-filter-clear"
               onClick={() => {
                 setSelectedEntrantFilters([]);
-                setPlayerFilterText("");
+                setSelectedPlayerFilters([]);
                 setSelectedCountryFilters([]);
               }}
             >
@@ -1539,18 +1553,19 @@ function MatchesPage() {
             </button>
           </div>
           <div className="matches-filter-group">
-            <label className="matches-filter-label" htmlFor="matches-player-filter">
-              Player name
-            </label>
-            <input
-              id="matches-player-filter"
-              className="matches-filter-search"
-              type="text"
-              value={playerFilterText}
-              onChange={(event) => setPlayerFilterText(event.target.value)}
-              placeholder="Trump, Zhao"
-            />
-            <p className="matches-filter-help">Use comma-separated names to match multiple players.</p>
+            <p className="matches-filter-label">Player name</p>
+            <div className="matches-filter-options">
+              {playerOptions.map((playerName) => (
+                <button
+                  key={playerName}
+                  type="button"
+                  className={`matches-filter-option${selectedPlayerFilters.includes(playerName) ? " active" : ""}`}
+                  onClick={() => toggleFilterItem(selectedPlayerFilters, playerName, setSelectedPlayerFilters)}
+                >
+                  {playerName}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="matches-filter-group">
             <p className="matches-filter-label">Entrants</p>
