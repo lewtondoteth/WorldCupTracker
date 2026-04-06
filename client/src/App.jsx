@@ -3,7 +3,7 @@ import { Link, Navigate, Route, Routes } from "react-router-dom";
 import crownIcon from "../../res/crown.png";
 import dogsPlayingPool from "../../res/dogsplayingpool.webp";
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:5174";
+const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
 const BRAND_NAME = "The Pellegrino Classic";
 const BRAND_SHORT_NAME = "Pellegrino Classic";
 const PUBLIC_DEFAULT_YEAR = new Date().getFullYear();
@@ -27,7 +27,8 @@ async function readJsonResponse(response, fallbackMessage) {
   if (!contentType.includes("application/json")) {
     const body = await response.text();
     if (body.trimStart().startsWith("<!DOCTYPE") || body.trimStart().startsWith("<html")) {
-      throw new Error(`The API returned HTML instead of JSON. Restart the backend on ${API_BASE} and make sure VITE_API_BASE points to the API server.`);
+      const target = API_BASE || "the same origin";
+      throw new Error(`The API returned HTML instead of JSON. Make sure the backend is running on ${target} and that VITE_API_BASE points to the API server when developing locally.`);
     }
     throw new Error(fallbackMessage);
   }

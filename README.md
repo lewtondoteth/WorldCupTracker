@@ -72,7 +72,9 @@ npm run dev
 
 Then open the Vite URL, normally `http://localhost:5173`.
 
-The client talks to the API at `http://localhost:5174` by default.
+The backend still runs on `http://localhost:5174`, and the Vite dev server proxies `/api/*` requests there for you.
+
+In local development, the Vite dev server now proxies `/api/*` requests to the backend automatically, so you can also just use the Vite URL without setting `VITE_API_BASE`.
 
 ## Backend endpoints
 
@@ -91,6 +93,32 @@ The server calls these snooker.org endpoints:
 - `/?t=13&e=1942` for seeding
 
 The existing SQLite cache is still used as a fallback for the 32-player field if the live player request is unavailable.
+
+## Railway deployment model
+
+The app now supports two storage modes:
+
+- Local development: pool data and entrants are read from `server/data/*.json` and can still be edited locally.
+- Railway production: pool data and entrants are stored on a persistent mounted volume so deployment updates change code only, not live data.
+
+The production storage behavior is designed for a one-time migration:
+
+- On the first production request, if the mounted data files do not exist yet, the server seeds them from the checked-in local JSON files.
+- After that, the app reads and writes the mounted volume copy.
+- Future GitHub or Railway deployments do not overwrite the live volume data unless you explicitly clear the volume.
+
+Tournament snapshots remain checked-in static JSON by default so the deployed app is predictable and does not depend on runtime writes.
+
+### Required Railway setup
+
+1. Deploy the repo to a single Railway service.
+2. Add a persistent volume to that service.
+3. Mount the volume. The app will automatically use Railway's `RAILWAY_VOLUME_MOUNT_PATH`, or you can set `DATA_DIR` if you want a specific subdirectory such as `/data/snooker`.
+4. Open the deployed app once to trigger the one-time seed from the existing `server/data` files into the volume.
+
+Optional environment variables:
+
+- `LIVE_TOURNAMENT_DATA=true` if you want the server to refresh tournament snapshots from snooker.org instead of relying on checked-in static files.
 
 ## Next step after this
 

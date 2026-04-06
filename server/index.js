@@ -1,13 +1,20 @@
 import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
-import { promises as fs } from "fs";
+import { existsSync, promises as fs } from "fs";
 import { randomUUID } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
-import { cacheEventPlayers, cacheLast32, getCachedEventPlayers, getCachedLast32 } from "./sqlite_cache.mjs";
+import {
+  getStaticSnapshotPath,
+  readEntrantRegistry,
+  readPoolFileOptional,
+  writeEntrantRegistry,
+  writePoolFile,
+} from "./storage.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CLIENT_DIST_DIR = path.join(__dirname, "..", "client", "dist");
 const app = express();
 
 app.use(cors());
@@ -28,16 +35,19 @@ const MAIN_DRAW_ROUNDS = [
   { key: "final", id: 15, name: "Final", shortLabel: "F", entrantsLeft: 2 },
 ];
 const ROUND_ONE_SIZE = 32;
-const POOL_DIR = path.join(__dirname, "data", "pools");
-const STATIC_DIR = path.join(__dirname, "data", "static");
-const ENTRANT_REGISTRY_PATH = path.join(__dirname, "data", "entrants.json");
+const LIVE_TOURNAMENT_DATA = process.env.LIVE_TOURNAMENT_DATA === "true";
 
-function getPoolFilePath(year) {
-  return path.join(POOL_DIR, `world-championship-${year}.json`);
-}
+let sqliteCacheModulePromise = null;
 
-function getStaticSnapshotPath(year) {
-  return path.join(STATIC_DIR, `world-championship-${year}.json`);
+async function loadSqliteCacheModule() {
+  if (!sqliteCacheModulePromise) {
+    sqliteCacheModulePromise = import("./sqlite_cache.mjs").catch((error) => {
+      console.warn("[sqlite_cache] unavailable:", error?.message || error);
+      return null;
+    });
+  }
+
+  return sqliteCacheModulePromise;
 }
 
 function playerLabel(player) {
@@ -83,15 +93,21 @@ async function resolveWorldChampionshipEventId(year) {
 }
 
 async function fetchLast32Players(year, eventId) {
+  const sqliteCache = await loadSqliteCacheModule();
+  const cacheEventPlayers = sqliteCache?.cacheEventPlayers;
+  const cacheLast32 = sqliteCache?.cacheLast32;
+  const getCachedEventPlayers = sqliteCache?.getCachedEventPlayers;
+  const getCachedLast32 = sqliteCache?.getCachedLast32;
+
   try {
-    const cachedEventPlayers = getCachedEventPlayers(year);
+    const cachedEventPlayers = getCachedEventPlayers?.(year);
     const [allPlayers, rounds, matches] = await Promise.all([
       cachedEventPlayers?.length ? Promise.resolve(cachedEventPlayers) : fetchJson(`${SN_API}/?t=9&e=${eventId}`),
       fetchJson(`${SN_API}/?t=12&e=${eventId}`),
       fetchJson(`${SN_API}/?t=6&e=${eventId}`),
     ]);
     if (!cachedEventPlayers?.length && Array.isArray(allPlayers) && allPlayers.length >= ROUND_ONE_SIZE) {
-      cacheEventPlayers(year, allPlayers);
+      cacheEventPlayers?.(year, allPlayers);
     }
 
     const round = rounds.find((item) => Number(item.EventID) === eventId && Number(item.NumLeft) === ROUND_ONE_SIZE);
@@ -110,11 +126,11 @@ async function fetchLast32Players(year, eventId) {
 
     const filtered = allPlayers.filter((player) => ids.has(Number(player.ID)));
     if (filtered.length === ROUND_ONE_SIZE) {
-      cacheLast32(year, filtered);
+      cacheLast32?.(year, filtered);
     }
     return filtered;
   } catch (error) {
-    const cachedEventPlayers = getCachedEventPlayers(year);
+    const cachedEventPlayers = getCachedEventPlayers?.(year);
     if (cachedEventPlayers?.length) {
       const [rounds, matches] = await Promise.all([
         fetchJson(`${SN_API}/?t=12&e=${eventId}`),
@@ -132,13 +148,13 @@ async function fetchLast32Players(year, eventId) {
         }
         const filtered = cachedEventPlayers.filter((player) => ids.has(Number(player.ID)));
         if (filtered.length === ROUND_ONE_SIZE) {
-          cacheLast32(year, filtered);
+          cacheLast32?.(year, filtered);
           return filtered;
         }
       }
     }
 
-    const cached = getCachedLast32(year);
+    const cached = getCachedLast32?.(year);
     if (cached?.length === ROUND_ONE_SIZE) {
       return cached;
     }
@@ -316,17 +332,30 @@ async function readStaticSnapshot(year) {
 }
 
 async function writeStaticSnapshot(year, snapshot) {
-  await fs.mkdir(STATIC_DIR, { recursive: true });
   const filePath = getStaticSnapshotPath(year);
   const payload = {
     ...snapshot,
   };
   delete payload.dataSource;
   delete payload.liveError;
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
 }
 
 async function getTournamentSnapshot(year) {
+  if (!LIVE_TOURNAMENT_DATA) {
+    try {
+      const fallback = await readStaticSnapshot(year);
+      return {
+        ...fallback,
+        dataSource: "static",
+        liveError: null,
+      };
+    } catch (error) {
+      return buildEmptyTournamentSnapshot(year, String(error.message || error));
+    }
+  }
+
   try {
     const liveSnapshot = await buildLiveTournamentSnapshot(year);
     try {
@@ -349,58 +378,6 @@ async function getTournamentSnapshot(year) {
       );
     }
   }
-}
-
-async function readPoolFile(year) {
-  const filePath = getPoolFilePath(year);
-  const raw = await fs.readFile(filePath, "utf8");
-  return {
-    filePath,
-    data: JSON.parse(raw),
-  };
-}
-
-async function readPoolFileOptional(year) {
-  try {
-    return await readPoolFile(year);
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      return {
-        filePath: getPoolFilePath(year),
-        data: {
-          year,
-          eventName: `World Championship ${year}`,
-          competitors: [],
-        },
-      };
-    }
-    throw error;
-  }
-}
-
-async function writePoolFile(year, payload) {
-  await fs.mkdir(POOL_DIR, { recursive: true });
-  const filePath = getPoolFilePath(year);
-  await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-  return filePath;
-}
-
-async function readEntrantRegistry() {
-  try {
-    const raw = await fs.readFile(ENTRANT_REGISTRY_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed?.entrants) ? parsed.entrants : [];
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      return [];
-    }
-    throw error;
-  }
-}
-
-async function writeEntrantRegistry(entrants) {
-  await fs.mkdir(path.dirname(ENTRANT_REGISTRY_PATH), { recursive: true });
-  await fs.writeFile(ENTRANT_REGISTRY_PATH, `${JSON.stringify({ entrants }, null, 2)}\n`, "utf8");
 }
 
 function normaliseEntrantName(name, label = "Entrant name") {
@@ -767,8 +744,24 @@ app.put("/api/pool/:year/admin", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Snooker pool server listening on http://localhost:${PORT}`);
-  console.log(`snooker.org live mode enabled using X-Requested-By: ${SN_REQUESTED_BY}`);
-  console.log("The server will fall back to the local cached snapshot only if a live request fails.");
-});
+if (existsSync(CLIENT_DIST_DIR)) {
+  app.use(express.static(CLIENT_DIST_DIR));
+
+  app.get(/^(?!\/api(?:\/|$)).*/, (_req, res) => {
+    res.sendFile(path.join(CLIENT_DIST_DIR, "index.html"));
+  });
+}
+
+export default app;
+
+const isDirectRun = process.argv[1]
+  ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  : false;
+
+if (isDirectRun) {
+  app.listen(PORT, () => {
+    console.log(`Snooker pool server listening on http://localhost:${PORT}`);
+    console.log(`snooker.org live mode ${LIVE_TOURNAMENT_DATA ? "enabled" : "disabled"} using X-Requested-By: ${SN_REQUESTED_BY}`);
+    console.log(`Mutable pool data directory: ${process.env.DATA_DIR || process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, "data")}`);
+  });
+}
