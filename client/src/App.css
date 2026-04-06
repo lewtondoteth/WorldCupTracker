@@ -1474,6 +1474,53 @@
   gap: 8px;
 }
 
+.matches-filter-scroll-list {
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 8px;
+  border-radius: 18px;
+  border: 1px solid rgba(23, 88, 61, 0.12);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.matches-filter-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(23, 88, 61, 0.08);
+  background: rgba(255, 255, 255, 0.74);
+  color: #315547;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.matches-filter-list-item.active {
+  border-color: rgba(23, 88, 61, 0.22);
+  background: linear-gradient(135deg, rgba(231, 247, 239, 0.96), rgba(214, 239, 225, 0.92));
+  color: #154d35;
+}
+
+.matches-filter-list-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 88, 61, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  color: #17583d;
+  font-size: 0.8rem;
+  flex: 0 0 auto;
+}
+
 .matches-filter-option {
   min-height: 36px;
   padding: 0 12px;

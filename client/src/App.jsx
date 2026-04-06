@@ -1603,14 +1603,18 @@ function MatchesPage() {
           </div>
           <div className="matches-filter-group">
             <p className="matches-filter-label">Player name</p>
-            <div className="matches-filter-options">
+            <div className="matches-filter-scroll-list" role="listbox" aria-label="Filter by player name" aria-multiselectable="true">
               {playerOptions.map((playerName) => (
                 <button
                   key={playerName}
                   type="button"
-                  className={`matches-filter-option${selectedPlayerFilters.includes(playerName) ? " active" : ""}`}
+                  className={`matches-filter-list-item${selectedPlayerFilters.includes(playerName) ? " active" : ""}`}
                   onClick={() => toggleFilterItem(selectedPlayerFilters, playerName, setSelectedPlayerFilters)}
+                  aria-pressed={selectedPlayerFilters.includes(playerName)}
                 >
+                  <span className="matches-filter-list-check" aria-hidden="true">
+                    {selectedPlayerFilters.includes(playerName) ? "✓" : ""}
+                  </span>
                   {playerName}
                 </button>
               ))}
