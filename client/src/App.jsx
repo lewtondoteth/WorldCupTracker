@@ -1581,6 +1581,9 @@ function MatchesPage() {
             </span>
             <span>Filter</span>
             {activeFilterCount ? <strong>{activeFilterCount} active</strong> : null}
+            <span className="matches-filter-toggle-icon" aria-hidden="true">
+              {filterMenuOpen ? "▴" : "▾"}
+            </span>
           </button>
         </div>
       </section>
@@ -1589,17 +1592,28 @@ function MatchesPage() {
         <section id="matches-filter-panel" className="matches-filter-panel">
           <div className="matches-filter-panel-header">
             <p className="eyebrow">Filter Matches</p>
-            <button
-              type="button"
-              className="matches-filter-clear"
-              onClick={() => {
-                setSelectedEntrantFilters([]);
-                setSelectedPlayerFilters([]);
-                setSelectedCountryFilters([]);
-              }}
-            >
-              Clear
-            </button>
+            <div className="matches-filter-panel-actions">
+              <button
+                type="button"
+                className="matches-filter-clear"
+                onClick={() => {
+                  setSelectedEntrantFilters([]);
+                  setSelectedPlayerFilters([]);
+                  setSelectedCountryFilters([]);
+                }}
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                className="matches-filter-collapse"
+                onClick={() => setFilterMenuOpen(false)}
+                aria-label="Collapse filter menu"
+                title="Collapse filter menu"
+              >
+                <span aria-hidden="true">▴</span>
+              </button>
+            </div>
           </div>
           <div className="matches-filter-group">
             <p className="matches-filter-label">Player name</p>
@@ -1622,14 +1636,18 @@ function MatchesPage() {
           </div>
           <div className="matches-filter-group">
             <p className="matches-filter-label">Entrants</p>
-            <div className="matches-filter-options">
+            <div className="matches-filter-scroll-list" role="listbox" aria-label="Filter by entrant" aria-multiselectable="true">
               {entrantOptions.map((entrantName) => (
                 <button
                   key={entrantName}
                   type="button"
-                  className={`matches-filter-option${selectedEntrantFilters.includes(entrantName) ? " active" : ""}`}
+                  className={`matches-filter-list-item${selectedEntrantFilters.includes(entrantName) ? " active" : ""}`}
                   onClick={() => toggleFilterItem(selectedEntrantFilters, entrantName, setSelectedEntrantFilters)}
+                  aria-pressed={selectedEntrantFilters.includes(entrantName)}
                 >
+                  <span className="matches-filter-list-check" aria-hidden="true">
+                    {selectedEntrantFilters.includes(entrantName) ? "✓" : ""}
+                  </span>
                   {entrantName}
                 </button>
               ))}
@@ -1637,14 +1655,18 @@ function MatchesPage() {
           </div>
           <div className="matches-filter-group">
             <p className="matches-filter-label">Country</p>
-            <div className="matches-filter-options">
+            <div className="matches-filter-scroll-list" role="listbox" aria-label="Filter by country" aria-multiselectable="true">
               {countryOptions.map((country) => (
                 <button
                   key={country}
                   type="button"
-                  className={`matches-filter-option${selectedCountryFilters.includes(country) ? " active" : ""}`}
+                  className={`matches-filter-list-item${selectedCountryFilters.includes(country) ? " active" : ""}`}
                   onClick={() => toggleFilterItem(selectedCountryFilters, country, setSelectedCountryFilters)}
+                  aria-pressed={selectedCountryFilters.includes(country)}
                 >
+                  <span className="matches-filter-list-check" aria-hidden="true">
+                    {selectedCountryFilters.includes(country) ? "✓" : ""}
+                  </span>
                   {country}
                 </button>
               ))}

@@ -1367,6 +1367,17 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
+.matches-filter-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: #4a6258;
+  font-size: 0.95rem;
+  flex: 0 0 auto;
+}
+
 .matches-filter-icon {
   display: inline-grid;
   gap: 4px;
@@ -1414,6 +1425,12 @@
   gap: 10px;
 }
 
+.matches-filter-panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .matches-filter-panel-header .eyebrow {
   margin: 0;
 }
@@ -1429,6 +1446,20 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  cursor: pointer;
+}
+
+.matches-filter-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 88, 61, 0.12);
+  background: rgba(255, 255, 255, 0.74);
+  color: #315547;
+  font-size: 0.95rem;
   cursor: pointer;
 }
 
@@ -1483,6 +1514,15 @@
   border-radius: 18px;
   border: 1px solid rgba(23, 88, 61, 0.12);
   background: rgba(255, 255, 255, 0.62);
+}
+
+.matches-filter-scroll-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.matches-filter-scroll-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(49, 85, 71, 0.28);
 }
 
 .matches-filter-list-item {
