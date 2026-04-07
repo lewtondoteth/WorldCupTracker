@@ -2703,7 +2703,7 @@ function BracketPage() {
                             <span>{match.label}</span>
                             {match.scheduledDate ? <small>{match.scheduledDate.slice(0, 10)}</small> : null}
                           </div>
-                          <strong>{match.state === "finished" ? "Final" : match.state === "in-play" ? "Live" : "Waiting"}</strong>
+                          {match.state === "finished" ? <strong>Complete</strong> : match.state === "in-play" ? <strong>Live</strong> : null}
                         </div>
 
                         {[match.side1, match.side2].map((side) => (
