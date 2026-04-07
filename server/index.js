@@ -10,9 +10,11 @@ import {
   getStaticSnapshotPath,
   readEntrantRegistry,
   readPlayerOverrides,
+  readSiteSettings,
   readPoolFileOptional,
   writeEntrantRegistry,
   writePlayerOverrides,
+  writeSiteSettings,
   writePoolFile,
 } from "./storage.mjs";
 
@@ -21,6 +23,22 @@ const CLIENT_DIST_DIR = path.join(__dirname, "..", "client", "dist");
 const app = express();
 
 app.use(cors());
+app.use(async (_req, res, next) => {
+  try {
+    if (!currentSiteSettings.clacksNames.length) {
+      await loadCurrentSiteSettings();
+    }
+
+    const headerValue = formatClacksHeaderValue(currentSiteSettings.clacksNames || []);
+    if (headerValue) {
+      res.set("X-Clacks-Overhead", headerValue);
+    }
+  } catch (error) {
+    console.warn("[site-settings] failed to load clacks header:", error?.message || error);
+  }
+
+  next();
+});
 app.use(express.json({ limit: "1mb" }));
 
 const PORT = runtimeConfig.port;
@@ -45,6 +63,7 @@ const HEAD_TO_HEAD_CACHE_TTL_SECONDS = 86400;
 const PUBLIC_SITE_PATHS = ["/", "/entrants", "/matches", "/bracket", "/winners"];
 
 let sqliteCacheModulePromise = null;
+let currentSiteSettings = { clacksNames: [] };
 
 async function loadSqliteCacheModule() {
   if (!sqliteCacheModulePromise) {
@@ -73,6 +92,47 @@ function getRequestOrigin(req) {
 function isPlaceholderEntrant(entry) {
   const name = String(entry?.name || "").trim();
   return !name || /^tbd$/i.test(name) || /^unknown$/i.test(String(entry?.nationality || "").trim());
+}
+
+function normaliseClacksName(value) {
+  const nextValue = String(value || "").replace(/\s+/g, " ").trim();
+  if (!nextValue) {
+    return "";
+  }
+
+  return nextValue.slice(0, 120);
+}
+
+function normaliseSiteSettings(payload) {
+  const uniqueNames = [];
+  const seen = new Set();
+
+  for (const value of Array.isArray(payload?.clacksNames) ? payload.clacksNames : []) {
+    const name = normaliseClacksName(value);
+    const dedupeKey = name.toLocaleLowerCase("en-GB");
+    if (!name || seen.has(dedupeKey)) {
+      continue;
+    }
+    uniqueNames.push(name);
+    seen.add(dedupeKey);
+  }
+
+  return {
+    clacksNames: uniqueNames,
+  };
+}
+
+function formatClacksHeaderValue(names) {
+  return names
+    .map((value) => normaliseClacksName(value))
+    .filter(Boolean)
+    .map((name) => (/^GNU\s+/i.test(name) ? name : `GNU ${name}`))
+    .join(", ");
+}
+
+async function loadCurrentSiteSettings() {
+  currentSiteSettings = normaliseSiteSettings(await readSiteSettings());
+  return currentSiteSettings;
 }
 
 async function fetchJson(url) {
@@ -357,6 +417,8 @@ function buildTournamentSnapshot({ year, eventId, players, matches, seedings }) 
           loserId,
           unfinished,
           status: unfinished ? "in-play" : "finished",
+          detailsUrl: match.DetailsUrl || "",
+          liveUrl: match.LiveUrl || "",
           player1: side1,
           player2: side2,
         };
@@ -424,6 +486,53 @@ function buildEmptyTournamentSnapshot(year, liveError = null) {
   };
 }
 
+function mergeSnapshotMatchLinks(snapshot, fallbackSnapshot) {
+  if (!snapshot?.rounds?.length || !fallbackSnapshot?.rounds?.length) {
+    return snapshot;
+  }
+
+  const fallbackMatchByKey = new Map(
+    fallbackSnapshot.rounds.flatMap((round) => (
+      (round.matches || []).map((match) => [
+        `${round.key}:${match.id || ""}:${match.number || ""}`,
+        match,
+      ])
+    )),
+  );
+
+  return {
+    ...snapshot,
+    rounds: snapshot.rounds.map((round) => ({
+      ...round,
+      matches: (round.matches || []).map((match) => {
+        const fallbackMatch = fallbackMatchByKey.get(`${round.key}:${match.id || ""}:${match.number || ""}`);
+        if (!fallbackMatch) {
+          return match;
+        }
+
+        return {
+          ...match,
+          detailsUrl: match.detailsUrl || fallbackMatch.detailsUrl || "",
+          liveUrl: match.liveUrl || fallbackMatch.liveUrl || fallbackMatch.detailsUrl || "",
+        };
+      }),
+    })),
+  };
+}
+
+async function hydrateSnapshotMatchLinks(year, snapshot) {
+  if (!snapshot?.rounds?.some((round) => (round.matches || []).some((match) => !match.detailsUrl && !match.liveUrl))) {
+    return snapshot;
+  }
+
+  try {
+    const fallbackSnapshot = await readStaticSnapshot(year);
+    return mergeSnapshotMatchLinks(snapshot, fallbackSnapshot);
+  } catch {
+    return snapshot;
+  }
+}
+
 async function buildLiveTournamentSnapshot(year) {
   const eventId = await resolveWorldChampionshipEventId(year);
   const [players, matches, seedings] = await Promise.all([
@@ -485,7 +594,8 @@ async function getTournamentSnapshot(year, options = {}) {
       ? getCachedTournamentSnapshot?.(year, LIVE_SNAPSHOT_CACHE_TTL_SECONDS)
       : null;
     if (cachedLiveSnapshot) {
-      return applyPlayerOverridesToSnapshot(cachedLiveSnapshot, playerOverrides);
+      const hydratedSnapshot = await hydrateSnapshotMatchLinks(year, cachedLiveSnapshot);
+      return applyPlayerOverridesToSnapshot(hydratedSnapshot, playerOverrides);
     }
 
     const liveSnapshot = await buildLiveTournamentSnapshot(year);
@@ -971,6 +1081,19 @@ app.get("/api/player-overrides", async (_req, res) => {
   }
 });
 
+app.get("/api/site-settings", async (_req, res) => {
+  try {
+    const settings = normaliseSiteSettings(await readSiteSettings());
+    currentSiteSettings = settings;
+    res.json({
+      ...settings,
+      clacksHeaderPreview: formatClacksHeaderValue(settings.clacksNames),
+    });
+  } catch (error) {
+    res.status(500).json({ error: String(error.message || error) });
+  }
+});
+
 app.put("/api/entrants", async (req, res) => {
   try {
     const payload = req.body;
@@ -998,6 +1121,26 @@ app.put("/api/player-overrides", async (req, res) => {
     const overrides = normalisePlayerOverrides(payload.overrides || []);
     await writePlayerOverrides(overrides);
     res.json({ overrides });
+  } catch (error) {
+    res.status(400).json({ error: String(error.message || error) });
+  }
+});
+
+app.put("/api/site-settings", async (req, res) => {
+  try {
+    const payload = req.body;
+
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({ error: "Site settings save body must be JSON" });
+    }
+
+    const settings = normaliseSiteSettings(payload);
+    await writeSiteSettings(settings);
+    currentSiteSettings = settings;
+    res.json({
+      ...settings,
+      clacksHeaderPreview: formatClacksHeaderValue(settings.clacksNames),
+    });
   } catch (error) {
     res.status(400).json({ error: String(error.message || error) });
   }

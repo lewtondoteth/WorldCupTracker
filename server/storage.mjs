@@ -12,6 +12,7 @@ const STATIC_DIR = path.join(BUNDLED_DATA_DIR, "static");
 const ENTRANT_REGISTRY_PATH = path.join(MUTABLE_DATA_DIR, "entrants.json");
 const BUNDLED_ENTRANT_REGISTRY_PATH = path.join(BUNDLED_DATA_DIR, "entrants.json");
 const PLAYER_OVERRIDES_PATH = path.join(MUTABLE_DATA_DIR, "player-overrides.json");
+const SITE_SETTINGS_PATH = path.join(MUTABLE_DATA_DIR, "site-settings.json");
 
 export function getPoolFilePath(year) {
   return path.join(POOL_DIR, `world-championship-${year}.json`);
@@ -110,4 +111,22 @@ export async function readPlayerOverrides() {
 export async function writePlayerOverrides(overrides) {
   await writeJson(PLAYER_OVERRIDES_PATH, { overrides });
   return PLAYER_OVERRIDES_PATH;
+}
+
+export async function readSiteSettings() {
+  const data = await seedFromBundledFileIfMissing(SITE_SETTINGS_PATH, SITE_SETTINGS_PATH, {
+    clacksNames: [],
+  });
+
+  return {
+    clacksNames: Array.isArray(data?.clacksNames) ? data.clacksNames : [],
+  };
+}
+
+export async function writeSiteSettings(payload) {
+  const nextPayload = {
+    clacksNames: Array.isArray(payload?.clacksNames) ? payload.clacksNames : [],
+  };
+  await writeJson(SITE_SETTINGS_PATH, nextPayload);
+  return SITE_SETTINGS_PATH;
 }

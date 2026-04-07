@@ -791,6 +791,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 946,
             "name": "Xintong Zhao",
@@ -843,6 +845,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 224,
             "name": "Junhui Ding",
@@ -895,6 +899,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 24,
             "name": "Guodong Xiao",
@@ -947,6 +953,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 97,
             "name": "Shaun Murphy",
@@ -999,6 +1007,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 237,
             "name": "John Higgins",
@@ -1051,6 +1061,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 5,
             "name": "Ronnie O'Sullivan",
@@ -1103,6 +1115,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 1044,
             "name": "Chris Wakelin",
@@ -1155,6 +1169,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 154,
             "name": "Neil Robertson",
@@ -1207,6 +1223,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 39,
             "name": "Kyren Wilson",
@@ -1259,6 +1277,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 202,
             "name": "Mark Allen",
@@ -1311,6 +1331,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 16,
             "name": "Barry Hawkins",
@@ -1363,6 +1385,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 1,
             "name": "Mark Williams",
@@ -1415,6 +1439,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 17,
             "name": "Mark Selby",
@@ -1467,6 +1493,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 2469,
             "name": "Yize Wu",
@@ -1519,6 +1547,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 1982,
             "name": "Jiahui Si",
@@ -1571,6 +1601,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 12,
             "name": "Judd Trump",
@@ -1634,6 +1666,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -1686,6 +1720,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -1738,6 +1774,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -1790,6 +1828,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -1842,6 +1882,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -1894,6 +1936,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -1946,6 +1990,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -1998,6 +2044,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -2061,6 +2109,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -2113,6 +2163,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -2165,6 +2217,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -2217,6 +2271,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -2280,6 +2336,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -2332,6 +2390,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",
@@ -2395,6 +2455,8 @@
           "loserId": null,
           "unfinished": true,
           "status": "in-play",
+          "detailsUrl": "",
+          "liveUrl": "",
           "player1": {
             "id": 376,
             "name": "TBD",

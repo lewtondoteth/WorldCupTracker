@@ -328,6 +328,11 @@ async function fetchPlayerOverrides() {
   return readJsonResponse(response, "Failed to load player overrides");
 }
 
+async function fetchSiteSettings() {
+  const response = await fetch(`${API_BASE}/api/site-settings`);
+  return readJsonResponse(response, "Failed to load site settings");
+}
+
 async function savePlayerOverride(playerId, payload) {
   const response = await fetch(`${API_BASE}/api/player-overrides/${playerId}`, {
     method: "PUT",
@@ -344,6 +349,17 @@ async function deletePlayerOverride(playerId) {
     method: "DELETE",
   });
   return readJsonResponse(response, "Failed to clear player override");
+}
+
+async function saveSiteSettings(payload) {
+  const response = await fetch(`${API_BASE}/api/site-settings`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return readJsonResponse(response, "Failed to save site settings");
 }
 
 async function fetchHeadToHead(player1Id, player2Id, year, options = {}) {
@@ -455,10 +471,21 @@ function normaliseExternalUrl(value, fallbackPrefix = "https://") {
   if (!nextValue) {
     return "";
   }
+  if (/^(null|undefined|#)$/i.test(nextValue)) {
+    return "";
+  }
   if (/^https?:\/\//i.test(nextValue)) {
     return nextValue;
   }
   return `${fallbackPrefix}${nextValue.replace(/^\/+/, "")}`;
+}
+
+function buildClacksHeaderPreview(values) {
+  return values
+    .map((value) => String(value || "").replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .map((name) => (/^GNU\s+/i.test(name) ? name : `GNU ${name}`))
+    .join(", ");
 }
 
 function PlayerIdentity({ player, compact = false, showPhoto = true, ownerName = "", onNameClick = null }) {
@@ -481,7 +508,14 @@ function PlayerIdentity({ player, compact = false, showPhoto = true, ownerName =
       ) : null}
       <div className="player-text">
         {canOpenBio ? (
-          <button type="button" className="player-name-button" onClick={() => onNameClick(player)}>
+          <button
+            type="button"
+            className="player-name-button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onNameClick(player);
+            }}
+          >
             {player.name}{ownerName ? ` (${ownerName})` : ""}
           </button>
         ) : (
@@ -908,6 +942,7 @@ function MatchCard({ match, showPhotos, ownershipByPlayerId, onPlayerSelect, onH
     match.startDate ? `Start ${match.startDate.slice(0, 10)}` : null,
     match.endDate ? `End ${match.endDate.slice(0, 10)}` : null,
   ].filter(Boolean);
+  const matchCentreUrl = normaliseExternalUrl(match.liveUrl || match.detailsUrl || "");
 
   const renderSide = (player, won) => (
     <div className={won ? "match-side winner" : "match-side loser"}>
@@ -939,9 +974,26 @@ function MatchCard({ match, showPhotos, ownershipByPlayerId, onPlayerSelect, onH
               : match.scheduledDate.slice(0, 10)}
         </span>
       </div>
-      {onHeadToHeadOpen && isActiveTournamentMatch(match) ? (
+      {matchCentreUrl || (onHeadToHeadOpen && isActiveTournamentMatch(match)) ? (
         <div className="match-card-actions">
-          <button type="button" className="match-history-button" onClick={() => onHeadToHeadOpen(match)}>
+          {matchCentreUrl ? (
+            <a
+              className="match-history-button"
+              href={matchCentreUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              WST Match Centre
+            </a>
+          ) : null}
+          <button
+            type="button"
+            className="match-history-button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onHeadToHeadOpen(match);
+            }}
+          >
             Head to head
           </button>
         </div>
@@ -2829,16 +2881,21 @@ function AdminPage() {
   const [savingEntrants, setSavingEntrants] = useState(false);
   const [playerOverridesLoading, setPlayerOverridesLoading] = useState(false);
   const [savingPlayerOverrides, setSavingPlayerOverrides] = useState(false);
+  const [siteSettingsLoading, setSiteSettingsLoading] = useState(false);
+  const [savingSiteSettings, setSavingSiteSettings] = useState(false);
   const [status, setStatus] = useState("Build the current year's tournament by dragging players into each entrant, then save it.");
   const [error, setError] = useState("");
   const [playerOverrideStatus, setPlayerOverrideStatus] = useState("");
+  const [siteSettingsStatus, setSiteSettingsStatus] = useState("");
   const [builder, setBuilder] = useState(null);
   const [entrantRegistry, setEntrantRegistry] = useState([]);
   const [playerOverrides, setPlayerOverrides] = useState([]);
+  const [siteSettings, setSiteSettings] = useState({ clacksNames: [], clacksHeaderPreview: "" });
   const [selectedRegistryEntrantId, setSelectedRegistryEntrantId] = useState("");
   const [newEntrantName, setNewEntrantName] = useState("");
   const [playerSearch, setPlayerSearch] = useState("");
   const [selectedPlayerOverrideId, setSelectedPlayerOverrideId] = useState("");
+  const [clacksDraft, setClacksDraft] = useState("");
   const [showAutoAssignConfirm, setShowAutoAssignConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [autoAssignTargets, setAutoAssignTargets] = useState({});
@@ -2891,10 +2948,29 @@ function AdminPage() {
     }
   }
 
+  async function loadSiteSettings() {
+    try {
+      setSiteSettingsLoading(true);
+      setError("");
+      const data = await fetchSiteSettings();
+      const nextSettings = {
+        clacksNames: data.clacksNames || [],
+        clacksHeaderPreview: data.clacksHeaderPreview || "",
+      };
+      setSiteSettings(nextSettings);
+      setClacksDraft((nextSettings.clacksNames || []).join("\n"));
+    } catch (loadError) {
+      setError(loadError.message || "Failed to load site settings.");
+    } finally {
+      setSiteSettingsLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (authenticated) {
       loadEntrants();
       loadPlayerOverrides();
+      loadSiteSettings();
     }
   }, [authenticated]);
 
@@ -3059,6 +3135,10 @@ function AdminPage() {
   const selectedPlayerOverride = selectedOverridePlayer
     ? playerOverridesById.get(selectedOverridePlayer.id) || null
     : null;
+  const clacksDraftPreview = useMemo(
+    () => buildClacksHeaderPreview(clacksDraft.split("\n")),
+    [clacksDraft],
+  );
 
   useEffect(() => {
     if (!filteredPlayersForOverrides.length) {
@@ -3375,6 +3455,32 @@ function AdminPage() {
     }
   }
 
+  async function handleSaveSiteSettings() {
+    try {
+      setSavingSiteSettings(true);
+      setError("");
+      setSiteSettingsStatus("");
+      const payload = {
+        clacksNames: clacksDraft
+          .split("\n")
+          .map((value) => value.trim())
+          .filter(Boolean),
+      };
+      const response = await saveSiteSettings(payload);
+      const nextSettings = {
+        clacksNames: response.clacksNames || [],
+        clacksHeaderPreview: response.clacksHeaderPreview || "",
+      };
+      setSiteSettings(nextSettings);
+      setClacksDraft((nextSettings.clacksNames || []).join("\n"));
+      setSiteSettingsStatus("Clacks header updated.");
+    } catch (saveError) {
+      setError(saveError.message || "The clacks settings could not be saved.");
+    } finally {
+      setSavingSiteSettings(false);
+    }
+  }
+
   function movePlayer(playerId, sourceBucket, target) {
     setBuilder((current) => {
       if (!current?.snapshot) {
@@ -3558,13 +3664,16 @@ function AdminPage() {
     setSelectedAdminYear(nextYear);
     setError("");
     setPlayerOverrideStatus("");
+    setSiteSettingsStatus("");
   }
 
-  const adminLoadingNotice = builderLoading
-    ? (adminView === "players"
-      ? `Loading player data for ${selectedAdminYear}...`
-      : `Loading tournament data for ${selectedAdminYear}...`)
-    : "";
+  const adminLoadingNotice = siteSettingsLoading
+    ? "Loading site settings..."
+    : builderLoading
+      ? (adminView === "players"
+        ? `Loading player data for ${selectedAdminYear}...`
+        : `Loading tournament data for ${selectedAdminYear}...`)
+      : "";
 
   if (!authenticated) {
     return (
@@ -3629,9 +3738,16 @@ function AdminPage() {
           >
             Players
           </button>
+          <button
+            type="button"
+            className={adminView === "clacks" ? "admin-menu-button active" : "admin-menu-button"}
+            onClick={() => setAdminView("clacks")}
+          >
+            Clacks
+          </button>
         </div>
 
-        <div className={`admin-builder-toolbar${adminView === "entrants" ? " entrants-view" : ""}${adminView === "players" ? " players-view" : ""}`}>
+        <div className={`admin-builder-toolbar${adminView === "entrants" ? " entrants-view" : ""}${adminView === "players" ? " players-view" : ""}${adminView === "clacks" ? " clacks-view" : ""}`}>
           {adminView === "builder" ? (
             <>
               <div className="admin-stat-card">
@@ -3689,7 +3805,7 @@ function AdminPage() {
                 </p>
               </div>
             </>
-          ) : (
+          ) : adminView === "players" ? (
             <>
               <div className="admin-stat-card">
                 <p className="toolbar-label">Player year</p>
@@ -3719,6 +3835,21 @@ function AdminPage() {
               <div className="admin-stat-card">
                 <p className="toolbar-label">Custom photos</p>
                 <p className="toolbar-value">{playerOverrides.filter((override) => String(override.photo || "").trim()).length}</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Names carried</p>
+                <p className="toolbar-value">{siteSettings.clacksNames.length}</p>
+              </div>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Header status</p>
+                <p className="toolbar-value">{siteSettings.clacksHeaderPreview ? "Active" : "Off"}</p>
+              </div>
+              <div className="admin-stat-card">
+                <p className="toolbar-label">Preview values</p>
+                <p className="toolbar-value">{siteSettings.clacksNames.length}</p>
               </div>
             </>
           )}
@@ -4088,7 +4219,7 @@ function AdminPage() {
             </div>
           )}
         </section>
-        ) : (
+        ) : adminView === "players" ? (
         <section className="admin-builder-panel">
           <div className="admin-builder-header">
             <div>
@@ -4269,6 +4400,47 @@ function AdminPage() {
               </section>
             </div>
           )}
+        </section>
+        ) : (
+        <section className="admin-builder-panel">
+          <div className="admin-builder-header">
+            <div>
+              <p className="eyebrow">Clacks Header</p>
+              <h2>Carry names in the site response headers</h2>
+              <p className="admin-copy">Add one name per line. The server sends them as a single <code>X-Clacks-Overhead</code> header on every response.</p>
+            </div>
+            <div className="admin-actions">
+              <button type="button" className="admin-secondary-button" onClick={loadSiteSettings} disabled={siteSettingsLoading}>
+                {siteSettingsLoading ? "Refreshing..." : "Refresh"}
+              </button>
+              <button type="button" className="admin-submit" onClick={handleSaveSiteSettings} disabled={savingSiteSettings || siteSettingsLoading}>
+                {savingSiteSettings ? "Saving..." : "Save header"}
+              </button>
+            </div>
+          </div>
+
+          {siteSettingsStatus ? <p className="status-banner">{siteSettingsStatus}</p> : null}
+
+          <div className="admin-clacks-layout">
+            <section className="admin-clacks-editor">
+              <label className="admin-field" htmlFor="clacks-names">Names</label>
+              <textarea
+                id="clacks-names"
+                className="admin-player-override-textarea admin-clacks-textarea"
+                value={clacksDraft}
+                onChange={(event) => setClacksDraft(event.target.value)}
+                placeholder={"Terry Pratchett\nAnother Name"}
+              />
+              <p className="admin-copy">Blank lines are ignored, duplicates are removed, and <code>GNU</code> is added automatically if needed.</p>
+            </section>
+
+            <section className="admin-clacks-preview">
+              <p className="admin-field">Header preview</p>
+              <div className="admin-clacks-preview-card">
+                <code>{clacksDraftPreview || "No X-Clacks-Overhead header will be sent yet."}</code>
+              </div>
+            </section>
+          </div>
         </section>
         )}
 
