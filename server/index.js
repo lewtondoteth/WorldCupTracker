@@ -42,6 +42,7 @@ const LIVE_TOURNAMENT_DATA = runtimeConfig.liveTournamentData;
 const LIVE_SNAPSHOT_CACHE_TTL_SECONDS = 300;
 const SEASON_EVENTS_CACHE_TTL_SECONDS = 86400;
 const HEAD_TO_HEAD_CACHE_TTL_SECONDS = 86400;
+const PUBLIC_SITE_PATHS = ["/", "/entrants", "/matches", "/bracket", "/winners"];
 
 let sqliteCacheModulePromise = null;
 
@@ -58,6 +59,15 @@ async function loadSqliteCacheModule() {
 
 function playerLabel(player) {
   return (player.Name || `${player.FirstName ?? ""} ${player.LastName ?? ""}`).replace(/\s+/g, " ").trim();
+}
+
+function getRequestOrigin(req) {
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const protocol = typeof forwardedProto === "string" && forwardedProto
+    ? forwardedProto.split(",")[0].trim()
+    : req.protocol;
+
+  return `${protocol}://${req.get("host")}`;
 }
 
 function isPlaceholderEntrant(entry) {
@@ -1071,6 +1081,42 @@ app.put("/api/pool/:year/admin", async (req, res) => {
 });
 
 if (existsSync(CLIENT_DIST_DIR)) {
+  app.get("/robots.txt", (req, res) => {
+    const origin = getRequestOrigin(req);
+    res.type("text/plain").send([
+      "User-agent: *",
+      "Allow: /",
+      "Disallow: /admin",
+      "Disallow: /admin/login",
+      `Sitemap: ${origin}/sitemap.xml`,
+      "",
+    ].join("\n"));
+  });
+
+  app.get("/sitemap.xml", (req, res) => {
+    const origin = getRequestOrigin(req);
+    const now = new Date().toISOString();
+    const urls = PUBLIC_SITE_PATHS.map((routePath) => {
+      const loc = new URL(routePath, `${origin}/`).toString();
+      return [
+        "  <url>",
+        `    <loc>${loc}</loc>`,
+        `    <lastmod>${now}</lastmod>`,
+        "    <changefreq>daily</changefreq>",
+        routePath === "/" ? "    <priority>1.0</priority>" : "    <priority>0.8</priority>",
+        "  </url>",
+      ].join("\n");
+    }).join("\n");
+
+    res.type("application/xml").send([
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+      "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">",
+      urls,
+      "</urlset>",
+      "",
+    ].join("\n"));
+  });
+
   app.use(express.static(CLIENT_DIST_DIR));
 
   app.get(/^(?!\/api(?:\/|$)).*/, (_req, res) => {

@@ -12,6 +12,11 @@ server/snooker_cache.sqlite
 *.sqlite
 *.db
 
+# Ignore generated/local JSON data files
+server/data/player-overrides.json
+server/data/pools/*.json
+server/data/static/*.json
+
 # Ignore OS and editor files
 *.swp
 *.swo

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, Navigate, Route, Routes } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import crownIcon from "../../res/crown.png";
 import dogsPlayingPool from "../../res/dogsplayingpool.webp";
 
@@ -23,6 +23,7 @@ const MATCHES_ROUND_SESSION_KEY = "snooker-public-matches-round";
 const MATCHES_ENTRANT_FILTERS_SESSION_KEY = "snooker-public-matches-entrant-filters";
 const MATCHES_PLAYER_FILTERS_SESSION_KEY = "snooker-public-matches-player-filters";
 const MATCHES_COUNTRY_FILTERS_SESSION_KEY = "snooker-public-matches-country-filters";
+const SITE_DESCRIPTION = "Track the World Snooker Championship with fixtures, entrants, brackets, and pool updates.";
 const PLAYER_OVERRIDE_FIELDS = [
   "nickname",
   "nationality",
@@ -34,9 +35,124 @@ const PLAYER_OVERRIDE_FIELDS = [
   "photoSource",
 ];
 
+const PAGE_METADATA = {
+  "/": {
+    title: `${BRAND_NAME} | Snooker Pool Tracker`,
+    description: SITE_DESCRIPTION,
+  },
+  "/entrants": {
+    title: `Entrants | ${BRAND_NAME}`,
+    description: "Browse the entrants, player details, and pool roster for the tournament.",
+  },
+  "/matches": {
+    title: `Matches | ${BRAND_NAME}`,
+    description: "Follow the latest match schedule, scores, and round-by-round results.",
+  },
+  "/bracket": {
+    title: `Bracket | ${BRAND_NAME}`,
+    description: "See the championship bracket and how the draw is unfolding.",
+  },
+  "/winners": {
+    title: `Winners | ${BRAND_NAME}`,
+    description: "Review winners and outcomes from the tournament pool.",
+  },
+  "/admin": {
+    title: `Admin | ${BRAND_NAME}`,
+    description: "Administrative controls for tournament updates and player overrides.",
+    robots: "noindex, nofollow",
+  },
+  "/admin/login": {
+    title: `Admin Login | ${BRAND_NAME}`,
+    description: "Sign in to manage tournament data and overrides.",
+    robots: "noindex, nofollow",
+  },
+};
+
+const NOT_FOUND_METADATA = {
+  title: `Page Not Found | ${BRAND_NAME}`,
+  description: "The page you were looking for does not exist on this tournament tracker.",
+  robots: "noindex, nofollow",
+};
+
 function createEntrantId() {
   return globalThis.crypto?.randomUUID?.()
     ?? `entrant-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalisePathname(pathname) {
+  if (!pathname || pathname === "/") {
+    return "/";
+  }
+
+  return pathname.replace(/\/+$/, "") || "/";
+}
+
+function getPageMetadata(pathname) {
+  return PAGE_METADATA[normalisePathname(pathname)] || NOT_FOUND_METADATA;
+}
+
+function updateMetaTag(attributeName, attributeValue, content) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  let tag = document.head.querySelector(`meta[${attributeName}="${attributeValue}"]`);
+  if (!tag) {
+    tag = document.createElement("meta");
+    tag.setAttribute(attributeName, attributeValue);
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute("content", content);
+}
+
+function upsertLinkTag(rel, href) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  let tag = document.head.querySelector(`link[rel="${rel}"]`);
+  if (!tag) {
+    tag = document.createElement("link");
+    tag.setAttribute("rel", rel);
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute("href", href);
+}
+
+function usePageMetadata() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      return;
+    }
+
+    const pathname = normalisePathname(location.pathname);
+    const meta = getPageMetadata(pathname);
+    const canonicalUrl = new URL(pathname, window.location.origin).toString();
+
+    document.title = meta.title;
+    updateMetaTag("name", "description", meta.description);
+    updateMetaTag("name", "robots", meta.robots || "index, follow");
+    updateMetaTag("property", "og:title", meta.title);
+    updateMetaTag("property", "og:description", meta.description);
+    updateMetaTag("property", "og:url", canonicalUrl);
+    updateMetaTag("name", "twitter:title", meta.title);
+    updateMetaTag("name", "twitter:description", meta.description);
+    upsertLinkTag("canonical", canonicalUrl);
+  }, [location.pathname]);
 }
 
 function normalisePlayerOverrideDraft(override) {
@@ -675,6 +791,109 @@ function SiteHeader({ mode = "home", poolConfigured = false }) {
   );
 }
 
+function formatFooterTimestamp(value) {
+  if (!value) {
+    return "";
+  }
+
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  return parsed.toLocaleString([], {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function SourceTag({ lastUpdatedAt = null }) {
+  return (
+    <div className="source-tag-shell">
+      <a className="source-tag" href="https://www.snooker.org" target="_blank" rel="noreferrer">
+        Source: snooker.org
+        {lastUpdatedAt ? ` • Refreshed ${formatFooterTimestamp(lastUpdatedAt)}` : ""}
+      </a>
+    </div>
+  );
+}
+
+function SkeletonBlock({ className = "" }) {
+  return <span className={`skeleton-block${className ? ` ${className}` : ""}`} aria-hidden="true" />;
+}
+
+function PublicPageSkeleton({ mode = "home", showHeroImage = false, showGrid = false, gridCount = 4 }) {
+  const isHome = mode === "home";
+
+  return (
+    <main className="app-shell">
+      <SiteHeader mode={mode} />
+      <section className={`skeleton-panel${isHome ? " skeleton-panel-home" : " skeleton-panel-page"}`}>
+        <div className="skeleton-stack">
+          <SkeletonBlock className="skeleton-kicker" />
+          <SkeletonBlock className={`skeleton-title ${isHome ? "skeleton-title-lg" : "skeleton-title-page"}`} />
+          <SkeletonBlock className={`skeleton-title ${isHome ? "skeleton-title-md" : "skeleton-line-lg"}`} />
+          {isHome ? (
+            <>
+              <SkeletonBlock className="skeleton-line skeleton-line-lg" />
+              <SkeletonBlock className="skeleton-line skeleton-line-md" />
+            </>
+          ) : null}
+          <div className="skeleton-actions">
+            <SkeletonBlock className="skeleton-pill" />
+            <SkeletonBlock className="skeleton-pill" />
+            {isHome ? <SkeletonBlock className="skeleton-pill" /> : null}
+          </div>
+        </div>
+        {showHeroImage ? <SkeletonBlock className="skeleton-image" /> : null}
+      </section>
+      <section className="skeleton-stat-grid">
+        <SkeletonBlock className="skeleton-card" />
+        <SkeletonBlock className="skeleton-card" />
+        <SkeletonBlock className="skeleton-card" />
+        <SkeletonBlock className="skeleton-card" />
+      </section>
+      {showGrid ? (
+        <section className="skeleton-content-grid">
+          {Array.from({ length: gridCount }, (_, index) => (
+            <SkeletonBlock key={`${mode}-${index}`} className="skeleton-card skeleton-card-tall" />
+          ))}
+        </section>
+      ) : null}
+      <SourceTag />
+    </main>
+  );
+}
+
+function PublicErrorState({ mode = "home", title, message, lastUpdatedAt = null }) {
+  return (
+    <main className="app-shell">
+      <SiteHeader mode={mode} />
+      <section className="public-error-card">
+        <p className="public-error-eyebrow">Unable to load</p>
+        <h1>{title}</h1>
+        <p>{message}</p>
+        <div className="public-error-actions">
+          <button
+            type="button"
+            className="public-error-button primary"
+            onClick={() => window.location.reload()}
+          >
+            Try again
+          </button>
+          <Link className="public-error-button" to="/">
+            Back to home
+          </Link>
+        </div>
+      </section>
+      <SourceTag lastUpdatedAt={lastUpdatedAt} />
+    </main>
+  );
+}
+
 function isActiveTournamentMatch(match) {
   return !isPlaceholderMatchPlayer(match?.player1) && !isPlaceholderMatchPlayer(match?.player2);
 }
@@ -1222,6 +1441,7 @@ function usePublicTournamentData(selectedYear) {
   const [publicEntrants, setPublicEntrants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const manualRefreshRequestedRef = useRef(false);
@@ -1244,6 +1464,7 @@ function usePublicTournamentData(selectedYear) {
         if (!cancelled) {
           setData(nextData);
           setPublicEntrants(entrantsResponse.entrants || []);
+          setLastUpdatedAt(new Date());
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -1281,11 +1502,19 @@ function usePublicTournamentData(selectedYear) {
     setRefreshNonce((current) => current + 1);
   }
 
-  return { data, publicEntrants, loading, error, refresh, refreshing };
+  return { data, publicEntrants, loading, error, refresh, refreshing, lastUpdatedAt };
 }
 
 function useTournamentOverview(selectedYear) {
-  const { data, publicEntrants, loading, error, refresh, refreshing } = usePublicTournamentData(selectedYear);
+  const {
+    data,
+    publicEntrants,
+    loading,
+    error,
+    refresh,
+    refreshing,
+    lastUpdatedAt,
+  } = usePublicTournamentData(selectedYear);
   const [selectedRoundKey, setSelectedRoundKey] = useState("");
   const autoSelectedRoundYearRef = useRef(null);
 
@@ -1424,6 +1653,7 @@ function useTournamentOverview(selectedYear) {
     error,
     refresh,
     refreshing,
+    lastUpdatedAt,
     selectedRoundKey,
     setSelectedRoundKey,
     derived,
@@ -1438,17 +1668,25 @@ function HomePage() {
     error,
     refresh,
     refreshing,
+    lastUpdatedAt,
     selectedRoundKey,
     setSelectedRoundKey,
     derived,
   } = useTournamentOverview(selectedYear);
 
   if (loading && !data) {
-    return <main className="app-shell"><p className="status-banner">Loading {BRAND_NAME} {selectedYear}...</p></main>;
+    return <PublicPageSkeleton mode="home" showHeroImage />;
   }
 
   if (!data || !data.snapshot?.rounds?.length || !derived) {
-    return <main className="app-shell"><p className="status-banner error">{error || "Tournament data is unavailable."}</p></main>;
+    return (
+      <PublicErrorState
+        mode="home"
+        title="Tournament data is unavailable"
+        message={error || "The live tournament overview could not be loaded right now."}
+        lastUpdatedAt={lastUpdatedAt}
+      />
+    );
   }
 
   const { snapshot } = data;
@@ -1483,7 +1721,7 @@ function HomePage() {
         <div className="hero-grid" />
         <div className="hero-header">
           <div className="hero-copy">
-            <p className="hero-kicker">Live tournament dashboard 2026</p>
+            <p className="hero-kicker">Live tournament dashboard {selectedYear}</p>
             <h1>
               {BRAND_NAME}
               <label className="hero-year-select-shell">
@@ -1556,6 +1794,8 @@ function HomePage() {
         </p>
       ) : null}
 
+      <SourceTag lastUpdatedAt={lastUpdatedAt} />
+
     </main>
   );
 }
@@ -1563,7 +1803,7 @@ function HomePage() {
 function EntrantsPage() {
   const [selectedYear, setSelectedYear] = usePublicSelectedYear();
   const [showPhotos, setShowPhotos] = usePublicShowPhotos();
-  const { data, loading, error, derived, refresh, refreshing } = useTournamentOverview(selectedYear);
+  const { data, loading, error, derived, refresh, refreshing, lastUpdatedAt } = useTournamentOverview(selectedYear);
   const [expandedCompetitors, setExpandedCompetitors] = useState({});
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const isCompactViewport = useIsCompactViewport();
@@ -1580,11 +1820,18 @@ function EntrantsPage() {
   }
 
   if (loading && !data) {
-    return <main className="app-shell"><p className="status-banner">Loading entrants...</p></main>;
+    return <PublicPageSkeleton mode="entrants" showGrid gridCount={4} />;
   }
 
   if (!data || !data.snapshot?.rounds?.length || !derived) {
-    return <main className="app-shell"><p className="status-banner error">{error || "Entrant data is unavailable."}</p></main>;
+    return (
+      <PublicErrorState
+        mode="entrants"
+        title="Entrant data is unavailable"
+        message={error || "The entrants page could not be loaded right now."}
+        lastUpdatedAt={lastUpdatedAt}
+      />
+    );
   }
 
   const poolConfigured = data.poolConfigured !== false;
@@ -1727,13 +1974,15 @@ function EntrantsPage() {
           })}
         </section>
       ) : null}
+
+      <SourceTag lastUpdatedAt={lastUpdatedAt} />
     </main>
   );
 }
 
 function MatchesPage() {
   const [selectedYear, setSelectedYear] = usePublicSelectedYear();
-  const { data, loading, error, refresh, refreshing } = usePublicTournamentData(selectedYear);
+  const { data, loading, error, refresh, refreshing, lastUpdatedAt } = usePublicTournamentData(selectedYear);
   const [selectedRoundKey, setSelectedRoundKey] = useSessionState(MATCHES_ROUND_SESSION_KEY, "");
   const [selectedEntrantFiltersRaw, setSelectedEntrantFilters] = useSessionState(MATCHES_ENTRANT_FILTERS_SESSION_KEY, []);
   const [selectedPlayerFiltersRaw, setSelectedPlayerFilters] = useSessionState(MATCHES_PLAYER_FILTERS_SESSION_KEY, []);
@@ -1838,11 +2087,18 @@ function MatchesPage() {
   }, [countryOptions, selectedCountryFilters, selectedCountryFiltersRaw, setSelectedCountryFilters]);
 
   if (loading && !data) {
-    return <main className="app-shell"><p className="status-banner">Loading matches...</p></main>;
+    return <PublicPageSkeleton mode="matches" showGrid gridCount={5} />;
   }
 
   if (!data || !data.snapshot?.rounds?.length) {
-    return <main className="app-shell"><p className="status-banner error">{error || "Match data is unavailable."}</p></main>;
+    return (
+      <PublicErrorState
+        mode="matches"
+        title="Match data is unavailable"
+        message={error || "The match centre could not be loaded right now."}
+        lastUpdatedAt={lastUpdatedAt}
+      />
+    );
   }
 
   const { snapshot } = data;
@@ -2143,6 +2399,7 @@ function MatchesPage() {
         )}
       </section>
       ) : null}
+      <SourceTag lastUpdatedAt={lastUpdatedAt} />
       {selectedBioPlayer ? <PlayerBioDialog player={selectedBioPlayer} onClose={() => setSelectedBioPlayer(null)} /> : null}
       {selectedHeadToHead ? <HeadToHeadDialog state={selectedHeadToHead} onClose={() => setSelectedHeadToHead(null)} /> : null}
     </main>
@@ -2251,11 +2508,18 @@ function BracketPage() {
   }, [data]);
 
   if (loading && !data) {
-    return <main className="app-shell"><p className="status-banner">Loading {BRAND_SHORT_NAME} bracket...</p></main>;
+    return <PublicPageSkeleton mode="bracket" showGrid gridCount={3} />;
   }
 
   if (!data || !data.snapshot?.rounds?.length || !derived) {
-    return <main className="app-shell"><p className="status-banner error">{error || "Bracket data is unavailable."}</p></main>;
+    return (
+      <PublicErrorState
+        mode="bracket"
+        title="Bracket data is unavailable"
+        message={error || "The bracket view could not be loaded right now."}
+        lastUpdatedAt={lastUpdatedAt}
+      />
+    );
   }
 
   const poolConfigured = data.poolConfigured !== false;
@@ -2427,6 +2691,8 @@ function BracketPage() {
           ))}
         </div>
       </section>
+
+      <SourceTag lastUpdatedAt={lastUpdatedAt} />
     </main>
   );
 }
@@ -2482,11 +2748,17 @@ function WinnersPage() {
   }, [entrants]);
 
   if (loading) {
-    return <main className="app-shell"><p className="status-banner">Loading winners...</p></main>;
+    return <PublicPageSkeleton mode="winners" showGrid gridCount={4} />;
   }
 
   if (error) {
-    return <main className="app-shell"><p className="status-banner error">{error}</p></main>;
+    return (
+      <PublicErrorState
+        mode="winners"
+        title="Winners data is unavailable"
+        message={error}
+      />
+    );
   }
 
   return (
@@ -2537,6 +2809,8 @@ function WinnersPage() {
       ) : (
         <p className="status-banner">No past winners have been recorded yet.</p>
       )}
+
+      <SourceTag />
     </main>
   );
 }
@@ -4011,7 +4285,29 @@ function ProtectedAdminRoute() {
   return authenticated ? <AdminPage /> : <Navigate to="/admin/login" replace />;
 }
 
+function NotFoundPage() {
+  return (
+    <main className="app-shell">
+      <SiteHeader mode="not-found" />
+      <section className="not-found-card">
+        <p className="not-found-eyebrow">404</p>
+        <h1>That page has broken off from the pack.</h1>
+        <p>
+          The link might be out of date, or the page may have moved. Head back to the tournament tracker and we&apos;ll get you back on line.
+        </p>
+        <div className="not-found-actions">
+          <Link className="not-found-link primary" to="/">Back to home</Link>
+          <Link className="not-found-link" to="/matches">View matches</Link>
+        </div>
+      </section>
+      <SourceTag />
+    </main>
+  );
+}
+
 export default function App() {
+  usePageMetadata();
+
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
@@ -4021,7 +4317,7 @@ export default function App() {
       <Route path="/winners" element={<WinnersPage />} />
       <Route path="/admin" element={<ProtectedAdminRoute />} />
       <Route path="/admin/login" element={<AdminPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
