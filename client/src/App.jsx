@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import crownIcon from "../../res/crown.png";
 import dogsPlayingPool from "../../res/dogsplayingpool.webp";
+import walesFlag from "./assets/flags/wales.svg";
 
 const APP_ENV = import.meta.env.VITE_APP_ENV || (import.meta.env.DEV ? "local" : "production");
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
@@ -396,33 +397,79 @@ function RefreshButton({ onClick, busy = false, label = "Refresh data", classNam
   );
 }
 
+function svgToDataUri(svg) {
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 const NATIONALITY_FLAGS = {
-  Australia: "AU",
-  Belgium: "BE",
-  China: "CN",
-  England: "GB",
-  HongKong: "HK",
-  "Hong Kong": "HK",
-  Iran: "IR",
-  Ireland: "IE",
-  "Northern Ireland": "GB",
-  Pakistan: "PK",
-  Scotland: "GB",
-  Thailand: "TH",
-  Ukraine: "UA",
-  Wales: "GB",
+  Australia: { type: "emoji", code: "AU" },
+  Belgium: { type: "emoji", code: "BE" },
+  China: { type: "emoji", code: "CN" },
+  England: {
+    type: "image",
+    src: svgToDataUri("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 36'><rect width='60' height='36' fill='#fff'/><rect x='24' width='12' height='36' fill='#c8102e'/><rect y='12' width='60' height='12' fill='#c8102e'/></svg>"),
+  },
+  HongKong: { type: "emoji", code: "HK" },
+  "Hong Kong": { type: "emoji", code: "HK" },
+  Iran: { type: "emoji", code: "IR" },
+  Ireland: { type: "emoji", code: "IE" },
+  "Northern Ireland": {
+    type: "image",
+    src: svgToDataUri("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 36'><rect width='60' height='36' fill='#fff'/><rect x='24' width='12' height='36' fill='#c8102e'/><rect y='12' width='60' height='12' fill='#c8102e'/><polygon points='30,7 33,14 41,14 35,19 38,27 30,22 22,27 25,19 19,14 27,14' fill='#fff' stroke='#c8102e' stroke-width='1.5'/><circle cx='30' cy='18' r='3.5' fill='#c8102e'/><path d='M27.8 8.4c0-1.8 1-3.3 2.2-4.2c1.2.9 2.2 2.4 2.2 4.2v1.5h-4.4z' fill='#d4af37'/></svg>"),
+  },
+  Pakistan: { type: "emoji", code: "PK" },
+  Scotland: {
+    type: "image",
+    src: svgToDataUri("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 36'><rect width='60' height='36' fill='#005eb8'/><line x1='0' y1='0' x2='60' y2='36' stroke='#fff' stroke-width='8'/><line x1='60' y1='0' x2='0' y2='36' stroke='#fff' stroke-width='8'/></svg>"),
+  },
+  Thailand: { type: "emoji", code: "TH" },
+  Ukraine: { type: "emoji", code: "UA" },
+  Wales: {
+    type: "image",
+    src: walesFlag,
+    className: "player-flag-wales",
+  },
 };
 
 function getNationalityFlag(nationality) {
-  const code = NATIONALITY_FLAGS[String(nationality || "").trim()] || "";
-  if (!code || code.length !== 2) {
-    return "";
+  const entry = NATIONALITY_FLAGS[String(nationality || "").trim()] || null;
+  if (!entry) {
+    return null;
   }
-  return code
-    .toUpperCase()
-    .split("")
-    .map((char) => String.fromCodePoint(127397 + char.charCodeAt(0)))
-    .join("");
+  if (entry.type === "emoji") {
+    const { code } = entry;
+    if (!code || code.length !== 2) {
+      return null;
+    }
+    return {
+      type: "emoji",
+      value: code
+        .toUpperCase()
+        .split("")
+        .map((char) => String.fromCodePoint(127397 + char.charCodeAt(0)))
+        .join(""),
+    };
+  }
+  if (entry.type === "image" && entry.src) {
+    return {
+      type: "image",
+      src: entry.src,
+      className: entry.className || "",
+    };
+  }
+  return null;
+}
+
+function NationalityFlag({ nationality, className = "player-flag" }) {
+  const flag = getNationalityFlag(nationality);
+  if (!flag) {
+    return null;
+  }
+  if (flag.type === "image") {
+    const imageClassName = [className, flag.className].filter(Boolean).join(" ");
+    return <img className={imageClassName} src={flag.src} alt="" aria-hidden="true" />;
+  }
+  return <span className={className} aria-hidden="true">{flag.value}</span>;
 }
 
 function formatPlayerBirthDate(value) {
@@ -489,7 +536,6 @@ function buildClacksHeaderPreview(values) {
 }
 
 function PlayerIdentity({ player, compact = false, showPhoto = true, ownerName = "", onNameClick = null }) {
-  const flag = getNationalityFlag(player.nationality);
   const identityClassName = `${compact ? "player-identity compact" : "player-identity"}${player.eliminated ? " eliminated" : ""}`;
   const canOpenBio = typeof onNameClick === "function" && player && !isPlaceholderMatchPlayer(player);
 
@@ -522,7 +568,7 @@ function PlayerIdentity({ player, compact = false, showPhoto = true, ownerName =
           <strong>{player.name}{ownerName ? ` (${ownerName})` : ""}</strong>
         )}
         <small>
-          {flag ? <span className="player-flag" aria-hidden="true">{flag}</span> : null}
+          <NationalityFlag nationality={player.nationality} />
           <span>{player.nationality || "Unknown"}</span>
         </small>
       </div>
@@ -1169,7 +1215,6 @@ function PlayerBioDialog({ player, onClose }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  const flag = getNationalityFlag(player?.nationality);
   const bornLabel = formatPlayerBirthDate(player?.born);
   const age = getPlayerAge(player?.born);
   const careerLabel = player?.firstSeasonAsPro
@@ -1207,7 +1252,7 @@ function PlayerBioDialog({ player, onClose }) {
             <p className="eyebrow">Player bio</p>
             <h2 id="player-bio-title">{player.name}</h2>
             <p className="player-bio-subtitle">
-              {flag ? <span aria-hidden="true">{flag}</span> : null}
+              <NationalityFlag nationality={player?.nationality} className="player-flag" />
               <span>{player.nationality || "Unknown nationality"}</span>
             </p>
           </div>

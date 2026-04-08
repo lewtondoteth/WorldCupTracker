@@ -996,6 +996,15 @@
   font-size: 1rem;
   line-height: 1;
   transform: translateY(1px);
+  width: 1.3em;
+  height: auto;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(18, 40, 30, 0.08);
+}
+
+.player-flag-wales {
+  width: 1.7em;
 }
 
 .player-identity.compact .player-text strong {
