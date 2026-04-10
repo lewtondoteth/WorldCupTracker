@@ -17,6 +17,8 @@ const ADMIN_PASSWORD = "painting";
 const ADMIN_SESSION_KEY = "worldcup-admin-authenticated";
 const PUBLIC_YEAR_SESSION_KEY = "worldcup-public-selected-year";
 const PUBLIC_SHOW_PHOTOS_SESSION_KEY = "worldcup-public-show-photos";
+const STRUCTURE_MODE_SESSION_KEY = "worldcup-public-structure-mode";
+const STRUCTURE_MODE_YEAR_SESSION_KEY = "worldcup-public-structure-mode-year";
 const MATCHES_ROUND_SESSION_KEY = "worldcup-public-fixtures-stage";
 const MATCHES_ENTRANT_FILTERS_SESSION_KEY = "worldcup-public-entrant-filters";
 const MATCHES_PLAYER_FILTERS_SESSION_KEY = "worldcup-public-team-filters";
@@ -45,13 +47,13 @@ const PAGE_METADATA = {
     title: `Teams | ${BRAND_NAME}`,
     description: "Browse group tables, qualified teams, and pool assignments.",
   },
+  "/structure": {
+    title: `Structure | ${BRAND_NAME}`,
+    description: "Switch between group tables and the knockout bracket as the tournament unfolds.",
+  },
   "/fixtures": {
     title: `Fixtures | ${BRAND_NAME}`,
     description: "Follow match results from the group stage through the final.",
-  },
-  "/knockout": {
-    title: `Knockout | ${BRAND_NAME}`,
-    description: "See the knockout bracket and how the tournament unfolded.",
   },
   "/winners": {
     title: `Winners | ${BRAND_NAME}`,
@@ -850,17 +852,15 @@ function SiteHeader({ mode = "home", poolConfigured = false }) {
           {mode === "home" ? (
             <>
               <a className="site-menu-link" href="#overview" onClick={closeMenu}>Overview</a>
+              <Link className="site-menu-link" to="/structure" onClick={closeMenu}>Structure</Link>
               <Link className="site-menu-link" to="/teams" onClick={closeMenu}>Teams</Link>
-              <Link className="site-menu-link" to="/fixtures" onClick={closeMenu}>Fixtures</Link>
-              <Link className="site-menu-link" to="/knockout" onClick={closeMenu}>Knockout</Link>
               <Link className="site-menu-link" to="/winners" onClick={closeMenu}>Winners</Link>
             </>
           ) : (
             <>
               <Link className="site-menu-link" to="/" onClick={closeMenu}>Tournament</Link>
+              <Link className={`site-menu-link${mode === "structure" ? " current" : ""}`} to="/structure" onClick={closeMenu}>Structure</Link>
               <Link className={`site-menu-link${mode === "entrants" ? " current" : ""}`} to="/teams" onClick={closeMenu}>Teams</Link>
-              <Link className={`site-menu-link${mode === "matches" ? " current" : ""}`} to="/fixtures" onClick={closeMenu}>Fixtures</Link>
-              <Link className={`site-menu-link${mode === "bracket" ? " current" : ""}`} to="/knockout" onClick={closeMenu}>Knockout</Link>
               <Link className={`site-menu-link${mode === "winners" ? " current" : ""}`} to="/winners" onClick={closeMenu}>Winners</Link>
             </>
           )}
@@ -986,12 +986,26 @@ function isOpenTournamentMatch(match) {
   return isActiveTournamentMatch(match) && (match.unfinished || !match.winnerId);
 }
 
+function getMatchResolutionLabel(match) {
+  if (match?.note) {
+    return match.note;
+  }
+  if (match?.decisionMethod === "extra-time") {
+    return "Decided after extra time.";
+  }
+  if (match?.decisionMethod === "penalties") {
+    return "Decided on penalties.";
+  }
+  return "";
+}
+
 function MatchCard({ match, showPhotos, ownershipByPlayerId, onPlayerSelect, onHeadToHeadOpen = null }) {
   const metaBits = [
     match.group ? `Group ${match.group}` : null,
     match.startDate ? `Date ${match.startDate.slice(0, 10)}` : null,
   ].filter(Boolean);
   const matchCentreUrl = normaliseExternalUrl(match.liveUrl || match.detailsUrl || "");
+  const resolutionLabel = getMatchResolutionLabel(match);
 
   const renderSide = (player, won) => (
     <div className={won ? "match-side winner" : "match-side loser"}>
@@ -1049,6 +1063,115 @@ function MatchCard({ match, showPhotos, ownershipByPlayerId, onPlayerSelect, onH
       ) : null}
       {renderSide(match.player1, match.winnerId === match.player1.id)}
       {renderSide(match.player2, match.winnerId === match.player2.id)}
+      {resolutionLabel ? <p className="match-note">{resolutionLabel}</p> : null}
+    </article>
+  );
+}
+
+function GroupFixtureList({ fixtures = [], ownershipByPlayerId = new Map() }) {
+  if (!fixtures.length) {
+    return <p className="group-fixture-empty">Fixtures have not been published for this group yet.</p>;
+  }
+
+  return (
+    <div className="group-fixture-list">
+      {fixtures.map((match) => (
+        <article key={match.id} className="group-fixture-item">
+          <div className="group-fixture-top">
+            <span>Match {match.number}</span>
+            <small>{match.scheduledDate || match.startDate || ""}</small>
+          </div>
+          <div className="group-fixture-scoreline">
+            <span>
+              {match.player1.name}
+              {ownershipByPlayerId.get(match.player1.id)?.entrantName ? (
+                <small className="group-team-owner">{ownershipByPlayerId.get(match.player1.id).entrantName}</small>
+              ) : null}
+            </span>
+            <strong>{match.player1.score} - {match.player2.score}</strong>
+            <span>
+              {match.player2.name}
+              {ownershipByPlayerId.get(match.player2.id)?.entrantName ? (
+                <small className="group-team-owner">{ownershipByPlayerId.get(match.player2.id).entrantName}</small>
+              ) : null}
+            </span>
+          </div>
+          {getMatchResolutionLabel(match) ? (
+            <p className="group-fixture-note">{getMatchResolutionLabel(match)}</p>
+          ) : null}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function GroupStageSection({ group, showPhotos = true, ownershipByPlayerId = new Map() }) {
+  return (
+    <article key={group.key} className="group-standings-card group-stage-card">
+      <div className="group-standings-header group-stage-header">
+        <div>
+          <p className="eyebrow">Group</p>
+          <h3>{group.name}</h3>
+        </div>
+        <span className="group-stage-fixture-count">{group.fixtures.length} matches</span>
+      </div>
+
+      <div className="group-table-shell">
+        <table className="group-table">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Team</th>
+              <th scope="col">P</th>
+              <th scope="col">W</th>
+              <th scope="col">D</th>
+              <th scope="col">L</th>
+              <th scope="col">GF</th>
+              <th scope="col">GA</th>
+              <th scope="col">GD</th>
+              <th scope="col">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {group.standings.map((row) => (
+              <tr key={row.team.id}>
+                <td>{row.position}</td>
+                <td>
+                  <div className="group-table-team">
+                    {showPhotos && row.team.photo ? (
+                      <img className="group-table-team-photo" src={row.team.photo} alt="" loading="lazy" />
+                    ) : (
+                      <NationalityFlag nationality={row.team.nationality} className="group-table-team-flag" />
+                    )}
+                    <div className="group-table-team-copy">
+                      <strong>{row.team.name}</strong>
+                      {ownershipByPlayerId.get(row.team.id)?.entrantName ? (
+                        <small className="group-team-owner">{ownershipByPlayerId.get(row.team.id).entrantName}</small>
+                      ) : null}
+                    </div>
+                  </div>
+                </td>
+                <td>{row.played}</td>
+                <td>{row.won}</td>
+                <td>{row.drawn}</td>
+                <td>{row.lost}</td>
+                <td>{row.goalsFor}</td>
+                <td>{row.goalsAgainst}</td>
+                <td>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td>
+                <td><strong>{row.points}</strong></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="group-fixture-section">
+        <div className="group-fixture-header">
+          <p className="eyebrow">Matches</p>
+          <span>{group.fixtures.length}</span>
+        </div>
+        <GroupFixtureList fixtures={group.fixtures} ownershipByPlayerId={ownershipByPlayerId} />
+      </div>
     </article>
   );
 }
@@ -1192,6 +1315,7 @@ function HeadToHeadDialog({ state, onClose }) {
                         <strong>{historyMatch.score1} - {historyMatch.score2}</strong>
                         <span className={player2Won ? "winner" : ""}>{state.player2.name}</span>
                       </div>
+                      {historyMatch.note ? <p className="match-note head-to-head-note">{historyMatch.note}</p> : null}
                     </article>
                   );
                 })}
@@ -1407,6 +1531,20 @@ function getDefaultRoundKey(snapshot) {
   return latestStartedRound?.key || rounds[0].key;
 }
 
+function getDefaultStructureMode(snapshot) {
+  const groupStage = getFixtureStages(snapshot).find((stage) => stage.key === "group-stage") || null;
+  const groupMatches = groupStage?.matches || [];
+  const knockoutRounds = snapshot?.rounds || [];
+  const knockoutStarted = knockoutRounds.some((round) => round.matches.some((match) => isActiveTournamentMatch(match)));
+  const groupsStillActive = groupMatches.some((match) => isOpenTournamentMatch(match));
+
+  if (knockoutStarted || (groupMatches.length && !groupsStillActive)) {
+    return "knockout";
+  }
+
+  return "groups";
+}
+
 function buildOwnershipMap(competitors) {
   const ownershipByPlayerId = new Map();
 
@@ -1515,6 +1653,7 @@ function buildBracketRounds(snapshotRounds, competitors) {
         number: actualMatch?.number || matchIndex + 1,
         state: actualMatch ? (actualMatch.unfinished ? "in-play" : "finished") : "pending",
         scheduledDate: actualMatch?.scheduledDate || "",
+        note: actualMatch?.note || "",
         slotSpan: 2 ** (roundIndex + 1),
         side1,
         side2,
@@ -1559,7 +1698,7 @@ function usePublicTournamentData(selectedYear) {
         if (!cancelled) {
           setData(nextData);
           setPublicEntrants(entrantsResponse.entrants || []);
-          setLastUpdatedAt(new Date());
+          setLastUpdatedAt(nextData?.snapshot?.cache?.lastUpdatedAt || new Date());
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -1755,6 +1894,281 @@ function useTournamentOverview(selectedYear) {
   };
 }
 
+function TournamentStructurePage() {
+  const [selectedYear, setSelectedYear] = usePublicSelectedYear();
+  const [structureMode, setStructureMode] = useSessionState(STRUCTURE_MODE_SESSION_KEY, "groups");
+  const [structureModeYear, setStructureModeYear] = useSessionState(STRUCTURE_MODE_YEAR_SESSION_KEY, null);
+  const { data, loading, error, refresh, refreshing, lastUpdatedAt } = usePublicTournamentData(selectedYear);
+  const isCompactViewport = useIsCompactViewport();
+  const isVeryCompactViewport = useIsCompactViewport(480);
+
+  const bracketDerived = useMemo(() => {
+    if (!data?.snapshot?.rounds?.length) {
+      return null;
+    }
+
+    const activeRoundKey = getDefaultRoundKey(data.snapshot);
+    const bracketRounds = buildBracketRounds(data.snapshot.rounds, data.competitors || []);
+    const finalRound = data.snapshot.rounds[data.snapshot.rounds.length - 1] || null;
+    const tournamentComplete = Boolean(finalRound?.matches?.length) && finalRound.matches.every((match) => Boolean(match.winnerId));
+    const championPlayer = data.snapshot.entrants.find((entry) => entry.isChampion && !entry.isPlaceholder) || null;
+    const winningCompetitor = championPlayer
+      ? (data.competitors || []).find((competitor) => (
+        competitor.seeds.some((player) => player?.id === championPlayer.id)
+        || competitor.qualifiers.some((player) => player?.id === championPlayer.id)
+      )) || null
+      : null;
+    const completedMatches = bracketRounds.reduce(
+      (count, round) => count + round.bracketMatches.filter((match) => match.state === "finished").length,
+      0,
+    );
+
+    return {
+      activeRoundKey,
+      bracketRounds,
+      completedMatches,
+      tournamentComplete,
+      winningCompetitorName: winningCompetitor?.name || championPlayer?.name || "",
+      championPlayerName: championPlayer?.name || "",
+    };
+  }, [data]);
+  const ownershipByPlayerId = useMemo(
+    () => buildOwnershipMap(data?.competitors || []),
+    [data?.competitors],
+  );
+
+  useEffect(() => {
+    if (!data?.snapshot) {
+      return;
+    }
+
+    const defaultMode = getDefaultStructureMode(data.snapshot);
+    if (structureModeYear !== data.snapshot.year) {
+      setStructureMode(defaultMode);
+      setStructureModeYear(data.snapshot.year);
+    }
+  }, [data?.snapshot, setStructureMode, setStructureModeYear, structureModeYear]);
+
+  if (loading && !data) {
+    return <PublicPageSkeleton mode="structure" showGrid gridCount={4} />;
+  }
+
+  if (!data) {
+    return (
+      <PublicErrorState
+        mode="structure"
+        title="Tournament structure is unavailable"
+        message={error || "The structure page could not be loaded right now."}
+        lastUpdatedAt={lastUpdatedAt}
+      />
+    );
+  }
+
+  const groups = data.snapshot?.groups || [];
+  const poolConfigured = data.poolConfigured !== false;
+  const defaultMode = getDefaultStructureMode(data.snapshot);
+  const activeMode = structureMode === "knockout" ? "knockout" : "groups";
+  const bracketUnit = isVeryCompactViewport ? 320 : isCompactViewport ? 280 : 208;
+  const bracketHeight = bracketDerived?.bracketRounds?.[0]?.bracketMatches?.length
+    ? bracketDerived.bracketRounds[0].bracketMatches.length * bracketUnit
+    : 0;
+
+  return (
+    <main className="app-shell bracket-page-shell">
+      <SiteHeader mode="structure" poolConfigured={poolConfigured} />
+
+      <section className="bracket-hero-card">
+        <div className="bracket-hero-copy">
+          <p className="hero-kicker">Tournament structure</p>
+          <h1>{BRAND_SHORT_NAME} Structure</h1>
+          <p className="bracket-hero-note">
+            {activeMode === "groups"
+              ? "Group tables and grouped fixtures"
+              : "Knockout tree and progression"}
+          </p>
+          <p className="structure-phase-note">
+            Auto phase: {defaultMode === "groups" ? "Groups" : "Knockout"}
+          </p>
+        </div>
+        <div className="matches-hero-tools">
+          <div className="matches-settings-shell entrants-settings-shell">
+            <RefreshButton onClick={refresh} busy={refreshing} label={`Refresh ${selectedYear} structure data`} />
+          </div>
+          <div className="bracket-toolbar bracket-toolbar-compact">
+            <div className="bracket-control bracket-control-year">
+              <p className="toolbar-label">Year</p>
+              <label className="toolbar-select-shell">
+                <select
+                  className="toolbar-select"
+                  value={selectedYear}
+                  onChange={(event) => setSelectedYear(Number(event.target.value))}
+                  aria-label="Select tournament year"
+                >
+                  {PUBLIC_YEAR_OPTIONS.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="bracket-control structure-mode-control">
+              <p className="toolbar-label">Mode</p>
+              <div className="structure-mode-switch" role="tablist" aria-label="Tournament structure mode">
+                <button
+                  type="button"
+                  className={`structure-mode-button${activeMode === "groups" ? " active" : ""}`}
+                  onClick={() => {
+                    setStructureMode("groups");
+                    setStructureModeYear(selectedYear);
+                  }}
+                  aria-selected={activeMode === "groups"}
+                >
+                  Groups
+                </button>
+                <button
+                  type="button"
+                  className={`structure-mode-button${activeMode === "knockout" ? " active" : ""}`}
+                  onClick={() => {
+                    setStructureMode("knockout");
+                    setStructureModeYear(selectedYear);
+                  }}
+                  aria-selected={activeMode === "knockout"}
+                >
+                  Knockout
+                </button>
+              </div>
+            </div>
+            <div className="bracket-control structure-summary-control">
+              <span className="bracket-inline-label">{activeMode === "groups" ? "Stage coverage" : "Completed"}</span>
+              <strong className="bracket-inline-value">
+                {activeMode === "groups"
+                  ? `${groups.length} groups`
+                  : (bracketDerived?.tournamentComplete
+                    ? `${bracketDerived.winningCompetitorName}${bracketDerived.championPlayerName ? ` (${bracketDerived.championPlayerName})` : ""}`
+                    : bracketDerived?.completedMatches || 0)}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {error ? <p className="status-banner error">{error}</p> : null}
+      {!poolConfigured ? (
+        <p className="status-banner">
+          The pool is not fully configured yet. Teams without an owner are shown as unassigned until they are allocated to an entrant.
+        </p>
+      ) : null}
+
+      <section className="section-heading">
+        <div>
+          <p className="eyebrow">{activeMode === "groups" ? "Group Stage" : "Progression View"}</p>
+          <h2>{activeMode === "groups" ? `${selectedYear} groups` : data.snapshot.eventName}</h2>
+          {activeMode === "groups" ? (
+            <p className="section-support-copy">
+              {groups.length} groups, {groups.reduce((total, group) => total + group.fixtures.length, 0)} matches
+            </p>
+          ) : (
+            <p className="section-support-copy">
+              {bracketDerived?.bracketRounds?.length || 0} rounds, {bracketDerived?.completedMatches || 0} matches completed
+            </p>
+          )}
+        </div>
+      </section>
+
+      {activeMode === "groups" ? (
+        groups.length ? (
+          <section className="group-stage-grid">
+            {groups.map((group) => (
+              <GroupStageSection key={group.key} group={group} showPhotos ownershipByPlayerId={ownershipByPlayerId} />
+            ))}
+          </section>
+        ) : (
+          <p className="status-banner">Group tables have not been published for this tournament year yet.</p>
+        )
+      ) : (
+        bracketDerived ? (
+          <section className="bracket-board-shell">
+            <div className="bracket-board">
+              {bracketDerived.bracketRounds.map((round, roundIndex) => (
+                <section
+                  key={round.key}
+                  className={`bracket-round-column${round.key === bracketDerived.activeRoundKey ? " active" : ""}`}
+                >
+                  <div className="bracket-round-header">
+                    <p className="eyebrow">Stage</p>
+                    <h3>{round.name}</h3>
+                    <span>{round.bracketMatches.length} fixtures</span>
+                  </div>
+                  <div className="bracket-round-stack" style={{ minHeight: `${bracketHeight}px` }}>
+                    {round.bracketMatches.map((match, matchIndex) => {
+                      const winnerId = match.winnerSide?.id || null;
+                      const topOffset = (((2 ** roundIndex) - 1) * bracketUnit) / 2;
+                      const top = topOffset + matchIndex * (2 ** roundIndex) * bracketUnit;
+
+                      return (
+                        <div
+                          key={match.key}
+                          className={`bracket-match-slot${roundIndex > 0 ? " has-left-connector" : ""}${roundIndex < bracketDerived.bracketRounds.length - 1 ? " has-right-connector" : ""}`}
+                          style={{ top: `${top}px` }}
+                        >
+                          <article className={`bracket-match-card ${match.state}`}>
+                            <div className="bracket-match-meta">
+                              <div>
+                                <span>{match.label}</span>
+                                {match.scheduledDate ? <small>{match.scheduledDate.slice(0, 10)}</small> : null}
+                              </div>
+                              {match.state === "finished" ? <strong>Complete</strong> : match.state === "in-play" ? <strong>Live</strong> : null}
+                            </div>
+
+                            {[match.side1, match.side2].map((side) => (
+                              <div
+                                key={`${match.key}-${side.id}`}
+                                className={`bracket-side-row${side.id === winnerId ? " winner" : ""}${winnerId && side.id !== winnerId ? " loser" : ""}${side.isPlaceholder ? " placeholder" : ""}${side.isUnassigned ? " unassigned" : ""}`}
+                              >
+                                <div className="bracket-side-copy">
+                                  <span className="bracket-entrant-name">
+                                    <span>{side.entrantName}</span>
+                                    {(side.winningYears || []).length ? (
+                                      <span className="bracket-entrant-crowns" aria-label={`${side.winningYears.length} wins`}>
+                                        {side.winningYears.map((year) => (
+                                          <img
+                                            key={`${side.id}-${year}`}
+                                            className="competitor-crown"
+                                            src={crownIcon}
+                                            alt=""
+                                            aria-hidden="true"
+                                            title={`Winner ${year}`}
+                                          />
+                                        ))}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                  <span className="bracket-player-name">{side.playerName}</span>
+                                </div>
+                                {side.score !== null ? <span className="bracket-side-score">{side.score}</span> : null}
+                              </div>
+                            ))}
+                            {match.note ? <p className="match-note bracket-match-note">{match.note}</p> : null}
+                          </article>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <p className="status-banner">Knockout data is unavailable for this tournament year.</p>
+        )
+      )}
+
+      <SourceTag lastUpdatedAt={lastUpdatedAt} sourceLabel={data.snapshot.dataSourceLabel || SOURCE_LABEL} sourceUrl={data.snapshot.dataSourceUrl} />
+    </main>
+  );
+}
+
 function HomePage() {
   const [selectedYear, setSelectedYear] = usePublicSelectedYear();
   const {
@@ -1837,8 +2251,8 @@ function HomePage() {
             </h1>
             <div className="hero-actions">
               {poolConfigured ? <Link className="admin-pill-link" to="/teams">View teams</Link> : null}
-              <Link className="admin-pill-link subtle" to="/knockout">Open knockout</Link>
-              <Link className="admin-pill-link subtle" to="/fixtures">Open fixtures</Link>
+              <Link className="admin-pill-link subtle" to="/structure">Open structure</Link>
+              <Link className="admin-pill-link subtle" to="/winners">Open winners</Link>
             </div>
             <RefreshButton onClick={refresh} busy={refreshing} label={`Refresh ${selectedYear} tournament data`} className="hero-refresh-button" />
           </div>
@@ -1892,7 +2306,7 @@ function HomePage() {
           </p>
         </article>
         <article className="summary-card">
-          <p className="toolbar-label">Open fixtures</p>
+          <p className="toolbar-label">Matches remaining</p>
           <p className="summary-value">{unplayedMatchCount}</p>
           <p className="summary-copy">{isUpcomingTournament ? "No matches published yet" : `Still to be played in ${selectedRound.name}`}</p>
         </article>
@@ -1956,7 +2370,7 @@ function EntrantsPage() {
 
       <section className="bracket-hero-card">
         <div className="bracket-hero-copy">
-          <p className="hero-kicker">Groups, qualifiers, and pool picks</p>
+          <p className="hero-kicker">Entrants and assigned teams</p>
           <h1>{BRAND_SHORT_NAME} Teams</h1>
         </div>
         <div className="entrants-hero-tools">
@@ -2032,40 +2446,16 @@ function EntrantsPage() {
         </p>
       ) : null}
 
-      <section className="section-heading">
-        <div>
-          <p className="eyebrow">Group Tables</p>
-          <h2>{data.snapshot.dataSourceMode === "upcoming" ? "Group draw pending" : `${data.snapshot.year} standings`}</h2>
-        </div>
-      </section>
-
-      {(data.snapshot.groups || []).length ? (
-      <section className="group-standings-grid">
-        {(data.snapshot.groups || []).map((group) => (
-          <article key={group.key} className="group-standings-card">
-            <div className="group-standings-header">
-              <p className="eyebrow">Group</p>
-              <h3>{group.name}</h3>
-            </div>
-            <div className="group-standings-table">
-              {group.standings.map((row) => (
-                <div key={row.team.id} className="group-row">
-                  <span>{row.position}</span>
-                  <strong>{row.team.name}</strong>
-                  <span>{row.points} pts</span>
-                  <small>{row.goalsFor}-{row.goalsAgainst}</small>
-                </div>
-              ))}
-            </div>
-          </article>
-        ))}
-      </section>
-      ) : (
-        <p className="status-banner">Group tables have not been populated for this tournament year yet.</p>
-      )}
-
       {poolConfigured ? (
-        <section className="competitor-grid">
+        <>
+          <section className="section-heading">
+            <div>
+              <p className="eyebrow">Entrants</p>
+              <h2>{decoratedCompetitors.length} pool entrants</h2>
+              <p className="section-support-copy">Each entrant card lists the teams currently assigned to that pool entry.</p>
+            </div>
+          </section>
+          <section className="competitor-grid">
           {decoratedCompetitors.map((competitor) => {
             const liveCount = [...competitor.seeds, ...competitor.qualifiers].filter((player) => !player.eliminated).length;
             const totalCount = competitor.seeds.length + competitor.qualifiers.length;
@@ -2117,7 +2507,8 @@ function EntrantsPage() {
               </article>
             );
           })}
-        </section>
+          </section>
+        </>
       ) : null}
 
       <SourceTag lastUpdatedAt={lastUpdatedAt} sourceLabel={data.snapshot.dataSourceLabel || SOURCE_LABEL} sourceUrl={data.snapshot.dataSourceUrl} />
@@ -2247,8 +2638,8 @@ function MatchesPage() {
   }
 
   const { snapshot } = data;
-  const selectedRound = snapshot.rounds.find((round) => round.key === selectedRoundKey) || snapshot.rounds[0];
-  const displayRound = snapshot.rounds.find((round) => round.key === displayRoundKey) || selectedRound;
+  const selectedRound = snapshotRounds.find((round) => round.key === selectedRoundKey) || snapshotRounds[0];
+  const displayRound = snapshotRounds.find((round) => round.key === displayRoundKey) || selectedRound;
   const isYearSwitching = loading && Boolean(data) && data.snapshot?.year !== selectedYear;
   const isRoundSwitching = displayRoundKey && selectedRoundKey !== displayRoundKey;
   const hideMatchesDuringSwitch = isYearSwitching || isRoundSwitching;
@@ -2578,7 +2969,7 @@ function BracketPage() {
         const nextData = await fetchPool(selectedYear, { forceRefresh });
         if (!cancelled) {
           setData(nextData);
-          setLastUpdatedAt(new Date());
+          setLastUpdatedAt(nextData?.snapshot?.cache?.lastUpdatedAt || new Date());
         }
       } catch (loadError) {
         if (!cancelled) {
@@ -2748,6 +3139,15 @@ function BracketPage() {
           <p className="eyebrow">Progression View</p>
           <h2>{data.snapshot.eventName}</h2>
         </div>
+        <div className="matches-heading-actions">
+          <Link
+            className="matches-filter-button"
+            to="/fixtures"
+            onClick={() => jumpToMatchesRound("group-stage")}
+          >
+            <span>View Group Stage</span>
+          </Link>
+        </div>
       </section>
 
       <section className="bracket-board-shell">
@@ -2817,6 +3217,7 @@ function BracketPage() {
                             {side.score !== null ? <span className="bracket-side-score">{side.score}</span> : null}
                           </div>
                         ))}
+                        {match.note ? <p className="match-note bracket-match-note">{match.note}</p> : null}
                       </article>
                     </div>
                   );
@@ -4548,7 +4949,7 @@ function NotFoundPage() {
         </p>
         <div className="not-found-actions">
           <Link className="not-found-link primary" to="/">Back to home</Link>
-          <Link className="not-found-link" to="/fixtures">View fixtures</Link>
+          <Link className="not-found-link" to="/structure">View structure</Link>
         </div>
       </section>
       <SourceTag />
@@ -4562,12 +4963,15 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/structure" element={<TournamentStructurePage />} />
+      <Route path="/groups" element={<Navigate to="/structure" replace />} />
       <Route path="/teams" element={<EntrantsPage />} />
-      <Route path="/fixtures" element={<MatchesPage />} />
-      <Route path="/knockout" element={<BracketPage />} />
+      <Route path="/fixtures" element={<Navigate to="/structure" replace />} />
+      <Route path="/knockout" element={<Navigate to="/structure" replace />} />
+      <Route path="/group-stage" element={<Navigate to="/structure" replace />} />
       <Route path="/entrants" element={<Navigate to="/teams" replace />} />
-      <Route path="/matches" element={<Navigate to="/fixtures" replace />} />
-      <Route path="/bracket" element={<Navigate to="/knockout" replace />} />
+      <Route path="/matches" element={<Navigate to="/structure" replace />} />
+      <Route path="/bracket" element={<Navigate to="/structure" replace />} />
       <Route path="/winners" element={<WinnersPage />} />
       <Route path="/admin" element={<ProtectedAdminRoute />} />
       <Route path="/admin/login" element={<AdminPage />} />

@@ -254,6 +254,13 @@ function buildMatch(stageKey, matchData) {
   const player1 = createEntrantFromTeam(player1Id);
   const player2 = createEntrantFromTeam(player2Id);
   const winnerId = explicitWinnerId || (score1 > score2 ? player1Id : score2 > score1 ? player2Id : null);
+  const decisionMethod = /penalt/i.test(note)
+    ? "penalties"
+    : /extra time/i.test(note)
+      ? "extra-time"
+      : winnerId
+        ? "regulation"
+        : "draw";
 
   return {
     id,
@@ -266,6 +273,8 @@ function buildMatch(stageKey, matchData) {
     winnerId,
     unfinished: false,
     note,
+    decisionMethod,
+    penaltyScore: null,
     detailsUrl: "",
     liveUrl: "",
     player1: {

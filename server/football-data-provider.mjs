@@ -1,10 +1,20 @@
 import fetch from "node-fetch";
 import { buildStaticHeadToHead, buildStaticWorldCupSnapshot, buildUpcomingWorldCupSnapshot } from "./world-cup-data.mjs";
+import { readTournamentLiveCache, writeTournamentLiveCache } from "./storage.mjs";
 
 const WORLD_CUP_CODE = "WC";
 const DEFAULT_BASE_URL = "https://api.football-data.org/v4";
-const SNAPSHOT_CACHE_TTL_MS = 10 * 60 * 1000;
+const HISTORY_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const CURRENT_MATCHES_CACHE_TTL_MS = 15 * 60 * 1000;
+const CURRENT_STANDINGS_CACHE_TTL_MS = 15 * 60 * 1000;
+const CURRENT_TEAMS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const RATE_LIMIT_FALLBACK_TTL_MS = 60 * 1000;
+const RESOURCE_ORDER = ["teams", "standings", "matches"];
+const RESOURCE_TTL_BY_KEY = {
+  teams: CURRENT_TEAMS_CACHE_TTL_MS,
+  standings: CURRENT_STANDINGS_CACHE_TTL_MS,
+  matches: CURRENT_MATCHES_CACHE_TTL_MS,
+};
 
 function mapStage(stage) {
   const map = {
@@ -35,6 +45,61 @@ function normaliseDateValue(value) {
   return parsed.toISOString().slice(0, 10);
 }
 
+function isoNow() {
+  return new Date().toISOString();
+}
+
+function scoreValue(scoreNode, side) {
+  if (!scoreNode || typeof scoreNode !== "object") {
+    return 0;
+  }
+  return Number(scoreNode?.[side] ?? scoreNode?.[`${side}Team`] ?? 0) || 0;
+}
+
+function mapWinnerId(match) {
+  const winner = match?.score?.winner;
+  if (winner === "HOME_TEAM") {
+    return Number(match?.homeTeam?.id) || null;
+  }
+  if (winner === "AWAY_TEAM") {
+    return Number(match?.awayTeam?.id) || null;
+  }
+  return null;
+}
+
+function buildResultMetadata(match) {
+  const winnerId = mapWinnerId(match);
+  const decisionDuration = String(match?.score?.duration || "").toUpperCase();
+  const decisionMethod = decisionDuration === "PENALTY_SHOOTOUT"
+    ? "penalties"
+    : decisionDuration === "EXTRA_TIME"
+      ? "extra-time"
+      : winnerId
+        ? "regulation"
+        : "draw";
+  let note = "";
+  let penaltyScore = null;
+
+  if (decisionMethod === "penalties") {
+    const homePens = scoreValue(match?.score?.penalties, "home");
+    const awayPens = scoreValue(match?.score?.penalties, "away");
+    const winner = winnerId === Number(match?.homeTeam?.id) ? match?.homeTeam : match?.awayTeam;
+    const winnerPens = winnerId === Number(match?.homeTeam?.id) ? homePens : awayPens;
+    const loserPens = winnerId === Number(match?.homeTeam?.id) ? awayPens : homePens;
+    penaltyScore = { home: homePens, away: awayPens };
+    note = `${winner?.shortName || winner?.name || "Winner"} won ${winnerPens}-${loserPens} on penalties.`;
+  } else if (decisionMethod === "extra-time") {
+    note = "Decided after extra time.";
+  }
+
+  return {
+    winnerId,
+    decisionMethod,
+    penaltyScore,
+    note,
+  };
+}
+
 function mapTeam(team, standingsByTeamId, extra = {}) {
   const standing = standingsByTeamId.get(Number(team?.id)) || null;
   const area = team?.area || {};
@@ -60,37 +125,11 @@ function mapTeam(team, standingsByTeamId, extra = {}) {
   };
 }
 
-function scoreValue(scoreNode, side) {
-  if (!scoreNode || typeof scoreNode !== "object") {
-    return 0;
-  }
-  return Number(scoreNode?.[side] ?? scoreNode?.[`${side}Team`] ?? 0) || 0;
-}
-
-function mapWinnerId(match) {
-  const winner = match?.score?.winner;
-  if (winner === "HOME_TEAM") {
-    return Number(match?.homeTeam?.id) || null;
-  }
-  if (winner === "AWAY_TEAM") {
-    return Number(match?.awayTeam?.id) || null;
-  }
-  return null;
-}
-
 function mapMatch(match, standingsByTeamId) {
   const stageMeta = mapStage(match?.stage);
   const homeScore = scoreValue(match?.score?.fullTime, "home");
   const awayScore = scoreValue(match?.score?.fullTime, "away");
-  const noteParts = [];
-
-  if (match?.score?.duration === "PENALTY_SHOOTOUT") {
-    const homePens = scoreValue(match?.score?.penalties, "home");
-    const awayPens = scoreValue(match?.score?.penalties, "away");
-    noteParts.push(`Won ${homePens}-${awayPens} on penalties.`);
-  } else if (match?.score?.duration === "EXTRA_TIME") {
-    noteParts.push("Decided after extra time.");
-  }
+  const result = buildResultMetadata(match);
 
   return {
     id: Number(match?.id),
@@ -100,9 +139,11 @@ function mapMatch(match, standingsByTeamId) {
     startDate: normaliseDateValue(match?.utcDate),
     endDate: normaliseDateValue(match?.utcDate),
     tableNo: 0,
-    winnerId: mapWinnerId(match),
+    winnerId: result.winnerId,
     unfinished: !["FINISHED", "AWARDED"].includes(String(match?.status || "")),
-    note: noteParts.join(" "),
+    note: result.note,
+    decisionMethod: result.decisionMethod,
+    penaltyScore: result.penaltyScore,
     detailsUrl: "",
     liveUrl: "",
     player1: {
@@ -193,7 +234,7 @@ function buildFixtureStages(matchesResponse, standingsByTeamId) {
 }
 
 function buildKnockoutSnapshot(fixtureStages) {
-  const knockoutStages = fixtureStages
+  return fixtureStages
     .filter((stage) => ["round-of-16", "quarterfinals", "semifinals", "final"].includes(stage.key))
     .map((stage, index) => ({
       id: 100 + index + 1,
@@ -205,12 +246,9 @@ function buildKnockoutSnapshot(fixtureStages) {
       matchCount: stage.matches.length,
       matches: stage.matches,
     }));
-
-  return knockoutStages;
 }
 
 function buildQualifiedEntrants(groups, rounds) {
-  const roundIdByKey = new Map(rounds.map((round) => [round.key, round.id]));
   const qualificationRows = groups.flatMap((group) => group.standings.slice(0, 2));
   const matchList = rounds.flatMap((round) => round.matches.map((match) => ({ ...match, roundId: round.id, roundKey: round.key })));
   const entrants = [];
@@ -235,6 +273,115 @@ function buildQualifiedEntrants(groups, rounds) {
   return entrants;
 }
 
+function sortIsoDates(values) {
+  return values
+    .map((value) => normaliseDateValue(value))
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function buildEventDates(matchesResponse) {
+  const dates = sortIsoDates((matchesResponse?.matches || []).map((match) => match?.utcDate));
+  return {
+    start: dates[0] || "",
+    end: dates[dates.length - 1] || "",
+  };
+}
+
+function buildSnapshotFromResources(year, resources) {
+  const standingsData = resources.standings?.data;
+  const matchesData = resources.matches?.data;
+  const teamsData = resources.teams?.data;
+
+  if (!standingsData || !matchesData || !teamsData) {
+    return null;
+  }
+
+  const standingsByTeamId = buildStandingsIndex(standingsData);
+  const groups = buildGroups(standingsData, matchesData, standingsByTeamId);
+  const fixtureStages = buildFixtureStages(matchesData, standingsByTeamId);
+  const rounds = buildKnockoutSnapshot(fixtureStages);
+  const entrants = buildQualifiedEntrants(groups, rounds);
+  const allTeams = (teamsData?.teams || []).map((team) => mapTeam(team, standingsByTeamId));
+  const finalStage = fixtureStages.find((stage) => stage.key === "final");
+  const winnerTeamId = Number(finalStage?.matches?.[0]?.winnerId) || null;
+
+  return {
+    year,
+    eventId: 2000,
+    eventName: `FIFA World Cup ${year}`,
+    eventDates: buildEventDates(matchesData),
+    sampleDataYear: year,
+    dataSourceMode: "live",
+    dataSourceLabel: "football-data.org cached data",
+    dataSourceUrl: "https://www.football-data.org/documentation/quickstart/",
+    apiVersion: resources.matches?.meta?.apiVersion || resources.standings?.meta?.apiVersion || resources.teams?.meta?.apiVersion || "",
+    entrants: entrants.map((entry) => ({
+      ...entry,
+      isChampion: winnerTeamId ? entry.id === winnerTeamId : entry.isChampion,
+    })),
+    seeds: entrants.filter((entry) => entry.isSeed),
+    qualifiers: entrants.filter((entry) => !entry.isSeed),
+    allTeams,
+    groups,
+    fixtureStages,
+    rounds,
+  };
+}
+
+function parseTimestamp(value) {
+  const parsed = Date.parse(String(value || ""));
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function isHistoricalSeason(year) {
+  return Number(year) < new Date().getUTCFullYear();
+}
+
+function getResourceTtlMs(resourceKey, year) {
+  return isHistoricalSeason(year) ? HISTORY_CACHE_TTL_MS : (RESOURCE_TTL_BY_KEY[resourceKey] || CURRENT_MATCHES_CACHE_TTL_MS);
+}
+
+function isResourceFresh(resource, ttlMs) {
+  if (!resource?.updatedAt || !Number.isFinite(ttlMs) || ttlMs <= 0) {
+    return false;
+  }
+  return (Date.now() - parseTimestamp(resource.updatedAt)) <= ttlMs;
+}
+
+function cloneFallbackSnapshot(snapshot, cache) {
+  return {
+    ...snapshot,
+    cache: cache || null,
+  };
+}
+
+function createEmptyCacheRecord(year) {
+  const resources = Object.fromEntries(RESOURCE_ORDER.map((key) => [key, {
+    key,
+    status: "idle",
+    updatedAt: "",
+    lastAttemptAt: "",
+    error: "",
+    data: null,
+    meta: {},
+  }]));
+
+  return {
+    year,
+    snapshot: null,
+    snapshotUpdatedAt: "",
+    resources,
+    rateLimit: {
+      blockedUntil: 0,
+      requestsAvailable: null,
+      resetInSeconds: null,
+    },
+    refreshState: "idle",
+    lastError: "",
+  };
+}
+
 async function readResponse(response) {
   const text = await response.text();
   let data = null;
@@ -247,15 +394,72 @@ async function readResponse(response) {
   return { text, data };
 }
 
+function listCompletedResources(record) {
+  return RESOURCE_ORDER.filter((key) => Boolean(record?.resources?.[key]?.data));
+}
+
+function listPendingResources(record, year) {
+  return RESOURCE_ORDER.filter((key) => !isResourceFresh(record?.resources?.[key], getResourceTtlMs(key, year)));
+}
+
+function decorateSnapshot(snapshot, record) {
+  const cache = {
+    lastUpdatedAt: record.snapshotUpdatedAt || "",
+    refreshState: record.refreshState,
+    completedResources: listCompletedResources(record),
+    pendingResources: listPendingResources(record, snapshot.year),
+    blockedUntil: record.rateLimit?.blockedUntil || 0,
+    requestsAvailable: record.rateLimit?.requestsAvailable ?? null,
+    resetInSeconds: record.rateLimit?.resetInSeconds ?? null,
+    lastError: record.lastError || "",
+  };
+
+  return {
+    ...snapshot,
+    cache,
+  };
+}
+
+function getAllMatchesFromSnapshot(snapshot) {
+  if (snapshot?.fixtureStages?.length) {
+    return snapshot.fixtureStages.flatMap((stage) => stage.matches || []);
+  }
+  return snapshot?.rounds?.flatMap((round) => round.matches || []) || [];
+}
+
 export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBuilder = buildStaticWorldCupSnapshot, upcomingSnapshotBuilder = buildUpcomingWorldCupSnapshot }) {
   const apiBaseUrl = String(baseUrl || DEFAULT_BASE_URL).replace(/\/$/, "");
-  const snapshotCache = new Map();
   let blockedUntil = 0;
   let lastFailureFallback = null;
 
-  async function fetchJson(path) {
-    if (Date.now() < blockedUntil) {
-      const waitSeconds = Math.ceil((blockedUntil - Date.now()) / 1000);
+  async function persistRecord(record) {
+    await writeTournamentLiveCache(record.year, record);
+    return record;
+  }
+
+  async function loadRecord(year) {
+    const existing = await readTournamentLiveCache(year);
+    const record = existing.data ? {
+      ...createEmptyCacheRecord(year),
+      ...existing.data,
+      resources: {
+        ...createEmptyCacheRecord(year).resources,
+        ...(existing.data?.resources || {}),
+      },
+      rateLimit: {
+        ...createEmptyCacheRecord(year).rateLimit,
+        ...(existing.data?.rateLimit || {}),
+      },
+    } : createEmptyCacheRecord(year);
+
+    blockedUntil = Math.max(blockedUntil, Number(record.rateLimit?.blockedUntil) || 0);
+    return record;
+  }
+
+  async function fetchJson(path, record) {
+    const effectiveBlockedUntil = Math.max(blockedUntil, Number(record.rateLimit?.blockedUntil) || 0);
+    if (Date.now() < effectiveBlockedUntil) {
+      const waitSeconds = Math.ceil((effectiveBlockedUntil - Date.now()) / 1000);
       const error = new Error(`football-data cooldown active. Wait ${waitSeconds} seconds.`);
       error.status = 429;
       error.resetInSeconds = waitSeconds;
@@ -278,6 +482,12 @@ export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBu
       }
     }
 
+    record.rateLimit = {
+      blockedUntil,
+      requestsAvailable: Number.isFinite(requestsAvailable) ? requestsAvailable : null,
+      resetInSeconds: Number.isFinite(resetInSeconds) ? resetInSeconds : null,
+    };
+
     if (!response.ok) {
       const message = data?.message || data?.error || text || `football-data request failed (${response.status})`;
       const error = new Error(message);
@@ -286,6 +496,7 @@ export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBu
       error.resetInSeconds = resetInSeconds;
       if (response.status === 429 && Number.isFinite(resetInSeconds) && resetInSeconds > 0) {
         blockedUntil = Date.now() + (resetInSeconds * 1000);
+        record.rateLimit.blockedUntil = blockedUntil;
       }
       throw error;
     }
@@ -293,99 +504,146 @@ export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBu
     return {
       data,
       meta: {
-        requestsAvailable,
-        resetInSeconds,
+        requestsAvailable: Number.isFinite(requestsAvailable) ? requestsAvailable : null,
+        resetInSeconds: Number.isFinite(resetInSeconds) ? resetInSeconds : null,
         apiVersion: response.headers.get("x-api-version") || "",
       },
     };
   }
 
-  async function fetchWorldCupSeasonSnapshot(year) {
+  function getResourcePath(resourceKey, year) {
+    if (resourceKey === "teams") {
+      return `/competitions/${WORLD_CUP_CODE}/teams?season=${year}`;
+    }
+    if (resourceKey === "standings") {
+      return `/competitions/${WORLD_CUP_CODE}/standings?season=${year}`;
+    }
+    return `/competitions/${WORLD_CUP_CODE}/matches?season=${year}`;
+  }
+
+  async function refreshResource(record, resourceKey, year) {
+    const now = isoNow();
+    const currentResource = record.resources[resourceKey] || createEmptyCacheRecord(year).resources[resourceKey];
+    record.resources[resourceKey] = {
+      ...currentResource,
+      status: "loading",
+      lastAttemptAt: now,
+      error: "",
+    };
+    await persistRecord(record);
+
+    try {
+      const response = await fetchJson(getResourcePath(resourceKey, year), record);
+      record.resources[resourceKey] = {
+        key: resourceKey,
+        status: "ready",
+        updatedAt: isoNow(),
+        lastAttemptAt: now,
+        error: "",
+        data: response.data,
+        meta: response.meta,
+      };
+      record.lastError = "";
+      return true;
+    } catch (error) {
+      record.resources[resourceKey] = {
+        ...currentResource,
+        status: "error",
+        lastAttemptAt: now,
+        error: String(error?.message || error),
+      };
+      record.lastError = String(error?.message || error);
+      return false;
+    } finally {
+      await persistRecord(record);
+    }
+  }
+
+  async function ensureSnapshotRecord(year, options = {}) {
     const season = Number(year);
-    const cacheKey = `snapshot:${season}`;
-    const cached = snapshotCache.get(cacheKey);
-    if (cached && (Date.now() - cached.cachedAt) < SNAPSHOT_CACHE_TTL_MS) {
-      return cached.value;
+    const forceRefresh = Boolean(options.forceRefresh);
+    const record = await loadRecord(season);
+    const pendingResources = forceRefresh
+      ? RESOURCE_ORDER
+      : listPendingResources(record, season);
+
+    if (isHistoricalSeason(season) && record.snapshot && !forceRefresh) {
+      record.refreshState = "ready";
+      await persistRecord(record);
+      return record;
     }
 
-    const [competitionResponse, standingsResponse, teamsResponse, matchesResponse] = await Promise.all([
-      fetchJson(`/competitions/${WORLD_CUP_CODE}`),
-      fetchJson(`/competitions/${WORLD_CUP_CODE}/standings?season=${season}`),
-      fetchJson(`/competitions/${WORLD_CUP_CODE}/teams?season=${season}`),
-      fetchJson(`/competitions/${WORLD_CUP_CODE}/matches?season=${season}`),
-    ]);
+    if (!pendingResources.length && record.snapshot) {
+      record.refreshState = "ready";
+      await persistRecord(record);
+      return record;
+    }
 
-    const standingsByTeamId = buildStandingsIndex(standingsResponse.data);
-    const groups = buildGroups(standingsResponse.data, matchesResponse.data, standingsByTeamId);
-    const fixtureStages = buildFixtureStages(matchesResponse.data, standingsByTeamId);
-    const rounds = buildKnockoutSnapshot(fixtureStages);
-    const entrants = buildQualifiedEntrants(groups, rounds);
-    const allTeams = (teamsResponse.data?.teams || []).map((team) => mapTeam(team, standingsByTeamId));
-    const winnerTeamId = Number(competitionResponse.data?.currentSeason?.winner?.id) || null;
+    record.refreshState = "refreshing";
+    await persistRecord(record);
 
-    const snapshot = {
-      year: season,
-      eventId: Number(competitionResponse.data?.id) || 2000,
-      eventName: competitionResponse.data?.name || `FIFA World Cup ${season}`,
-      eventDates: {
-        start: competitionResponse.data?.currentSeason?.startDate || "",
-        end: competitionResponse.data?.currentSeason?.endDate || "",
-      },
-      sampleDataYear: season,
-      dataSourceMode: "live",
-      dataSourceLabel: "football-data.org live data",
-      dataSourceUrl: "https://www.football-data.org/documentation/quickstart/",
-      apiVersion: competitionResponse.meta.apiVersion || "",
-      entrants: entrants.map((entry) => ({
-        ...entry,
-        isChampion: winnerTeamId ? entry.id === winnerTeamId : entry.isChampion,
-      })),
-      seeds: entrants.filter((entry) => entry.isSeed),
-      qualifiers: entrants.filter((entry) => !entry.isSeed),
-      allTeams,
-      groups,
-      fixtureStages,
-      rounds,
-    };
+    for (const resourceKey of pendingResources) {
+      const refreshed = await refreshResource(record, resourceKey, season);
+      if (!refreshed) {
+        break;
+      }
+    }
 
-    snapshotCache.set(cacheKey, { cachedAt: Date.now(), value: snapshot });
-    return snapshot;
+    const nextSnapshot = buildSnapshotFromResources(season, record.resources);
+    if (nextSnapshot) {
+      record.snapshot = nextSnapshot;
+      record.snapshotUpdatedAt = isoNow();
+      record.refreshState = "ready";
+      record.lastError = "";
+    } else if (record.snapshot) {
+      record.refreshState = record.lastError ? "partial" : "ready";
+    } else {
+      record.refreshState = "partial";
+    }
+
+    await persistRecord(record);
+    return record;
   }
 
   return {
     key: "football-data.org",
-    async getSnapshot(year) {
+    async getSnapshot(year, options = {}) {
       if (Number(year) !== 2022) {
         return upcomingSnapshotBuilder(year);
       }
 
-      if (lastFailureFallback && Date.now() < lastFailureFallback.expiresAt) {
+      if (lastFailureFallback && Date.now() < lastFailureFallback.expiresAt && !options.forceRefresh) {
         return lastFailureFallback.snapshot;
       }
 
       try {
-        const snapshot = await fetchWorldCupSeasonSnapshot(year);
-        lastFailureFallback = null;
-        return snapshot;
+        const record = await ensureSnapshotRecord(year, options);
+        if (record.snapshot) {
+          const decorated = decorateSnapshot(record.snapshot, record);
+          lastFailureFallback = null;
+          return decorated;
+        }
+        throw new Error(record.lastError || "No complete live snapshot is cached yet.");
       } catch (error) {
         console.warn(`[football-data] snapshot fallback for ${year}:`, error?.message || error);
+        const record = await loadRecord(year);
         const fallback = Number(year) === 2022
           ? fallbackSnapshotBuilder(year)
           : upcomingSnapshotBuilder(year);
-        const fallbackSnapshot = {
+        const fallbackSnapshot = decorateSnapshot({
           ...fallback,
           dataSourceMode: Number(year) === 2022 ? "fallback-static" : fallback.dataSourceMode,
           dataSourceLabel: Number(year) === 2022 ? "Static fallback after football-data.org error" : fallback.dataSourceLabel,
-        };
+        }, record);
         lastFailureFallback = {
           snapshot: fallbackSnapshot,
           expiresAt: Date.now() + ((error?.status === 429 ? Math.max((error.resetInSeconds || 0) * 1000, RATE_LIMIT_FALLBACK_TTL_MS) : RATE_LIMIT_FALLBACK_TTL_MS)),
         };
-        return fallbackSnapshot;
+        return cloneFallbackSnapshot(fallbackSnapshot, fallbackSnapshot.cache);
       }
     },
-    async getHeadToHead(player1Id, player2Id, year) {
-      const snapshot = await this.getSnapshot(year);
+    async getHeadToHead(player1Id, player2Id, year, options = {}) {
+      const snapshot = await this.getSnapshot(year, options);
       const allMatches = getAllMatchesFromSnapshot(snapshot);
       const orderedIds = [Number(player1Id), Number(player2Id)].sort((left, right) => left - right);
       const matches = allMatches
@@ -420,11 +678,4 @@ export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBu
       };
     },
   };
-}
-
-function getAllMatchesFromSnapshot(snapshot) {
-  if (snapshot?.fixtureStages?.length) {
-    return snapshot.fixtureStages.flatMap((stage) => stage.matches || []);
-  }
-  return snapshot?.rounds?.flatMap((round) => round.matches || []) || [];
 }

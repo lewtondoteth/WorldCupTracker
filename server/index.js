@@ -290,8 +290,12 @@ function buildAdminPoolResponse(snapshot, poolData, sourceFile, entrantRegistry,
   };
 }
 
-async function getTournamentSnapshot(year) {
-  const snapshot = await worldCupDataProvider.getSnapshot(year);
+function parseRefreshFlag(value) {
+  return ["1", "true", "yes", "on"].includes(String(value || "").trim().toLowerCase());
+}
+
+async function getTournamentSnapshot(year, options = {}) {
+  const snapshot = await worldCupDataProvider.getSnapshot(year, options);
   const overrides = normalisePlayerOverrides(await readPlayerOverrides());
   const overridesById = new Map(overrides.map((override) => [override.playerId, override]));
 
@@ -351,7 +355,9 @@ app.get("/api/health", (_req, res) => {
 
 app.get("/api/world-cup/:year", async (req, res) => {
   try {
-    const snapshot = await getTournamentSnapshot(Number(req.params.year));
+    const snapshot = await getTournamentSnapshot(Number(req.params.year), {
+      forceRefresh: parseRefreshFlag(req.query.refresh),
+    });
     res.json(snapshot);
   } catch (error) {
     res.status(500).json({ error: String(error.message || error) });
@@ -360,7 +366,9 @@ app.get("/api/world-cup/:year", async (req, res) => {
 
 app.get("/api/world-cup/:year/knockout", async (req, res) => {
   try {
-    const snapshot = await getTournamentSnapshot(Number(req.params.year));
+    const snapshot = await getTournamentSnapshot(Number(req.params.year), {
+      forceRefresh: parseRefreshFlag(req.query.refresh),
+    });
     res.json({
       year: snapshot.year,
       eventName: snapshot.eventName,
@@ -373,7 +381,9 @@ app.get("/api/world-cup/:year/knockout", async (req, res) => {
 
 app.get("/api/world-championship/:year", async (req, res) => {
   try {
-    const snapshot = await getTournamentSnapshot(Number(req.params.year));
+    const snapshot = await getTournamentSnapshot(Number(req.params.year), {
+      forceRefresh: parseRefreshFlag(req.query.refresh),
+    });
     res.json(snapshot);
   } catch (error) {
     res.status(500).json({ error: String(error.message || error) });
@@ -382,7 +392,9 @@ app.get("/api/world-championship/:year", async (req, res) => {
 
 app.get("/api/world-championship/:year/round-one", async (req, res) => {
   try {
-    const snapshot = await getTournamentSnapshot(Number(req.params.year));
+    const snapshot = await getTournamentSnapshot(Number(req.params.year), {
+      forceRefresh: parseRefreshFlag(req.query.refresh),
+    });
     res.json(snapshot.rounds?.[0] || null);
   } catch (error) {
     res.status(500).json({ error: String(error.message || error) });
@@ -394,14 +406,15 @@ app.get("/api/head-to-head", async (req, res) => {
     const player1Id = Number(req.query.p1);
     const player2Id = Number(req.query.p2);
     const year = Number(req.query.year || 2026);
+    const forceRefresh = parseRefreshFlag(req.query.refresh);
 
     if (!Number.isInteger(player1Id) || !Number.isInteger(player2Id)) {
       return res.status(400).json({ error: "Both team ids must be provided." });
     }
 
-    const snapshot = await getTournamentSnapshot(year);
+    const snapshot = await getTournamentSnapshot(year, { forceRefresh });
     const entrantsById = new Map(snapshot.entrants.map((entry) => [Number(entry.id), entry]));
-    const history = await worldCupDataProvider.getHeadToHead(player1Id, player2Id);
+    const history = await worldCupDataProvider.getHeadToHead(player1Id, player2Id, year, { forceRefresh });
     res.json({
       year,
       competitionLabel: history.competitionLabel,
@@ -418,8 +431,9 @@ app.get("/api/head-to-head", async (req, res) => {
 app.get("/api/pool/:year", async (req, res) => {
   try {
     const year = Number(req.params.year);
+    const forceRefresh = parseRefreshFlag(req.query.refresh);
     const [snapshot, poolFile, entrantRegistry, overrides] = await Promise.all([
-      getTournamentSnapshot(year),
+      getTournamentSnapshot(year, { forceRefresh }),
       readPoolFileOptional(year),
       readEntrantRegistry(),
       readPlayerOverrides(),
@@ -433,7 +447,9 @@ app.get("/api/pool/:year", async (req, res) => {
 app.post("/api/pool/:year/upload", async (req, res) => {
   try {
     const year = Number(req.params.year);
-    const snapshot = await getTournamentSnapshot(year);
+    const snapshot = await getTournamentSnapshot(year, {
+      forceRefresh: parseRefreshFlag(req.query.refresh),
+    });
     if (!req.body || typeof req.body !== "object") {
       return res.status(400).json({ error: "Upload body must be JSON." });
     }
@@ -453,8 +469,9 @@ app.post("/api/pool/:year/upload", async (req, res) => {
 app.get("/api/pool/:year/admin", async (req, res) => {
   try {
     const year = Number(req.params.year);
+    const forceRefresh = parseRefreshFlag(req.query.refresh);
     const [snapshot, poolFile, entrantRegistry, overrides] = await Promise.all([
-      getTournamentSnapshot(year),
+      getTournamentSnapshot(year, { forceRefresh }),
       readPoolFileOptional(year),
       readEntrantRegistry(),
       readPlayerOverrides(),
@@ -468,11 +485,12 @@ app.get("/api/pool/:year/admin", async (req, res) => {
 app.put("/api/pool/:year/admin", async (req, res) => {
   try {
     const year = Number(req.params.year);
+    const forceRefresh = parseRefreshFlag(req.query.refresh);
     if (!req.body || typeof req.body !== "object") {
       return res.status(400).json({ error: "Save body must be JSON." });
     }
 
-    const snapshot = await getTournamentSnapshot(year);
+    const snapshot = await getTournamentSnapshot(year, { forceRefresh });
     const existingRegistry = await readEntrantRegistry();
     const payload = preparePoolPayload(year, req.body.eventName, req.body.competitors, snapshot);
     const entrantRegistry = normaliseEntrantRegistry(

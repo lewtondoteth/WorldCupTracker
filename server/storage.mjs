@@ -9,6 +9,7 @@ const MUTABLE_DATA_DIR = runtimeConfig.mutableDataDir;
 const POOL_DIR = path.join(MUTABLE_DATA_DIR, "pools");
 const BUNDLED_POOL_DIR = path.join(BUNDLED_DATA_DIR, "pools");
 const STATIC_DIR = path.join(BUNDLED_DATA_DIR, "static");
+const CACHE_DIR = path.join(MUTABLE_DATA_DIR, "cache");
 const ENTRANT_REGISTRY_PATH = path.join(MUTABLE_DATA_DIR, "entrants.json");
 const BUNDLED_ENTRANT_REGISTRY_PATH = path.join(BUNDLED_DATA_DIR, "entrants.json");
 const PLAYER_OVERRIDES_PATH = path.join(MUTABLE_DATA_DIR, "player-overrides.json");
@@ -20,6 +21,10 @@ export function getPoolFilePath(year) {
 
 export function getStaticSnapshotPath(year) {
   return path.join(STATIC_DIR, `world-cup-${year}.json`);
+}
+
+export function getTournamentLiveCachePath(year) {
+  return path.join(CACHE_DIR, `world-cup-live-${year}.json`);
 }
 
 async function readJson(filePath) {
@@ -129,4 +134,30 @@ export async function writeSiteSettings(payload) {
   };
   await writeJson(SITE_SETTINGS_PATH, nextPayload);
   return SITE_SETTINGS_PATH;
+}
+
+export async function readTournamentLiveCache(year) {
+  const filePath = getTournamentLiveCachePath(year);
+
+  try {
+    return {
+      filePath,
+      data: await readJson(filePath),
+    };
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  return {
+    filePath,
+    data: null,
+  };
+}
+
+export async function writeTournamentLiveCache(year, payload) {
+  const filePath = getTournamentLiveCachePath(year);
+  await writeJson(filePath, payload);
+  return filePath;
 }
