@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import crownIcon from "../../res/crown.png";
-import dogsPlayingPool from "../../res/dogsplayingpool.webp";
 import walesFlag from "./assets/flags/wales.svg";
 
 const APP_ENV = import.meta.env.VITE_APP_ENV || (import.meta.env.DEV ? "local" : "production");
@@ -25,7 +24,7 @@ const MATCHES_COUNTRY_FILTERS_SESSION_KEY = "worldcup-public-country-filters";
 const SITE_DESCRIPTION = "Track a World Cup pool with group tables, fixtures, knockout rounds, and winners.";
 const SEED_LABEL = "Group winners";
 const QUALIFIER_LABEL = "Runners-up";
-const SOURCE_LABEL = "Static FIFA World Cup 2022 demo data";
+const SOURCE_LABEL = "FIFA World Cup data";
 const PLAYER_OVERRIDE_FIELDS = [
   "nickname",
   "nationality",
@@ -891,11 +890,11 @@ function formatFooterTimestamp(value) {
   });
 }
 
-function SourceTag({ lastUpdatedAt = null }) {
+function SourceTag({ lastUpdatedAt = null, sourceLabel = SOURCE_LABEL, sourceUrl = "https://www.fifa.com/tournaments/mens/worldcup" }) {
   return (
     <div className="source-tag-shell">
-      <a className="source-tag" href="https://www.fifa.com/tournaments/mens/worldcup/qatar2022" target="_blank" rel="noreferrer">
-        Source: {SOURCE_LABEL}
+      <a className="source-tag" href={sourceUrl} target="_blank" rel="noreferrer">
+        Source: {sourceLabel}
         {lastUpdatedAt ? ` • Refreshed ${formatFooterTimestamp(lastUpdatedAt)}` : ""}
       </a>
     </div>
@@ -1800,6 +1799,7 @@ function HomePage() {
   } = derived;
   const poolConfigured = data.poolConfigured !== false;
   const isYearSwitching = loading && Boolean(data) && data.snapshot?.year !== selectedYear;
+  const isUpcomingTournament = snapshot.dataSourceMode === "upcoming";
 
   return (
     <main className="app-shell">
@@ -1843,8 +1843,12 @@ function HomePage() {
             <RefreshButton onClick={refresh} busy={refreshing} label={`Refresh ${selectedYear} tournament data`} className="hero-refresh-button" />
           </div>
         </div>
-        <div className="hero-image-shell">
-          <img className="hero-image" src={dogsPlayingPool} alt="Dogs playing pool" />
+        <div className="hero-image-shell hero-tournament-mark" aria-hidden="true">
+          <div className="tournament-mark-ball" />
+          <div className="tournament-mark-copy">
+            <span>{selectedYear}</span>
+            <strong>{isUpcomingTournament ? "Host countdown" : "Final tournament"}</strong>
+          </div>
         </div>
       </section>
 
@@ -1852,14 +1856,20 @@ function HomePage() {
         <article className="summary-card">
           <p className="toolbar-label">Event</p>
           <p className="summary-value">{BRAND_SHORT_NAME} {selectedYear}</p>
-          {snapshot.sampleDataYear && snapshot.sampleDataYear !== snapshot.year ? (
-            <p className="summary-copy">Using {snapshot.sampleDataYear} results as demo data</p>
+          {snapshot.dataSourceMode === "live" ? (
+            <p className="summary-copy">Live data from football-data.org</p>
+          ) : null}
+          {snapshot.dataSourceMode === "fallback-static" ? (
+            <p className="summary-copy">Using static {snapshot.sampleDataYear} fallback data</p>
+          ) : null}
+          {isUpcomingTournament ? (
+            <p className="summary-copy">Tournament field and fixtures have not been published yet</p>
           ) : null}
         </article>
         <article className="summary-card">
           <p className="toolbar-label">Current knockout round</p>
           <p className="summary-value">
-            {tournamentComplete ? "Completed" : hasTbdEntrants ? "Awaiting qualifiers" : currentRound.name}
+            {isUpcomingTournament ? "Not drawn yet" : tournamentComplete ? "Completed" : hasTbdEntrants ? "Awaiting qualifiers" : currentRound.name}
           </p>
         </article>
         <article className="summary-card">
@@ -1872,7 +1882,9 @@ function HomePage() {
                 : aliveEntrantsCount}
           </p>
           <p className="summary-copy">
-            {tournamentComplete
+            {isUpcomingTournament
+              ? "Waiting for the final 2026 field"
+              : tournamentComplete
               ? `Champion of the pool for ${selectedYear}`
               : hasTbdEntrants
                 ? `${spacesLeftCount} space${spacesLeftCount === 1 ? "" : "s"} left to fill`
@@ -1882,18 +1894,20 @@ function HomePage() {
         <article className="summary-card">
           <p className="toolbar-label">Open fixtures</p>
           <p className="summary-value">{unplayedMatchCount}</p>
-          <p className="summary-copy">Still to be played in {selectedRound.name}</p>
+          <p className="summary-copy">{isUpcomingTournament ? "No matches published yet" : `Still to be played in ${selectedRound.name}`}</p>
         </article>
       </section>
 
       {error ? <p className="status-banner error">{error}</p> : null}
       {!poolConfigured ? (
         <p className="status-banner">
-          The {selectedYear} pool is not fully configured yet. Team data is still available below, and you can finish the assignment setup from admin.
+          {isUpcomingTournament
+            ? `The ${selectedYear} World Cup is being held as an upcoming shell only for now. Add entrants later once teams and fixtures are confirmed.`
+            : `The ${selectedYear} pool is not fully configured yet. Team data is still available below, and you can finish the assignment setup from admin.`}
         </p>
       ) : null}
 
-      <SourceTag lastUpdatedAt={lastUpdatedAt} />
+      <SourceTag lastUpdatedAt={lastUpdatedAt} sourceLabel={snapshot.dataSourceLabel || SOURCE_LABEL} sourceUrl={snapshot.dataSourceUrl} />
 
     </main>
   );
@@ -2021,10 +2035,11 @@ function EntrantsPage() {
       <section className="section-heading">
         <div>
           <p className="eyebrow">Group Tables</p>
-          <h2>2022 standings used for the demo dataset</h2>
+          <h2>{data.snapshot.dataSourceMode === "upcoming" ? "Group draw pending" : `${data.snapshot.year} standings`}</h2>
         </div>
       </section>
 
+      {(data.snapshot.groups || []).length ? (
       <section className="group-standings-grid">
         {(data.snapshot.groups || []).map((group) => (
           <article key={group.key} className="group-standings-card">
@@ -2045,6 +2060,9 @@ function EntrantsPage() {
           </article>
         ))}
       </section>
+      ) : (
+        <p className="status-banner">Group tables have not been populated for this tournament year yet.</p>
+      )}
 
       {poolConfigured ? (
         <section className="competitor-grid">
@@ -2102,7 +2120,7 @@ function EntrantsPage() {
         </section>
       ) : null}
 
-      <SourceTag lastUpdatedAt={lastUpdatedAt} />
+      <SourceTag lastUpdatedAt={lastUpdatedAt} sourceLabel={data.snapshot.dataSourceLabel || SOURCE_LABEL} sourceUrl={data.snapshot.dataSourceUrl} />
     </main>
   );
 }
@@ -2519,14 +2537,14 @@ function MatchesPage() {
             </div>
             <p className="empty-round-copy">
               {activeFilterCount === 0
-                ? "This stage does not have any fixtures in the demo dataset yet."
+                ? "This stage does not have any fixtures yet."
                 : `No fixtures in ${selectedRound.name} match the entrant, team, or country filters you selected.`}
             </p>
           </article>
         )}
       </section>
       ) : null}
-      <SourceTag lastUpdatedAt={lastUpdatedAt} />
+      <SourceTag lastUpdatedAt={lastUpdatedAt} sourceLabel={data.snapshot.dataSourceLabel || SOURCE_LABEL} sourceUrl={data.snapshot.dataSourceUrl} />
       {selectedBioPlayer ? <PlayerBioDialog player={selectedBioPlayer} onClose={() => setSelectedBioPlayer(null)} /> : null}
       {selectedHeadToHead ? <HeadToHeadDialog state={selectedHeadToHead} onClose={() => setSelectedHeadToHead(null)} /> : null}
     </main>
@@ -2541,7 +2559,6 @@ function BracketPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  const autoAdjustedYearRef = useRef(false);
   const manualRefreshRequestedRef = useRef(false);
   const isCompactViewport = useIsCompactViewport();
   const isVeryCompactViewport = useIsCompactViewport(480);
@@ -2560,15 +2577,6 @@ function BracketPage() {
       try {
         const nextData = await fetchPool(selectedYear, { forceRefresh });
         if (!cancelled) {
-          if (
-            !autoAdjustedYearRef.current
-            && nextData.poolConfigured === false
-            && PUBLIC_YEAR_OPTIONS.some((year) => year !== selectedYear)
-          ) {
-            autoAdjustedYearRef.current = true;
-            setSelectedYear(PUBLIC_YEAR_OPTIONS.find((year) => year !== selectedYear) || selectedYear);
-            return;
-          }
           setData(nextData);
           setLastUpdatedAt(new Date());
         }
@@ -2819,7 +2827,7 @@ function BracketPage() {
         </div>
       </section>
 
-      <SourceTag lastUpdatedAt={lastUpdatedAt} />
+      <SourceTag lastUpdatedAt={lastUpdatedAt} sourceLabel={data.snapshot.dataSourceLabel || SOURCE_LABEL} sourceUrl={data.snapshot.dataSourceUrl} />
     </main>
   );
 }
@@ -2895,15 +2903,11 @@ function WinnersPage() {
       <section className="winners-hero-card">
         <div className="winners-hero-copy">
           <div className="winners-title-row">
-            <div className="winners-title-image-shell" aria-hidden="true">
-              <img
-                className="winners-title-image"
-                src={dogsPlayingPool}
-                alt=""
-              />
+            <div className="winners-title-image-shell winners-trophy-shell" aria-hidden="true">
+              <div className="winners-trophy-icon">◎</div>
             </div>
           </div>
-          <h1>Past Winners</h1>
+          <h1>World Cup Pool Winners</h1>
         </div>
       </section>
 
@@ -2937,7 +2941,7 @@ function WinnersPage() {
         <p className="status-banner">No past winners have been recorded yet.</p>
       )}
 
-      <SourceTag />
+      <SourceTag sourceLabel="WorldCupPool winner registry" sourceUrl="https://github.com/lewtondoteth/WorldCupTracker" />
     </main>
   );
 }

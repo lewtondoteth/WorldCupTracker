@@ -1,9 +1,10 @@
 import fetch from "node-fetch";
-import { buildStaticHeadToHead, buildStaticWorldCupSnapshot } from "./world-cup-data.mjs";
+import { buildStaticHeadToHead, buildStaticWorldCupSnapshot, buildUpcomingWorldCupSnapshot } from "./world-cup-data.mjs";
 
 const WORLD_CUP_CODE = "WC";
 const DEFAULT_BASE_URL = "https://api.football-data.org/v4";
 const SNAPSHOT_CACHE_TTL_MS = 10 * 60 * 1000;
+const RATE_LIMIT_FALLBACK_TTL_MS = 60 * 1000;
 
 function mapStage(stage) {
   const map = {
@@ -246,11 +247,21 @@ async function readResponse(response) {
   return { text, data };
 }
 
-export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBuilder = buildStaticWorldCupSnapshot }) {
+export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBuilder = buildStaticWorldCupSnapshot, upcomingSnapshotBuilder = buildUpcomingWorldCupSnapshot }) {
   const apiBaseUrl = String(baseUrl || DEFAULT_BASE_URL).replace(/\/$/, "");
   const snapshotCache = new Map();
+  let blockedUntil = 0;
+  let lastFailureFallback = null;
 
   async function fetchJson(path) {
+    if (Date.now() < blockedUntil) {
+      const waitSeconds = Math.ceil((blockedUntil - Date.now()) / 1000);
+      const error = new Error(`football-data cooldown active. Wait ${waitSeconds} seconds.`);
+      error.status = 429;
+      error.resetInSeconds = waitSeconds;
+      throw error;
+    }
+
     const response = await fetch(`${apiBaseUrl}${path}`, {
       headers: {
         "X-Auth-Token": apiKey,
@@ -262,6 +273,9 @@ export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBu
 
     if (Number.isFinite(requestsAvailable) && requestsAvailable <= 2) {
       console.warn(`[football-data] low remaining requests: ${requestsAvailable}. Reset in ${resetInSeconds || 0}s.`);
+      if (requestsAvailable <= 0 && Number.isFinite(resetInSeconds) && resetInSeconds > 0) {
+        blockedUntil = Date.now() + (resetInSeconds * 1000);
+      }
     }
 
     if (!response.ok) {
@@ -270,6 +284,9 @@ export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBu
       error.status = response.status;
       error.requestsAvailable = requestsAvailable;
       error.resetInSeconds = resetInSeconds;
+      if (response.status === 429 && Number.isFinite(resetInSeconds) && resetInSeconds > 0) {
+        blockedUntil = Date.now() + (resetInSeconds * 1000);
+      }
       throw error;
     }
 
@@ -338,16 +355,33 @@ export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBu
   return {
     key: "football-data.org",
     async getSnapshot(year) {
+      if (Number(year) !== 2022) {
+        return upcomingSnapshotBuilder(year);
+      }
+
+      if (lastFailureFallback && Date.now() < lastFailureFallback.expiresAt) {
+        return lastFailureFallback.snapshot;
+      }
+
       try {
-        return await fetchWorldCupSeasonSnapshot(year);
+        const snapshot = await fetchWorldCupSeasonSnapshot(year);
+        lastFailureFallback = null;
+        return snapshot;
       } catch (error) {
         console.warn(`[football-data] snapshot fallback for ${year}:`, error?.message || error);
-        const fallback = fallbackSnapshotBuilder(year);
-        return {
+        const fallback = Number(year) === 2022
+          ? fallbackSnapshotBuilder(year)
+          : upcomingSnapshotBuilder(year);
+        const fallbackSnapshot = {
           ...fallback,
-          dataSourceMode: "fallback-static",
-          dataSourceLabel: "Static fallback after football-data.org error",
+          dataSourceMode: Number(year) === 2022 ? "fallback-static" : fallback.dataSourceMode,
+          dataSourceLabel: Number(year) === 2022 ? "Static fallback after football-data.org error" : fallback.dataSourceLabel,
         };
+        lastFailureFallback = {
+          snapshot: fallbackSnapshot,
+          expiresAt: Date.now() + ((error?.status === 429 ? Math.max((error.resetInSeconds || 0) * 1000, RATE_LIMIT_FALLBACK_TTL_MS) : RATE_LIMIT_FALLBACK_TTL_MS)),
+        };
+        return fallbackSnapshot;
       }
     },
     async getHeadToHead(player1Id, player2Id, year) {

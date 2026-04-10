@@ -6,8 +6,8 @@ This repo is a separate copy of the original app, adapted into a FIFA World Cup 
 
 - Keeps the existing pool/admin/entrant/winner workflow
 - Replaces the snooker event model with World Cup teams, groups, fixtures, knockout rounds, and winners
-- Seeds the app with static FIFA World Cup 2022 results so the site is testable immediately
-- Uses the 2022 tournament as demo data for the `2026` tracker view until a live football API is connected
+- Uses `football-data.org` for the 2022 World Cup tournament data
+- Keeps 2026 as an intentionally unpopulated upcoming-tournament shell until teams and fixtures are available
 
 ## Current Data Model
 
@@ -45,13 +45,13 @@ The backend still runs on `http://localhost:5174`, and Vite proxies `/api/*` req
 ## Important Files
 
 - [server/index.js](/home/add/Documents/Dev/WorldCupPool/server/index.js) contains the football-specific API layer
-- [server/world-cup-data.mjs](/home/add/Documents/Dev/WorldCupPool/server/world-cup-data.mjs) contains the static 2022 tournament dataset and snapshot builder
+- [server/world-cup-data.mjs](/home/add/Documents/Dev/WorldCupPool/server/world-cup-data.mjs) contains the static 2022 fallback snapshot and the empty upcoming 2026 snapshot
 - [server/storage.mjs](/home/add/Documents/Dev/WorldCupPool/server/storage.mjs) now stores `world-cup-*.json` pool files
 - [client/src/App.jsx](/home/add/Documents/Dev/WorldCupPool/client/src/App.jsx) contains the rethemed public/admin UI and route updates
 
 ## Live API Integration Later
 
-The backend is already wired for `football-data.org` and falls back to the static 2022 dataset if the live API errors or has no suitable data yet.
+The backend is already wired for `football-data.org`.
 
 To enable it locally:
 
@@ -64,10 +64,12 @@ The live provider:
 - Uses `X-Auth-Token`
 - Checks `X-RequestsAvailable` and `X-RequestCounter-Reset`
 - Caches World Cup snapshots server-side to reduce rate-limit pressure
-- Falls back to static data automatically if the API errors or a season is unavailable
+- Uses live data for `2022`
+- Falls back to static `2022` data automatically if the API errors
+- Keeps `2026` as an empty upcoming tournament shell instead of reusing old results
 
 ## Remaining Live API Work
 
-1. Decide how you want 2026 handled before FIFA publishes a full tournament structure in the API.
+1. Replace the empty `2026` shell with real 2026 data once FIFA publishes the final field and fixtures in the API.
 2. Improve head-to-head history beyond same-competition matches if you want broader international history.
 3. Add a local `.env` loading strategy if you want one-command startup without exporting vars manually.

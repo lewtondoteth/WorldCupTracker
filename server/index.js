@@ -14,7 +14,7 @@ import {
   writePoolFile,
   writeSiteSettings,
 } from "./storage.mjs";
-import { buildStaticHeadToHead, buildStaticWorldCupSnapshot } from "./world-cup-data.mjs";
+import { buildStaticHeadToHead, buildStaticWorldCupSnapshot, buildUpcomingWorldCupSnapshot } from "./world-cup-data.mjs";
 import { createFootballDataProvider } from "./football-data-provider.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -58,7 +58,9 @@ app.use(express.json({ limit: "1mb" }));
 const staticWorldCupDataProvider = {
   key: "static-2022",
   async getSnapshot(year) {
-    return buildStaticWorldCupSnapshot(year);
+    return Number(year) === 2022
+      ? buildStaticWorldCupSnapshot(year)
+      : buildUpcomingWorldCupSnapshot(year);
   },
   async getHeadToHead(player1Id, player2Id) {
     return buildStaticHeadToHead(player1Id, player2Id);
@@ -70,6 +72,7 @@ const worldCupDataProvider = runtimeConfig.footballApiKey
     baseUrl: runtimeConfig.footballApiBaseUrl,
     apiKey: runtimeConfig.footballApiKey,
     fallbackSnapshotBuilder: buildStaticWorldCupSnapshot,
+    upcomingSnapshotBuilder: buildUpcomingWorldCupSnapshot,
   })
   : staticWorldCupDataProvider;
 

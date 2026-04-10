@@ -404,7 +404,6 @@ function buildHeadToHead(player1Id, player2Id) {
 
 export function buildStaticWorldCupSnapshot(targetYear) {
   const year = Number(targetYear);
-  const usingDemoData = year === 2026;
   const knockoutRounds = FIXTURE_STAGES
     .filter((stage) => ["round-of-16", "quarterfinals", "semifinals", "final"].includes(stage.key))
     .map((stage, index) => buildRound(stage, index + 1));
@@ -414,14 +413,12 @@ export function buildStaticWorldCupSnapshot(targetYear) {
 
   return {
     year,
-    eventId: usingDemoData ? 202600 : 202200,
-    eventName: usingDemoData ? "FIFA World Cup 2026" : "FIFA World Cup Qatar 2022",
-    eventDates: usingDemoData
-      ? { start: "2026-06-11", end: "2026-07-19" }
-      : { start: "2022-11-20", end: "2022-12-18" },
+    eventId: 202200,
+    eventName: "FIFA World Cup Qatar 2022",
+    eventDates: { start: "2022-11-20", end: "2022-12-18" },
     sampleDataYear: 2022,
     dataSourceMode: "static",
-    dataSourceLabel: usingDemoData ? "Static 2022 World Cup demo dataset" : "Static FIFA World Cup 2022 results",
+    dataSourceLabel: "Static FIFA World Cup 2022 results",
     dataSourceUrl: "https://www.fifa.com/tournaments/mens/worldcup/qatar2022",
     entrants,
     seeds: entrants.filter((entry) => entry.isSeed),
@@ -430,6 +427,42 @@ export function buildStaticWorldCupSnapshot(targetYear) {
     groups,
     fixtureStages,
     rounds: knockoutRounds,
+  };
+}
+
+export function buildUpcomingWorldCupSnapshot(targetYear) {
+  const year = Number(targetYear);
+  const fixtureStages = [
+    { id: 201, key: "group-stage", name: "Group Stage", shortLabel: "GS", order: 1, matchCount: 0, matches: [] },
+    { id: 202, key: "round-of-16", name: "Round of 16", shortLabel: "R16", order: 2, matchCount: 0, matches: [] },
+    { id: 203, key: "quarterfinals", name: "Quarter-finals", shortLabel: "QF", order: 3, matchCount: 0, matches: [] },
+    { id: 204, key: "semifinals", name: "Semi-finals", shortLabel: "SF", order: 4, matchCount: 0, matches: [] },
+    { id: 205, key: "third-place", name: "Third-place Play-off", shortLabel: "3P", order: 5, matchCount: 0, matches: [] },
+    { id: 206, key: "final", name: "Final", shortLabel: "F", order: 6, matchCount: 0, matches: [] },
+  ];
+  const rounds = [
+    { id: 101, key: "round-of-16", name: "Round of 16", shortLabel: "R16", entrantsLeft: 16, order: 1, matchCount: 0, matches: [] },
+    { id: 102, key: "quarterfinals", name: "Quarter-finals", shortLabel: "QF", entrantsLeft: 8, order: 2, matchCount: 0, matches: [] },
+    { id: 103, key: "semifinals", name: "Semi-finals", shortLabel: "SF", entrantsLeft: 4, order: 3, matchCount: 0, matches: [] },
+    { id: 104, key: "final", name: "Final", shortLabel: "F", entrantsLeft: 2, order: 4, matchCount: 0, matches: [] },
+  ];
+
+  return {
+    year,
+    eventId: 202600,
+    eventName: "FIFA World Cup 2026",
+    eventDates: { start: "2026-06-11", end: "2026-07-19" },
+    sampleDataYear: null,
+    dataSourceMode: "upcoming",
+    dataSourceLabel: "Tournament structure coming soon",
+    dataSourceUrl: "https://www.fifa.com/tournaments/mens/worldcup/canadamexicousa2026",
+    entrants: [],
+    seeds: [],
+    qualifiers: [],
+    allTeams: [],
+    groups: [],
+    fixtureStages,
+    rounds,
   };
 }
 
