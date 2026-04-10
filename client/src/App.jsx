@@ -7,24 +7,25 @@ import walesFlag from "./assets/flags/wales.svg";
 const APP_ENV = import.meta.env.VITE_APP_ENV || (import.meta.env.DEV ? "local" : "production");
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
 const API_TARGET = API_BASE || "same-origin /api";
-const BRAND_NAME = "The Pellegrino Classic";
-const BRAND_SHORT_NAME = "Pellegrino Classic";
+const BRAND_NAME = "WorldCupPool";
+const BRAND_SHORT_NAME = "WorldCupPool";
 const PUBLIC_DEFAULT_YEAR = new Date().getFullYear();
-const PUBLIC_YEAR_OPTIONS = PUBLIC_DEFAULT_YEAR >= 2027
-  ? Array.from({ length: 6 }, (_, index) => PUBLIC_DEFAULT_YEAR - index)
-  : [2026, 2025];
-const ADMIN_DEFAULT_YEAR = new Date().getFullYear();
-const ADMIN_YEAR_OPTIONS = Array.from({ length: 6 }, (_, index) => ADMIN_DEFAULT_YEAR - index);
-const WINNER_YEAR_OPTIONS = Array.from({ length: ADMIN_DEFAULT_YEAR - 2019 + 1 }, (_, index) => ADMIN_DEFAULT_YEAR - index);
+const PUBLIC_YEAR_OPTIONS = [2026, 2022];
+const ADMIN_DEFAULT_YEAR = PUBLIC_YEAR_OPTIONS[0];
+const ADMIN_YEAR_OPTIONS = PUBLIC_YEAR_OPTIONS;
+const WINNER_YEAR_OPTIONS = Array.from({ length: ADMIN_DEFAULT_YEAR - 2022 + 1 }, (_, index) => ADMIN_DEFAULT_YEAR - index);
 const ADMIN_PASSWORD = "painting";
-const ADMIN_SESSION_KEY = "snooker-admin-authenticated";
-const PUBLIC_YEAR_SESSION_KEY = "snooker-public-selected-year";
-const PUBLIC_SHOW_PHOTOS_SESSION_KEY = "snooker-public-show-photos";
-const MATCHES_ROUND_SESSION_KEY = "snooker-public-matches-round";
-const MATCHES_ENTRANT_FILTERS_SESSION_KEY = "snooker-public-matches-entrant-filters";
-const MATCHES_PLAYER_FILTERS_SESSION_KEY = "snooker-public-matches-player-filters";
-const MATCHES_COUNTRY_FILTERS_SESSION_KEY = "snooker-public-matches-country-filters";
-const SITE_DESCRIPTION = "Track the World Snooker Championship with fixtures, entrants, brackets, and pool updates.";
+const ADMIN_SESSION_KEY = "worldcup-admin-authenticated";
+const PUBLIC_YEAR_SESSION_KEY = "worldcup-public-selected-year";
+const PUBLIC_SHOW_PHOTOS_SESSION_KEY = "worldcup-public-show-photos";
+const MATCHES_ROUND_SESSION_KEY = "worldcup-public-fixtures-stage";
+const MATCHES_ENTRANT_FILTERS_SESSION_KEY = "worldcup-public-entrant-filters";
+const MATCHES_PLAYER_FILTERS_SESSION_KEY = "worldcup-public-team-filters";
+const MATCHES_COUNTRY_FILTERS_SESSION_KEY = "worldcup-public-country-filters";
+const SITE_DESCRIPTION = "Track a World Cup pool with group tables, fixtures, knockout rounds, and winners.";
+const SEED_LABEL = "Group winners";
+const QUALIFIER_LABEL = "Runners-up";
+const SOURCE_LABEL = "Static FIFA World Cup 2022 demo data";
 const PLAYER_OVERRIDE_FIELDS = [
   "nickname",
   "nationality",
@@ -38,33 +39,33 @@ const PLAYER_OVERRIDE_FIELDS = [
 
 const PAGE_METADATA = {
   "/": {
-    title: `${BRAND_NAME} | Snooker Pool Tracker`,
+    title: `${BRAND_NAME} | FIFA World Cup Pool Tracker`,
     description: SITE_DESCRIPTION,
   },
-  "/entrants": {
-    title: `Entrants | ${BRAND_NAME}`,
-    description: "Browse the entrants, player details, and pool roster for the tournament.",
+  "/teams": {
+    title: `Teams | ${BRAND_NAME}`,
+    description: "Browse group tables, qualified teams, and pool assignments.",
   },
-  "/matches": {
-    title: `Matches | ${BRAND_NAME}`,
-    description: "Follow the latest match schedule, scores, and round-by-round results.",
+  "/fixtures": {
+    title: `Fixtures | ${BRAND_NAME}`,
+    description: "Follow match results from the group stage through the final.",
   },
-  "/bracket": {
-    title: `Bracket | ${BRAND_NAME}`,
-    description: "See the championship bracket and how the draw is unfolding.",
+  "/knockout": {
+    title: `Knockout | ${BRAND_NAME}`,
+    description: "See the knockout bracket and how the tournament unfolded.",
   },
   "/winners": {
     title: `Winners | ${BRAND_NAME}`,
-    description: "Review winners and outcomes from the tournament pool.",
+    description: "Review pool winners and outcomes across years.",
   },
   "/admin": {
     title: `Admin | ${BRAND_NAME}`,
-    description: "Administrative controls for tournament updates and player overrides.",
+    description: "Administrative controls for pool updates and team overrides.",
     robots: "noindex, nofollow",
   },
   "/admin/login": {
     title: `Admin Login | ${BRAND_NAME}`,
-    description: "Sign in to manage tournament data and overrides.",
+    description: "Sign in to manage tournament data and team overrides.",
     robots: "noindex, nofollow",
   },
 };
@@ -660,7 +661,7 @@ function normaliseTargetCountInput(value) {
 }
 
 function buildAutoAssignment(snapshot, competitors, targetCountsOverride = null) {
-  const roundOne = snapshot.rounds.find((round) => round.key === "round-1") || snapshot.rounds[0];
+  const roundOne = snapshot.rounds.find((round) => round.key === "round-of-16") || snapshot.rounds[0];
   const actualPlayers = snapshot.entrants.filter((entry) => !isPlaceholderEntrant(entry));
   const entrantOrder = new Map(snapshot.entrants.map((entry, index) => [entry.id, index]));
   const entrantIds = competitors.map((competitor, index) => competitor.entrantId || `competitor-${index}`);
@@ -850,17 +851,17 @@ function SiteHeader({ mode = "home", poolConfigured = false }) {
           {mode === "home" ? (
             <>
               <a className="site-menu-link" href="#overview" onClick={closeMenu}>Overview</a>
-              <Link className="site-menu-link" to="/entrants" onClick={closeMenu}>Entrants</Link>
-              <Link className="site-menu-link" to="/matches" onClick={closeMenu}>Matches</Link>
-              <Link className="site-menu-link" to="/bracket" onClick={closeMenu}>Bracket</Link>
+              <Link className="site-menu-link" to="/teams" onClick={closeMenu}>Teams</Link>
+              <Link className="site-menu-link" to="/fixtures" onClick={closeMenu}>Fixtures</Link>
+              <Link className="site-menu-link" to="/knockout" onClick={closeMenu}>Knockout</Link>
               <Link className="site-menu-link" to="/winners" onClick={closeMenu}>Winners</Link>
             </>
           ) : (
             <>
               <Link className="site-menu-link" to="/" onClick={closeMenu}>Tournament</Link>
-              <Link className={`site-menu-link${mode === "entrants" ? " current" : ""}`} to="/entrants" onClick={closeMenu}>Entrants</Link>
-              <Link className={`site-menu-link${mode === "matches" ? " current" : ""}`} to="/matches" onClick={closeMenu}>Matches</Link>
-              <Link className={`site-menu-link${mode === "bracket" ? " current" : ""}`} to="/bracket" onClick={closeMenu}>Bracket</Link>
+              <Link className={`site-menu-link${mode === "entrants" ? " current" : ""}`} to="/teams" onClick={closeMenu}>Teams</Link>
+              <Link className={`site-menu-link${mode === "matches" ? " current" : ""}`} to="/fixtures" onClick={closeMenu}>Fixtures</Link>
+              <Link className={`site-menu-link${mode === "bracket" ? " current" : ""}`} to="/knockout" onClick={closeMenu}>Knockout</Link>
               <Link className={`site-menu-link${mode === "winners" ? " current" : ""}`} to="/winners" onClick={closeMenu}>Winners</Link>
             </>
           )}
@@ -893,8 +894,8 @@ function formatFooterTimestamp(value) {
 function SourceTag({ lastUpdatedAt = null }) {
   return (
     <div className="source-tag-shell">
-      <a className="source-tag" href="https://www.snooker.org" target="_blank" rel="noreferrer">
-        Source: snooker.org
+      <a className="source-tag" href="https://www.fifa.com/tournaments/mens/worldcup/qatar2022" target="_blank" rel="noreferrer">
+        Source: {SOURCE_LABEL}
         {lastUpdatedAt ? ` • Refreshed ${formatFooterTimestamp(lastUpdatedAt)}` : ""}
       </a>
     </div>
@@ -978,15 +979,18 @@ function isActiveTournamentMatch(match) {
   return !isPlaceholderMatchPlayer(match?.player1) && !isPlaceholderMatchPlayer(match?.player2);
 }
 
+function getFixtureStages(snapshot) {
+  return snapshot?.fixtureStages?.length ? snapshot.fixtureStages : (snapshot?.rounds || []);
+}
+
 function isOpenTournamentMatch(match) {
   return isActiveTournamentMatch(match) && (match.unfinished || !match.winnerId);
 }
 
 function MatchCard({ match, showPhotos, ownershipByPlayerId, onPlayerSelect, onHeadToHeadOpen = null }) {
   const metaBits = [
-    match.tableNo ? `Table ${match.tableNo}` : null,
-    match.startDate ? `Start ${match.startDate.slice(0, 10)}` : null,
-    match.endDate ? `End ${match.endDate.slice(0, 10)}` : null,
+    match.group ? `Group ${match.group}` : null,
+    match.startDate ? `Date ${match.startDate.slice(0, 10)}` : null,
   ].filter(Boolean);
   const matchCentreUrl = normaliseExternalUrl(match.liveUrl || match.detailsUrl || "");
 
@@ -1014,7 +1018,7 @@ function MatchCard({ match, showPhotos, ownershipByPlayerId, onPlayerSelect, onH
         </div>
         <span>
           {isPlaceholderMatchPlayer(match.player1) || isPlaceholderMatchPlayer(match.player2)
-            ? "Awaiting qualifier"
+            ? "Awaiting team"
             : match.unfinished
               ? "In play"
               : match.scheduledDate.slice(0, 10)}
@@ -1029,7 +1033,7 @@ function MatchCard({ match, showPhotos, ownershipByPlayerId, onPlayerSelect, onH
               target="_blank"
               rel="noreferrer"
             >
-              WST Match Centre
+              Match centre
             </a>
           ) : null}
           <button
@@ -1040,7 +1044,7 @@ function MatchCard({ match, showPhotos, ownershipByPlayerId, onPlayerSelect, onH
               onHeadToHeadOpen(match);
             }}
           >
-            Head to head
+            Recent meetings
           </button>
         </div>
       ) : null}
@@ -1128,16 +1132,16 @@ function HeadToHeadDialog({ state, onClose }) {
         aria-labelledby="head-to-head-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <button type="button" className="player-bio-close" onClick={onClose} aria-label="Close head-to-head history">
+        <button type="button" className="player-bio-close" onClick={onClose} aria-label="Close meeting history">
           ×
         </button>
         <div className="head-to-head-header">
           <div>
-            <p className="eyebrow">Head to head</p>
+            <p className="eyebrow">Recent meetings</p>
             <h2 id="head-to-head-title">{state.player1.name} vs {state.player2.name}</h2>
             <p className="player-bio-subtitle">
-              <span>Season {data?.seasonLabel || `${state.year - 1}/${state.year}`}</span>
-              <span>Main tour</span>
+              <span>{data?.competitionLabel || "International fixtures"}</span>
+              <span>Sample history</span>
             </p>
           </div>
           <RefreshButton
@@ -1146,12 +1150,12 @@ function HeadToHeadDialog({ state, onClose }) {
               setRefreshNonce((current) => current + 1);
             }}
             busy={refreshing}
-            label="Refresh head-to-head history"
+            label="Refresh recent meetings"
             className="dialog-refresh-button"
           />
         </div>
 
-        {loading ? <p className="status-banner">Loading head-to-head history...</p> : null}
+        {loading ? <p className="status-banner">Loading meeting history...</p> : null}
         {error ? <p className="status-banner error">{error}</p> : null}
 
         {!loading && !error ? (
@@ -1194,7 +1198,7 @@ function HeadToHeadDialog({ state, onClose }) {
                 })}
               </div>
             ) : (
-              <p className="status-banner">No meetings found for this season.</p>
+              <p className="status-banner">No sample meetings are stored for this pairing yet.</p>
             )}
           </>
         ) : null}
@@ -1215,11 +1219,7 @@ function PlayerBioDialog({ player, onClose }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  const bornLabel = formatPlayerBirthDate(player?.born);
-  const age = getPlayerAge(player?.born);
-  const careerLabel = player?.firstSeasonAsPro
-    ? `${player.firstSeasonAsPro} - ${player.lastSeasonAsPro || "present"}`
-    : "";
+  const foundedLabel = formatPlayerBirthDate(player?.born);
   const twitterUrl = player?.twitter ? `https://x.com/${String(player.twitter).replace(/^@/, "")}` : "";
   const externalUrl = normaliseExternalUrl(player?.websiteUrl);
   const photoSource = String(player?.photoSource || "").trim();
@@ -1237,7 +1237,7 @@ function PlayerBioDialog({ player, onClose }) {
         aria-labelledby="player-bio-title"
         onClick={(event) => event.stopPropagation()}
       >
-        <button type="button" className="player-bio-close" onClick={onClose} aria-label="Close player bio">
+        <button type="button" className="player-bio-close" onClick={onClose} aria-label="Close team profile">
           ×
         </button>
         <div className="player-bio-header">
@@ -1248,8 +1248,8 @@ function PlayerBioDialog({ player, onClose }) {
               {String(player.name || "?").trim().slice(0, 1)}
             </div>
           )}
-          <div className="player-bio-copy">
-            <p className="eyebrow">Player bio</p>
+            <div className="player-bio-copy">
+            <p className="eyebrow">Team profile</p>
             <h2 id="player-bio-title">{player.name}</h2>
             <p className="player-bio-subtitle">
               <NationalityFlag nationality={player?.nationality} className="player-flag" />
@@ -1259,11 +1259,10 @@ function PlayerBioDialog({ player, onClose }) {
         </div>
         <div className="player-bio-grid">
           {player.nickname ? <div><span>Nickname</span><strong>{player.nickname}</strong></div> : null}
-          {age !== null ? <div><span>Age</span><strong>{age}</strong></div> : null}
-          {bornLabel ? <div><span>Born</span><strong>{bornLabel}</strong></div> : null}
-          {careerLabel ? <div><span>Pro seasons</span><strong>{careerLabel}</strong></div> : null}
-          <div><span>Ranking titles</span><strong>{player.numRankingTitles || 0}</strong></div>
-          <div><span>Maximums</span><strong>{player.numMaximums || 0}</strong></div>
+          {foundedLabel ? <div><span>Federation founded</span><strong>{foundedLabel}</strong></div> : null}
+          {player.group ? <div><span>Group</span><strong>{player.group}</strong></div> : null}
+          {player.confederation ? <div><span>Confederation</span><strong>{player.confederation}</strong></div> : null}
+          <div><span>World Cup titles</span><strong>{player.numRankingTitles || 0}</strong></div>
         </div>
         {player.info ? (
           <div className="player-bio-info-block">
@@ -1296,7 +1295,7 @@ function AdminPlayerCard({ player, bucket, onDragStart, onDragEnd, onRemove }) {
         <small>{player.nationality || "Unknown"}</small>
       </div>
       <div className="admin-player-card-meta">
-        <span className="admin-player-chip">{player.isSeed ? `Seed ${player.seedNumber}` : "Qualifier"}</span>
+        <span className="admin-player-chip">{player.isSeed ? SEED_LABEL : QUALIFIER_LABEL}</span>
         {onRemove ? (
           <button type="button" className="admin-player-remove" onClick={() => onRemove(player.id, bucket)}>
             Remove
@@ -1674,7 +1673,7 @@ function useTournamentOverview(selectedYear) {
           (entry.eliminatedInRoundId !== selectedRound.id && selectedRound.order < snapshot.rounds.length)
         );
 
-        let roundStatusLabel = entry.isSeed ? `Seed ${entry.seedNumber}` : "Qualifier";
+        let roundStatusLabel = entry.isSeed ? SEED_LABEL : QUALIFIER_LABEL;
         let statusTone = "neutral";
 
         if (eliminated) {
@@ -1818,7 +1817,7 @@ function HomePage() {
         <div className="hero-grid" />
         <div className="hero-header">
           <div className="hero-copy">
-            <p className="hero-kicker">Live tournament dashboard {selectedYear}</p>
+            <p className="hero-kicker">World Cup pool dashboard {selectedYear}</p>
             <h1>
               {BRAND_NAME}
               <label className="hero-year-select-shell">
@@ -1837,9 +1836,9 @@ function HomePage() {
               </label>
             </h1>
             <div className="hero-actions">
-              {poolConfigured ? <Link className="admin-pill-link" to="/entrants">View entrants</Link> : null}
-              <Link className="admin-pill-link subtle" to="/bracket">Open bracket</Link>
-              <Link className="admin-pill-link subtle" to="/matches">Open matches</Link>
+              {poolConfigured ? <Link className="admin-pill-link" to="/teams">View teams</Link> : null}
+              <Link className="admin-pill-link subtle" to="/knockout">Open knockout</Link>
+              <Link className="admin-pill-link subtle" to="/fixtures">Open fixtures</Link>
             </div>
             <RefreshButton onClick={refresh} busy={refreshing} label={`Refresh ${selectedYear} tournament data`} className="hero-refresh-button" />
           </div>
@@ -1853,15 +1852,18 @@ function HomePage() {
         <article className="summary-card">
           <p className="toolbar-label">Event</p>
           <p className="summary-value">{BRAND_SHORT_NAME} {selectedYear}</p>
+          {snapshot.sampleDataYear && snapshot.sampleDataYear !== snapshot.year ? (
+            <p className="summary-copy">Using {snapshot.sampleDataYear} results as demo data</p>
+          ) : null}
         </article>
         <article className="summary-card">
-          <p className="toolbar-label">Current live round</p>
+          <p className="toolbar-label">Current knockout round</p>
           <p className="summary-value">
-            {tournamentComplete ? "Completed" : hasTbdEntrants ? "Awaiting qualification" : currentRound.name}
+            {tournamentComplete ? "Completed" : hasTbdEntrants ? "Awaiting qualifiers" : currentRound.name}
           </p>
         </article>
         <article className="summary-card">
-          <p className="toolbar-label">{tournamentComplete ? "Winner" : hasTbdEntrants ? "Qualified so far" : "Entrants alive"}</p>
+          <p className="toolbar-label">{tournamentComplete ? "Pool winner" : hasTbdEntrants ? "Qualified so far" : "Teams alive"}</p>
           <p className="summary-value">
             {tournamentComplete
               ? `${winningCompetitorName}${championPlayerName ? ` (${championPlayerName})` : ""}`
@@ -1871,14 +1873,14 @@ function HomePage() {
           </p>
           <p className="summary-copy">
             {tournamentComplete
-              ? `Champion of the ${selectedYear} tournament`
+              ? `Champion of the pool for ${selectedYear}`
               : hasTbdEntrants
-              ? `${spacesLeftCount} space${spacesLeftCount === 1 ? "" : "s"} left to fill`
-              : "Still live across the championship draw"}
+                ? `${spacesLeftCount} space${spacesLeftCount === 1 ? "" : "s"} left to fill`
+              : "Still live in the knockout draw"}
           </p>
         </article>
         <article className="summary-card">
-          <p className="toolbar-label">Live matches</p>
+          <p className="toolbar-label">Open fixtures</p>
           <p className="summary-value">{unplayedMatchCount}</p>
           <p className="summary-copy">Still to be played in {selectedRound.name}</p>
         </article>
@@ -1887,7 +1889,7 @@ function HomePage() {
       {error ? <p className="status-banner error">{error}</p> : null}
       {!poolConfigured ? (
         <p className="status-banner">
-          The {selectedYear} tournament is not fully configured yet. Match data is still available below, and you can finish setting up the tournament from admin.
+          The {selectedYear} pool is not fully configured yet. Team data is still available below, and you can finish the assignment setup from admin.
         </p>
       ) : null}
 
@@ -1924,8 +1926,8 @@ function EntrantsPage() {
     return (
       <PublicErrorState
         mode="entrants"
-        title="Entrant data is unavailable"
-        message={error || "The entrants page could not be loaded right now."}
+        title="Team data is unavailable"
+        message={error || "The teams page could not be loaded right now."}
         lastUpdatedAt={lastUpdatedAt}
       />
     );
@@ -1940,8 +1942,8 @@ function EntrantsPage() {
 
       <section className="bracket-hero-card">
         <div className="bracket-hero-copy">
-          <p className="hero-kicker">Tournament standings</p>
-          <h1>{BRAND_SHORT_NAME} Entrants</h1>
+          <p className="hero-kicker">Groups, qualifiers, and pool picks</p>
+          <h1>{BRAND_SHORT_NAME} Teams</h1>
         </div>
         <div className="entrants-hero-tools">
           <div className="matches-settings-shell entrants-settings-shell">
@@ -1952,8 +1954,8 @@ function EntrantsPage() {
               onClick={() => setSettingsMenuOpen((current) => !current)}
               aria-expanded={settingsMenuOpen}
               aria-controls="entrants-settings-panel"
-              aria-label="Open entrant display settings"
-              title="Entrant display settings"
+              aria-label="Open team display settings"
+              title="Team display settings"
             >
               <span className="matches-settings-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false">
@@ -1967,7 +1969,7 @@ function EntrantsPage() {
                   <p className="eyebrow">Display</p>
                 </div>
                 <div className="matches-settings-control">
-                  <span className="bracket-inline-label">Player photos</span>
+                  <span className="bracket-inline-label">Team badges</span>
                   <label className="toolbar-switch">
                     <input
                       type="checkbox"
@@ -2002,7 +2004,7 @@ function EntrantsPage() {
               </label>
             </div>
             <div className="bracket-control">
-              <span className="bracket-inline-label">Entrants</span>
+              <span className="bracket-inline-label">Pool entrants</span>
               <strong className="bracket-inline-value">{decoratedCompetitors.length}</strong>
             </div>
           </div>
@@ -2012,9 +2014,37 @@ function EntrantsPage() {
       {error ? <p className="status-banner error">{error}</p> : null}
       {!poolConfigured ? (
         <p className="status-banner">
-          The tournament is not fully configured yet. Entrant cards will appear here once assignments have been completed.
+          The pool is not fully configured yet. Entrant cards will appear here once the knockout teams have been assigned.
         </p>
       ) : null}
+
+      <section className="section-heading">
+        <div>
+          <p className="eyebrow">Group Tables</p>
+          <h2>2022 standings used for the demo dataset</h2>
+        </div>
+      </section>
+
+      <section className="group-standings-grid">
+        {(data.snapshot.groups || []).map((group) => (
+          <article key={group.key} className="group-standings-card">
+            <div className="group-standings-header">
+              <p className="eyebrow">Group</p>
+              <h3>{group.name}</h3>
+            </div>
+            <div className="group-standings-table">
+              {group.standings.map((row) => (
+                <div key={row.team.id} className="group-row">
+                  <span>{row.position}</span>
+                  <strong>{row.team.name}</strong>
+                  <span>{row.points} pts</span>
+                  <small>{row.goalsFor}-{row.goalsAgainst}</small>
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+      </section>
 
       {poolConfigured ? (
         <section className="competitor-grid">
@@ -2051,19 +2081,19 @@ function EntrantsPage() {
                         label={`${competitor.name} picks`}
                       />
                     </div>
-                    <p className="competitor-meta-copy">{totalCount} picks</p>
+                    <p className="competitor-meta-copy">{totalCount} teams assigned</p>
                   </div>
                 </div>
                 {isExpanded ? (
                   <div className="pick-columns">
-                    <PickList title="Seeds" players={competitor.seeds} showPhotos={showPhotos} />
-                    <PickList title="Qualifiers" players={competitor.qualifiers} showPhotos={showPhotos} />
+                    <PickList title={SEED_LABEL} players={competitor.seeds} showPhotos={showPhotos} />
+                    <PickList title={QUALIFIER_LABEL} players={competitor.qualifiers} showPhotos={showPhotos} />
                   </div>
                 ) : (
                   <div className="collapsed-summary">
-                    <span>{competitor.seeds.filter((player) => !player.eliminated).length} seed picks still alive</span>
-                    <span>{competitor.qualifiers.filter((player) => !player.eliminated).length} qualifier picks still alive</span>
-                    <span>{totalCount} picks assigned</span>
+                    <span>{competitor.seeds.filter((player) => !player.eliminated).length} group winners still alive</span>
+                    <span>{competitor.qualifiers.filter((player) => !player.eliminated).length} runners-up still alive</span>
+                    <span>{totalCount} teams assigned</span>
                   </div>
                 )}
               </article>
@@ -2094,27 +2124,27 @@ function MatchesPage() {
   const selectedEntrantFilters = normaliseSessionList(selectedEntrantFiltersRaw);
   const selectedPlayerFilters = normaliseSessionList(selectedPlayerFiltersRaw);
   const selectedCountryFilters = normaliseSessionList(selectedCountryFiltersRaw);
-  const snapshotRounds = data?.snapshot?.rounds || [];
+  const snapshotRounds = getFixtureStages(data?.snapshot);
   const selectedRoundSnapshot = snapshotRounds.find((round) => round.key === selectedRoundKey) || snapshotRounds[0] || null;
   const selectedRoundMatches = selectedRoundSnapshot?.matches || [];
 
   useEffect(() => {
-    if (!data?.snapshot?.rounds?.length) {
+    if (!snapshotRounds.length) {
       return;
     }
 
-    const preferredRoundKey = getDefaultRoundKey(data.snapshot);
-    const roundExists = data.snapshot.rounds.some((round) => round.key === selectedRoundKey);
-    const yearChanged = autoSelectedRoundYearRef.current !== data.snapshot.year;
+    const preferredRoundKey = snapshotRounds[0]?.key || "";
+    const roundExists = snapshotRounds.some((round) => round.key === selectedRoundKey);
+    const yearChanged = autoSelectedRoundYearRef.current !== data.snapshot?.year;
 
     if (!selectedRoundKey || !roundExists) {
       setSelectedRoundKey(preferredRoundKey);
     }
 
     if (yearChanged) {
-      autoSelectedRoundYearRef.current = data.snapshot.year;
+      autoSelectedRoundYearRef.current = data.snapshot?.year;
     }
-  }, [data, selectedRoundKey]);
+  }, [data, selectedRoundKey, snapshotRounds]);
 
   useEffect(() => {
     if (!displayRoundKey && selectedRoundKey) {
@@ -2187,12 +2217,12 @@ function MatchesPage() {
     return <PublicPageSkeleton mode="matches" showGrid gridCount={5} />;
   }
 
-  if (!data || !data.snapshot?.rounds?.length) {
+  if (!data || !snapshotRounds.length) {
     return (
       <PublicErrorState
         mode="matches"
-        title="Match data is unavailable"
-        message={error || "The match centre could not be loaded right now."}
+        title="Fixture data is unavailable"
+        message={error || "The fixtures page could not be loaded right now."}
         lastUpdatedAt={lastUpdatedAt}
       />
     );
@@ -2248,20 +2278,20 @@ function MatchesPage() {
 
       <section className="bracket-hero-card matches-hero-card">
         <div className="bracket-hero-copy">
-          <p className="hero-kicker">Round-by-round match centre</p>
-          <h1>{BRAND_SHORT_NAME} Matches</h1>
+          <p className="hero-kicker">Full tournament schedule and results</p>
+          <h1>{BRAND_SHORT_NAME} Fixtures</h1>
         </div>
         <div className="matches-hero-tools">
           <div className="matches-settings-shell">
-            <RefreshButton onClick={refresh} busy={refreshing} label={`Refresh ${selectedYear} match data`} />
+            <RefreshButton onClick={refresh} busy={refreshing} label={`Refresh ${selectedYear} fixture data`} />
             <button
               type="button"
               className={`matches-settings-button${settingsMenuOpen ? " open" : ""}`}
               onClick={() => setSettingsMenuOpen((current) => !current)}
               aria-expanded={settingsMenuOpen}
               aria-controls="matches-settings-panel"
-              aria-label="Open match settings"
-              title="Match settings"
+              aria-label="Open fixture settings"
+              title="Fixture settings"
             >
               <span className="matches-settings-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false">
@@ -2275,7 +2305,7 @@ function MatchesPage() {
                   <p className="eyebrow">Display</p>
                 </div>
                 <div className="matches-settings-control">
-                  <span className="bracket-inline-label">Player photos</span>
+                  <span className="bracket-inline-label">Team badges</span>
                   <label className="toolbar-switch">
                     <input
                       type="checkbox"
@@ -2310,15 +2340,15 @@ function MatchesPage() {
               </label>
             </div>
             <div className="bracket-control matches-toolbar-control">
-              <p className="toolbar-label">Round</p>
+              <p className="toolbar-label">Stage</p>
               <label className="toolbar-select-shell">
                 <select
                   className="toolbar-select"
                   value={selectedRound.key}
                   onChange={(event) => setSelectedRoundKey(event.target.value)}
-                  aria-label="Select round"
+                  aria-label="Select stage"
                 >
-                  {snapshot.rounds.map((round) => (
+                  {snapshotRounds.map((round) => (
                     <option key={round.key} value={round.key}>
                       {round.name}
                     </option>
@@ -2327,7 +2357,7 @@ function MatchesPage() {
               </label>
             </div>
             <div className="bracket-control matches-toolbar-control matches-toolbar-stat">
-              <span className="bracket-inline-label">Live matches</span>
+              <span className="bracket-inline-label">Open fixtures</span>
               <strong className="bracket-inline-value">
                 {activeFilterCount ? filteredUnplayedMatchCount : unplayedMatchCount}
               </strong>
@@ -2340,19 +2370,19 @@ function MatchesPage() {
       {hideMatchesDuringSwitch ? (
         <p className="status-banner" aria-live="polite">
           {isYearSwitching
-            ? `Loading matches for ${selectedYear}...`
+            ? `Loading fixtures for ${selectedYear}...`
             : `Loading ${selectedRound.name}...`}
         </p>
       ) : null}
       {!poolConfigured ? (
         <p className="status-banner">
-          The tournament is not fully configured yet. Match data is still available while the entrant assignments are completed.
+          The pool is not fully configured yet. Fixture data is still available while the knockout assignments are completed.
         </p>
       ) : null}
 
       <section className="section-heading draw-heading">
         <div>
-          <p className="eyebrow">Matches</p>
+          <p className="eyebrow">Fixtures</p>
           <h2>{hideMatchesDuringSwitch ? displayRound.name : selectedRound.name}</h2>
         </div>
         <div className="matches-heading-actions">
@@ -2380,7 +2410,7 @@ function MatchesPage() {
       {filterMenuOpen ? (
         <section id="matches-filter-panel" className="matches-filter-panel">
           <div className="matches-filter-panel-header">
-            <p className="eyebrow">Filter Matches</p>
+            <p className="eyebrow">Filter Fixtures</p>
             <div className="matches-filter-panel-actions">
               <button
                 type="button"
@@ -2405,8 +2435,8 @@ function MatchesPage() {
             </div>
           </div>
           <div className="matches-filter-group">
-            <p className="matches-filter-label">Player name</p>
-            <div className="matches-filter-scroll-list" role="listbox" aria-label="Filter by player name" aria-multiselectable="true">
+            <p className="matches-filter-label">Team name</p>
+            <div className="matches-filter-scroll-list" role="listbox" aria-label="Filter by team name" aria-multiselectable="true">
               {playerOptions.map((playerName) => (
                 <button
                   key={playerName}
@@ -2489,8 +2519,8 @@ function MatchesPage() {
             </div>
             <p className="empty-round-copy">
               {activeFilterCount === 0
-                ? "This round has not been populated with match data yet, so players who are still alive are shown as waiting for the round to begin."
-                : `No matches in ${selectedRound.name} match the entrant, player, or country filters you selected.`}
+                ? "This stage does not have any fixtures in the demo dataset yet."
+                : `No fixtures in ${selectedRound.name} match the entrant, team, or country filters you selected.`}
             </p>
           </article>
         )}
@@ -2612,8 +2642,8 @@ function BracketPage() {
     return (
       <PublicErrorState
         mode="bracket"
-        title="Bracket data is unavailable"
-        message={error || "The bracket view could not be loaded right now."}
+        title="Knockout data is unavailable"
+        message={error || "The knockout view could not be loaded right now."}
         lastUpdatedAt={lastUpdatedAt}
       />
     );
@@ -2644,8 +2674,8 @@ function BracketPage() {
 
       <section className="bracket-hero-card">
         <div className="bracket-hero-copy">
-          <p className="hero-kicker">Entrant bracket</p>
-          <h1>{BRAND_SHORT_NAME} Bracket</h1>
+          <p className="hero-kicker">Knockout tree</p>
+          <h1>{BRAND_SHORT_NAME} Knockout</h1>
           <p className="bracket-hero-note">
             {lastUpdatedAt
               ? `Updated ${lastUpdatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
@@ -2653,7 +2683,7 @@ function BracketPage() {
           </p>
         </div>
         <div className="matches-hero-tools">
-          <RefreshButton onClick={refreshBracketData} busy={refreshing} label={`Refresh ${selectedYear} bracket data`} />
+          <RefreshButton onClick={refreshBracketData} busy={refreshing} label={`Refresh ${selectedYear} knockout data`} />
           <div className="bracket-toolbar bracket-toolbar-compact">
             <div className="bracket-control bracket-control-year">
               <p className="toolbar-label">Year</p>
@@ -2677,7 +2707,7 @@ function BracketPage() {
               <strong className="bracket-inline-value">
                 {derived.tournamentComplete
                   ? "Complete"
-                  : derived.bracketRounds.find((round) => round.key === derived.activeRoundKey)?.name || "Round 1"}
+                  : derived.bracketRounds.find((round) => round.key === derived.activeRoundKey)?.name || "Round of 16"}
               </strong>
             </div>
             <div className="bracket-control">
@@ -2701,7 +2731,7 @@ function BracketPage() {
       {error ? <p className="status-banner error">{error}</p> : null}
       {!poolConfigured ? (
         <p className="status-banner">
-          The tournament is not fully configured yet. Players without an owner are shown as unassigned until they are allocated to an entrant.
+          The pool is not fully configured yet. Teams without an owner are shown as unassigned until they are allocated to an entrant.
         </p>
       ) : null}
 
@@ -2721,14 +2751,14 @@ function BracketPage() {
             >
               <Link
                 className="bracket-round-header"
-                to="/matches"
+                to="/fixtures"
                 onClick={() => jumpToMatchesRound(round.key)}
-                aria-label={`Open ${round.name} matches for ${selectedYear}`}
-                title={`Open ${round.name} matches`}
+                aria-label={`Open ${round.name} fixtures for ${selectedYear}`}
+                title={`Open ${round.name} fixtures`}
               >
-                <p className="eyebrow">Round</p>
+                <p className="eyebrow">Stage</p>
                 <h3>{round.name}</h3>
-                <span>{round.bracketMatches.length} matches</span>
+                <span>{round.bracketMatches.length} fixtures</span>
               </Link>
               <div className="bracket-round-stack" style={{ minHeight: `${bracketHeight}px` }}>
                 {round.bracketMatches.map((match, matchIndex) => {
@@ -2928,7 +2958,7 @@ function AdminPage() {
   const [savingPlayerOverrides, setSavingPlayerOverrides] = useState(false);
   const [siteSettingsLoading, setSiteSettingsLoading] = useState(false);
   const [savingSiteSettings, setSavingSiteSettings] = useState(false);
-  const [status, setStatus] = useState("Build the current year's tournament by dragging players into each entrant, then save it.");
+  const [status, setStatus] = useState("Build the current year's World Cup pool by dragging knockout teams into each entrant, then save it.");
   const [error, setError] = useState("");
   const [playerOverrideStatus, setPlayerOverrideStatus] = useState("");
   const [siteSettingsStatus, setSiteSettingsStatus] = useState("");
@@ -3324,14 +3354,14 @@ function AdminPage() {
     if (seedTotal !== autoAssignDerived.totalSeeds) {
       return {
         valid: false,
-        message: `Seed targets must add up to ${autoAssignDerived.totalSeeds}.`,
+        message: `${SEED_LABEL} targets must add up to ${autoAssignDerived.totalSeeds}.`,
       };
     }
 
     if (qualifierTotal !== autoAssignDerived.totalQualifiers) {
       return {
         valid: false,
-        message: `Qualifier targets must add up to ${autoAssignDerived.totalQualifiers}.`,
+        message: `${QUALIFIER_LABEL} targets must add up to ${autoAssignDerived.totalQualifiers}.`,
       };
     }
 
@@ -3372,7 +3402,7 @@ function AdminPage() {
     }
 
     setError("");
-    setStatus(`Added ${selectedEntrant.name}. Drag players into their seed and qualifier lists.`);
+    setStatus(`Added ${selectedEntrant.name}. Drag teams into their ${SEED_LABEL.toLowerCase()} and ${QUALIFIER_LABEL.toLowerCase()} lists.`);
     setCompetitors((competitors) => [
       ...competitors,
       { entrantId: selectedEntrant.id, name: selectedEntrant.name, seedIds: [], qualifierIds: [] },
@@ -3466,7 +3496,7 @@ function AdminPage() {
       setPlayerOverrides(response.overrides || []);
       setPlayerOverrideStatus(`Cleared overrides for ${selectedOverridePlayer.name}.`);
     } catch (saveError) {
-      setError(saveError.message || "The player override could not be cleared.");
+      setError(saveError.message || "The team override could not be cleared.");
     } finally {
       setSavingPlayerOverrides(false);
     }
@@ -3494,7 +3524,7 @@ function AdminPage() {
           : `Cleared overrides for ${selectedOverridePlayer.name}.`,
       );
     } catch (saveError) {
-      setError(saveError.message || "The player override could not be saved.");
+      setError(saveError.message || "The team override could not be saved.");
     } finally {
       setSavingPlayerOverrides(false);
     }
@@ -3636,7 +3666,7 @@ function AdminPage() {
     }
 
     if (!builderDerived.competitors.length) {
-      setError("Add tournament entrants before running automatic assignment.");
+      setError("Add pool entrants before running automatic assignment.");
       return;
     }
 
@@ -3667,7 +3697,7 @@ function AdminPage() {
       }));
       setShowAutoAssignConfirm(false);
       setStatus(
-        `Assigned ${result.assignedSeedCount} seeds and ${result.assignedQualifierCount} qualifiers automatically. First-round opponents were kept apart.`,
+        `Assigned ${result.assignedSeedCount} ${SEED_LABEL.toLowerCase()} and ${result.assignedQualifierCount} ${QUALIFIER_LABEL.toLowerCase()} automatically. Round-of-16 opponents were kept apart.`,
       );
     } catch (assignError) {
       setError(assignError.message || "Automatic assignment failed.");
@@ -3716,7 +3746,7 @@ function AdminPage() {
     ? "Loading site settings..."
     : builderLoading
       ? (adminView === "players"
-        ? `Loading player data for ${selectedAdminYear}...`
+        ? `Loading team data for ${selectedAdminYear}...`
         : `Loading tournament data for ${selectedAdminYear}...`)
       : "";
 
@@ -3726,7 +3756,7 @@ function AdminPage() {
         <section className="admin-card admin-login-card">
           <p className="eyebrow">Protected Area</p>
           <h1>Admin</h1>
-          <p className="admin-copy">Enter the password to manage picks uploads.</p>
+          <p className="admin-copy">Enter the password to manage the World Cup pool.</p>
           <form className="admin-form" onSubmit={handlePasswordSubmit}>
             <label className="admin-field" htmlFor="admin-password">
               Password
@@ -3756,7 +3786,7 @@ function AdminPage() {
           <div>
             <p className="eyebrow">Protected Area</p>
             <h1>Admin</h1>
-            <p className="admin-copy">Manage yearly picks and the shared entrant list used to track winners over time.</p>
+            <p className="admin-copy">Manage yearly pool assignments and the shared entrant list used to track winners over time.</p>
           </div>
           <button type="button" className="admin-secondary-button" onClick={handleLogout}>Lock admin</button>
         </div>
@@ -3781,7 +3811,7 @@ function AdminPage() {
             className={adminView === "players" ? "admin-menu-button active" : "admin-menu-button"}
             onClick={() => setAdminView("players")}
           >
-            Players
+            Teams
           </button>
           <button
             type="button"
@@ -3813,11 +3843,11 @@ function AdminPage() {
                 </label>
               </div>
               <div className="admin-stat-card">
-                <p className="toolbar-label">Available seeds</p>
+                <p className="toolbar-label">{SEED_LABEL}</p>
                 <p className="toolbar-value">{builderDerived?.availableSeeds.length ?? 0}</p>
               </div>
               <div className="admin-stat-card">
-                <p className="toolbar-label">Available qualifiers</p>
+                <p className="toolbar-label">{QUALIFIER_LABEL}</p>
                 <p className="toolbar-value">{builderDerived?.availableQualifiers.length ?? 0}</p>
               </div>
               <div className="admin-stat-card">
@@ -3853,13 +3883,13 @@ function AdminPage() {
           ) : adminView === "players" ? (
             <>
               <div className="admin-stat-card">
-                <p className="toolbar-label">Player year</p>
+                <p className="toolbar-label">Team year</p>
                 <label className="toolbar-select-shell admin-select-shell">
                   <select
                     className="toolbar-select"
                     value={selectedAdminYear}
                     onChange={(event) => handleAdminYearChange(Number(event.target.value))}
-                    aria-label="Select player year"
+                    aria-label="Select team year"
                   >
                     {ADMIN_YEAR_OPTIONS.map((year) => (
                       <option key={year} value={year}>
@@ -3870,11 +3900,11 @@ function AdminPage() {
                 </label>
               </div>
               <div className="admin-stat-card">
-                <p className="toolbar-label">Players in field</p>
+                <p className="toolbar-label">Teams in field</p>
                 <p className="toolbar-value">{availablePlayersForOverrides.length}</p>
               </div>
               <div className="admin-stat-card">
-                <p className="toolbar-label">Custom bios</p>
+                <p className="toolbar-label">Custom profiles</p>
                 <p className="toolbar-value">{playerOverrides.filter((override) => String(override.info || "").trim()).length}</p>
               </div>
               <div className="admin-stat-card">
@@ -3909,7 +3939,7 @@ function AdminPage() {
           <div className="admin-builder-header">
             <div>
               <p className="eyebrow">Tournament Builder</p>
-              <h2>Create tournament entrants and assign current-year players</h2>
+              <h2>Create pool entrants and assign the current knockout teams</h2>
               <p className="admin-copy">Saved entrants are reused as the starting list for future years.</p>
             </div>
             <div className="admin-actions">
@@ -3928,7 +3958,7 @@ function AdminPage() {
                 }}
                 disabled={builderLoading || autoAssigning || !builderDerived?.competitors.length}
               >
-                {showAutoAssignConfirm ? "Close auto-assign" : "Auto-assign players"}
+                {showAutoAssignConfirm ? "Close auto-assign" : "Auto-assign teams"}
               </button>
               <button
                 type="button"
@@ -3958,26 +3988,26 @@ function AdminPage() {
                 <p className="eyebrow">Auto-Assign Wizard</p>
                 <h3>Randomly distribute the current draw</h3>
                 <p className="admin-copy">
-                  This clears the current seed and qualifier assignments for {selectedAdminYear}, then redistributes all named players across the existing entrants.
-                  The wizard keeps round-one opponents away from the same entrant and balances the draw as evenly as possible.
+                  This clears the current {SEED_LABEL.toLowerCase()} and {QUALIFIER_LABEL.toLowerCase()} assignments for {selectedAdminYear}, then redistributes all qualified teams across the existing entrants.
+                  The wizard keeps round-of-16 opponents away from the same entrant and balances the draw as evenly as possible.
                 </p>
               </div>
               <div className="admin-auto-assign-stats">
-                <span>{autoAssignDerived?.totalSeeds ?? 0} seeds</span>
-                <span>{autoAssignDerived?.totalQualifiers ?? 0} qualifiers</span>
+                <span>{autoAssignDerived?.totalSeeds ?? 0} {SEED_LABEL.toLowerCase()}</span>
+                <span>{autoAssignDerived?.totalQualifiers ?? 0} {QUALIFIER_LABEL.toLowerCase()}</span>
                 <span>{builderDerived?.competitors?.length ?? 0} entrants</span>
               </div>
               {autoAssignDerived?.requiresCustomTargets ? (
                 <div className="admin-auto-assign-targets">
                   <p className="admin-copy">
-                    This year cannot be split evenly, so enter how many seeds and qualifiers each entrant should receive before the wizard runs.
+                    This year cannot be split evenly, so enter how many {SEED_LABEL.toLowerCase()} and {QUALIFIER_LABEL.toLowerCase()} each entrant should receive before the wizard runs.
                   </p>
                   <div className="admin-auto-assign-progress">
                     <span>
-                      Seeds assigned: <strong>{autoAssignProgress?.assignedSeeds ?? 0}</strong> / {autoAssignProgress?.totalSeeds ?? 0}
+                      {SEED_LABEL} assigned: <strong>{autoAssignProgress?.assignedSeeds ?? 0}</strong> / {autoAssignProgress?.totalSeeds ?? 0}
                     </span>
                     <span>
-                      Qualifiers assigned: <strong>{autoAssignProgress?.assignedQualifiers ?? 0}</strong> / {autoAssignProgress?.totalQualifiers ?? 0}
+                      {QUALIFIER_LABEL} assigned: <strong>{autoAssignProgress?.assignedQualifiers ?? 0}</strong> / {autoAssignProgress?.totalQualifiers ?? 0}
                     </span>
                   </div>
                   <div className="admin-auto-assign-target-grid">
@@ -3987,7 +4017,7 @@ function AdminPage() {
                       return (
                         <article key={entrantId} className="admin-auto-assign-target-card">
                           <h4>{competitor.name}</h4>
-                          <label className="admin-field" htmlFor={`auto-seeds-${entrantId}`}>Seeds</label>
+                          <label className="admin-field" htmlFor={`auto-seeds-${entrantId}`}>{SEED_LABEL}</label>
                           <input
                             id={`auto-seeds-${entrantId}`}
                             className="admin-auto-assign-input"
@@ -3995,7 +4025,7 @@ function AdminPage() {
                             value={target.seedIds ?? ""}
                             onChange={(event) => handleAutoAssignTargetChange(entrantId, "seedIds", event.target.value)}
                           />
-                          <label className="admin-field" htmlFor={`auto-qualifiers-${entrantId}`}>Qualifiers</label>
+                          <label className="admin-field" htmlFor={`auto-qualifiers-${entrantId}`}>{QUALIFIER_LABEL}</label>
                           <input
                             id={`auto-qualifiers-${entrantId}`}
                             className="admin-auto-assign-input"
@@ -4039,8 +4069,8 @@ function AdminPage() {
                 <p className="eyebrow">Reset Picks</p>
                 <h3>Clear the {selectedAdminYear} assignments</h3>
                 <p className="admin-copy">
-                  This removes all current seed and qualifier picks for the selected year, but keeps the entrant list itself in place.
-                  You can then reassign players manually or run the auto-assign wizard again.
+                  This removes all current {SEED_LABEL.toLowerCase()} and {QUALIFIER_LABEL.toLowerCase()} picks for the selected year, but keeps the entrant list itself in place.
+                  You can then reassign teams manually or run the auto-assign wizard again.
                 </p>
               </div>
               <div className="admin-actions">
@@ -4088,24 +4118,24 @@ function AdminPage() {
           </form>
 
           {builderLoading && !builder ? (
-            <p className="admin-copy">Loading current-year players...</p>
+            <p className="admin-copy">Loading current knockout teams...</p>
           ) : builderDerived ? (
             <div className="admin-builder-grid">
               <aside className="admin-pool-column">
                 <AdminPlayerLane
-                  title="Available seeds"
+                  title={`Available ${SEED_LABEL.toLowerCase()}`}
                   bucket="seedIds"
                   players={builderDerived.availableSeeds}
-                  emptyCopy="All seeds have been assigned."
+                  emptyCopy={`All ${SEED_LABEL.toLowerCase()} have been assigned.`}
                   onDrop={(event, bucket) => handleDrop(event, { type: "pool", bucket })}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                 />
                 <AdminPlayerLane
-                  title="Available qualifiers"
+                  title={`Available ${QUALIFIER_LABEL.toLowerCase()}`}
                   bucket="qualifierIds"
                   players={builderDerived.availableQualifiers}
-                  emptyCopy="All qualifiers have been assigned."
+                  emptyCopy={`All ${QUALIFIER_LABEL.toLowerCase()} have been assigned.`}
                   onDrop={(event, bucket) => handleDrop(event, { type: "pool", bucket })}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
@@ -4128,37 +4158,37 @@ function AdminPage() {
                       </div>
                       <div className="admin-competitor-lanes">
                         <AdminPlayerLane
-                          title="Seed picks"
+                          title={SEED_LABEL}
                           bucket="seedIds"
                           players={competitor.seeds}
-                          emptyCopy="Drop seeds here."
+                          emptyCopy={`Drop ${SEED_LABEL.toLowerCase()} here.`}
                           onDrop={(event, bucket) => handleDrop(event, { type: "competitor", entrantId: competitor.entrantId, bucket })}
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
                           onRemove={handleRemoveAssignedPlayer}
                           assignablePlayers={builderDerived.availableSeeds}
                           onAssign={(playerId, bucket) => handleAssignAvailablePlayer(competitor.entrantId, bucket, playerId)}
-                          assignLabel="Add available seed"
+                          assignLabel={`Add available ${SEED_LABEL.slice(0, -1).toLowerCase()}`}
                         />
                         <AdminPlayerLane
-                          title="Qualifier picks"
+                          title={QUALIFIER_LABEL}
                           bucket="qualifierIds"
                           players={competitor.qualifiers}
-                          emptyCopy="Drop qualifiers here."
+                          emptyCopy={`Drop ${QUALIFIER_LABEL.toLowerCase()} here.`}
                           onDrop={(event, bucket) => handleDrop(event, { type: "competitor", entrantId: competitor.entrantId, bucket })}
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
                           onRemove={handleRemoveAssignedPlayer}
                           assignablePlayers={builderDerived.availableQualifiers}
                           onAssign={(playerId, bucket) => handleAssignAvailablePlayer(competitor.entrantId, bucket, playerId)}
-                          assignLabel="Add available qualifier"
+                          assignLabel="Add available runner-up"
                         />
                       </div>
                     </article>
                   ))
                 ) : (
                   <article className="admin-competitor-card admin-empty-competitor-card">
-                    <p className="admin-copy">Add a tournament entrant to start assigning the current year's players.</p>
+                    <p className="admin-copy">Add a pool entrant to start assigning the current year's knockout teams.</p>
                   </article>
                 )}
               </section>
@@ -4268,9 +4298,9 @@ function AdminPage() {
         <section className="admin-builder-panel">
           <div className="admin-builder-header">
             <div>
-              <p className="eyebrow">Player Overrides</p>
-              <h2>Override player bios, links, and photos</h2>
-              <p className="admin-copy">Leave any field blank to fall back to snooker.org. Saved overrides are used everywhere that player appears.</p>
+              <p className="eyebrow">Team Overrides</p>
+              <h2>Override team profiles, links, and badges</h2>
+              <p className="admin-copy">Leave any field blank to fall back to the bundled World Cup dataset. Saved overrides are used everywhere that team appears.</p>
             </div>
             <div className="admin-actions">
               <button type="button" className="admin-secondary-button" onClick={loadPlayerOverrides} disabled={playerOverridesLoading}>
@@ -4282,11 +4312,11 @@ function AdminPage() {
           {playerOverrideStatus ? <p className="status-banner">{playerOverrideStatus}</p> : null}
 
           {builderLoading ? (
-            <p className="admin-copy">Loading players for {selectedAdminYear}...</p>
+            <p className="admin-copy">Loading teams for {selectedAdminYear}...</p>
           ) : (
             <div className="admin-player-overrides-layout">
               <aside className="admin-player-directory">
-                <label className="admin-field" htmlFor="player-override-search">Find player</label>
+                <label className="admin-field" htmlFor="player-override-search">Find team</label>
                 <input
                   id="player-override-search"
                   className="admin-competitor-input"
@@ -4308,7 +4338,7 @@ function AdminPage() {
                       </button>
                     ))
                   ) : (
-                    <p className="admin-empty-copy">No players match that search.</p>
+                    <p className="admin-empty-copy">No teams match that search.</p>
                   )}
                 </div>
               </aside>
@@ -4340,7 +4370,7 @@ function AdminPage() {
                         onClick={handleSavePlayerOverride}
                         disabled={savingPlayerOverrides || playerOverridesLoading}
                       >
-                        {savingPlayerOverrides ? "Saving..." : "Save player"}
+                        {savingPlayerOverrides ? "Saving..." : "Save team"}
                       </button>
                     </div>
 
@@ -4362,7 +4392,7 @@ function AdminPage() {
                           className="admin-competitor-input"
                           value={selectedPlayerOverride?.photo || ""}
                           onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "photo", event.target.value)}
-                          placeholder={selectedOverridePlayer.photo || "Leave blank to use API image"}
+                          placeholder={selectedOverridePlayer.photo || "Leave blank to use the bundled badge"}
                         />
                       </div>
                       <div>
@@ -4372,7 +4402,7 @@ function AdminPage() {
                           className="admin-competitor-input"
                           value={selectedPlayerOverride?.websiteUrl || ""}
                           onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "websiteUrl", event.target.value)}
-                          placeholder={selectedOverridePlayer.websiteUrl || "Leave blank to use API link"}
+                          placeholder={selectedOverridePlayer.websiteUrl || "Leave blank to keep the default link"}
                         />
                       </div>
                       <div>
@@ -4382,7 +4412,7 @@ function AdminPage() {
                           className="admin-competitor-input"
                           value={selectedPlayerOverride?.twitter || ""}
                           onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "twitter", event.target.value)}
-                          placeholder={selectedOverridePlayer.twitter || "Leave blank to use API handle"}
+                          placeholder={selectedOverridePlayer.twitter || "Optional"}
                         />
                       </div>
                       <div>
@@ -4406,7 +4436,7 @@ function AdminPage() {
                         />
                       </div>
                       <div>
-                        <label className="admin-field" htmlFor="player-override-born">Born</label>
+                        <label className="admin-field" htmlFor="player-override-born">Founded</label>
                         <input
                           id="player-override-born"
                           className="admin-competitor-input"
@@ -4418,13 +4448,13 @@ function AdminPage() {
                     </div>
 
                     <div className="admin-player-override-field">
-                      <label className="admin-field" htmlFor="player-override-info">Admin info override</label>
+                      <label className="admin-field" htmlFor="player-override-info">Admin profile override</label>
                       <textarea
                         id="player-override-info"
                         className="admin-player-override-textarea"
                         value={selectedPlayerOverride?.info || ""}
                         onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "info", event.target.value)}
-                        placeholder={selectedOverridePlayer.info || "Write the admin-controlled bio text here"}
+                        placeholder={selectedOverridePlayer.info || "Write the admin-controlled profile text here"}
                       />
                     </div>
 
@@ -4435,12 +4465,12 @@ function AdminPage() {
                         onClick={handleClearSelectedPlayerOverride}
                         disabled={savingPlayerOverrides}
                       >
-                        Clear this player override
+                        Clear this team override
                       </button>
                     </div>
                   </>
                 ) : (
-                  <p className="admin-copy">Choose a player from the list to edit their override data.</p>
+                  <p className="admin-copy">Choose a team from the list to edit its override data.</p>
                 )}
               </section>
             </div>
@@ -4514,7 +4544,7 @@ function NotFoundPage() {
         </p>
         <div className="not-found-actions">
           <Link className="not-found-link primary" to="/">Back to home</Link>
-          <Link className="not-found-link" to="/matches">View matches</Link>
+          <Link className="not-found-link" to="/fixtures">View fixtures</Link>
         </div>
       </section>
       <SourceTag />
@@ -4528,9 +4558,12 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
-      <Route path="/entrants" element={<EntrantsPage />} />
-      <Route path="/matches" element={<MatchesPage />} />
-      <Route path="/bracket" element={<BracketPage />} />
+      <Route path="/teams" element={<EntrantsPage />} />
+      <Route path="/fixtures" element={<MatchesPage />} />
+      <Route path="/knockout" element={<BracketPage />} />
+      <Route path="/entrants" element={<Navigate to="/teams" replace />} />
+      <Route path="/matches" element={<Navigate to="/fixtures" replace />} />
+      <Route path="/bracket" element={<Navigate to="/knockout" replace />} />
       <Route path="/winners" element={<WinnersPage />} />
       <Route path="/admin" element={<ProtectedAdminRoute />} />
       <Route path="/admin/login" element={<AdminPage />} />

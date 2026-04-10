@@ -15,11 +15,11 @@ const PLAYER_OVERRIDES_PATH = path.join(MUTABLE_DATA_DIR, "player-overrides.json
 const SITE_SETTINGS_PATH = path.join(MUTABLE_DATA_DIR, "site-settings.json");
 
 export function getPoolFilePath(year) {
-  return path.join(POOL_DIR, `world-championship-${year}.json`);
+  return path.join(POOL_DIR, `world-cup-${year}.json`);
 }
 
 export function getStaticSnapshotPath(year) {
-  return path.join(STATIC_DIR, `world-championship-${year}.json`);
+  return path.join(STATIC_DIR, `world-cup-${year}.json`);
 }
 
 async function readJson(filePath) {
@@ -63,7 +63,7 @@ async function seedFromBundledFileIfMissing(targetPath, bundledPath, fallbackDat
 
 export async function readPoolFile(year) {
   const filePath = getPoolFilePath(year);
-  const bundledPath = path.join(BUNDLED_POOL_DIR, `world-championship-${year}.json`);
+  const bundledPath = path.join(BUNDLED_POOL_DIR, `world-cup-${year}.json`);
   return {
     filePath,
     data: await seedFromBundledFileIfMissing(filePath, bundledPath),
@@ -72,12 +72,12 @@ export async function readPoolFile(year) {
 
 export async function readPoolFileOptional(year) {
   const filePath = getPoolFilePath(year);
-  const bundledPath = path.join(BUNDLED_POOL_DIR, `world-championship-${year}.json`);
+  const bundledPath = path.join(BUNDLED_POOL_DIR, `world-cup-${year}.json`);
   return {
     filePath,
     data: await seedFromBundledFileIfMissing(filePath, bundledPath, {
       year,
-      eventName: `World Championship ${year}`,
+      eventName: `FIFA World Cup ${year}`,
       competitors: [],
     }),
   };

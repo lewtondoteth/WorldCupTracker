@@ -32,5 +32,6 @@ export const runtimeConfig = {
   mutableDataDir,
   liveTournamentData,
   port: Number(process.env.PORT || 5174),
-  snookerRequestedBy: process.env.SNOOKER_ORG_REQUESTED_BY || "NicholasAndroidApp",
+  footballApiBaseUrl: process.env.FOOTBALL_API_BASE_URL || "",
+  footballApiKey: process.env.FOOTBALL_API_KEY || "",
 };
