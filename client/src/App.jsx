@@ -853,14 +853,14 @@ function SiteHeader({ mode = "home", poolConfigured = false }) {
             <>
               <a className="site-menu-link" href="#overview" onClick={closeMenu}>Overview</a>
               <Link className="site-menu-link" to="/structure" onClick={closeMenu}>Structure</Link>
-              <Link className="site-menu-link" to="/teams" onClick={closeMenu}>Teams</Link>
+              <Link className="site-menu-link" to="/teams" onClick={closeMenu}>Entrants</Link>
               <Link className="site-menu-link" to="/winners" onClick={closeMenu}>Winners</Link>
             </>
           ) : (
             <>
               <Link className="site-menu-link" to="/" onClick={closeMenu}>Tournament</Link>
               <Link className={`site-menu-link${mode === "structure" ? " current" : ""}`} to="/structure" onClick={closeMenu}>Structure</Link>
-              <Link className={`site-menu-link${mode === "entrants" ? " current" : ""}`} to="/teams" onClick={closeMenu}>Teams</Link>
+              <Link className={`site-menu-link${mode === "entrants" ? " current" : ""}`} to="/teams" onClick={closeMenu}>Entrants</Link>
               <Link className={`site-menu-link${mode === "winners" ? " current" : ""}`} to="/winners" onClick={closeMenu}>Winners</Link>
             </>
           )}
