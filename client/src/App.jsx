@@ -23,9 +23,12 @@ const MATCHES_ROUND_SESSION_KEY = "worldcup-public-fixtures-stage";
 const MATCHES_ENTRANT_FILTERS_SESSION_KEY = "worldcup-public-entrant-filters";
 const MATCHES_PLAYER_FILTERS_SESSION_KEY = "worldcup-public-team-filters";
 const MATCHES_COUNTRY_FILTERS_SESSION_KEY = "worldcup-public-country-filters";
+const ENTRANTS_SORT_SESSION_KEY = "worldcup-entrants-sort";
 const SITE_DESCRIPTION = "Track a World Cup pool with group tables, fixtures, knockout rounds, and winners.";
-const SEED_LABEL = "Group winners";
-const QUALIFIER_LABEL = "Runners-up";
+const SEED_LABEL = "Bucket A";
+const QUALIFIER_LABEL = "Bucket B";
+const TEAM_ASSIGNMENT_LABEL = "Assigned team";
+const TEAM_STATUS_LABEL = "Qualified";
 const SOURCE_LABEL = "FIFA World Cup data";
 const PLAYER_OVERRIDE_FIELDS = [
   "nickname",
@@ -1082,19 +1085,19 @@ function GroupFixtureList({ fixtures = [], ownershipByPlayerId = new Map() }) {
             <small>{match.scheduledDate || match.startDate || ""}</small>
           </div>
           <div className="group-fixture-scoreline">
-            <span>
+            <div className="group-fixture-team group-fixture-team-home">
               {match.player1.name}
               {ownershipByPlayerId.get(match.player1.id)?.entrantName ? (
                 <small className="group-team-owner">{ownershipByPlayerId.get(match.player1.id).entrantName}</small>
               ) : null}
-            </span>
-            <strong>{match.player1.score} - {match.player2.score}</strong>
-            <span>
+            </div>
+            <strong className="group-fixture-score">{match.player1.score} - {match.player2.score}</strong>
+            <div className="group-fixture-team group-fixture-team-away">
               {match.player2.name}
               {ownershipByPlayerId.get(match.player2.id)?.entrantName ? (
                 <small className="group-team-owner">{ownershipByPlayerId.get(match.player2.id).entrantName}</small>
               ) : null}
-            </span>
+            </div>
           </div>
           {getMatchResolutionLabel(match) ? (
             <p className="group-fixture-note">{getMatchResolutionLabel(match)}</p>
@@ -1120,7 +1123,6 @@ function GroupStageSection({ group, showPhotos = true, ownershipByPlayerId = new
         <table className="group-table">
           <thead>
             <tr>
-              <th scope="col">#</th>
               <th scope="col">Team</th>
               <th scope="col">P</th>
               <th scope="col">W</th>
@@ -1135,7 +1137,6 @@ function GroupStageSection({ group, showPhotos = true, ownershipByPlayerId = new
           <tbody>
             {group.standings.map((row) => (
               <tr key={row.team.id}>
-                <td>{row.position}</td>
                 <td>
                   <div className="group-table-team">
                     {showPhotos && row.team.photo ? (
@@ -1570,6 +1571,8 @@ function createPendingBracketSide(label) {
     id: `pending-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
     entrantName: "Awaiting entrant",
     playerName: label,
+    playerNationality: "",
+    playerPhoto: "",
     score: null,
     isPlaceholder: true,
     isUnassigned: false,
@@ -1587,6 +1590,8 @@ function createBracketSideFromPlayer(player, ownershipByPlayerId) {
     entrantName: owner?.entrantName || "Unassigned entrant",
     winningYears: owner?.winningYears || [],
     playerName: player.name,
+    playerNationality: player.nationality || player.name,
+    playerPhoto: player.photo || "",
     score: Number.isFinite(Number(player.score)) ? Number(player.score) : null,
     isPlaceholder: false,
     isUnassigned: !owner,
@@ -1811,7 +1816,7 @@ function useTournamentOverview(selectedYear) {
           (entry.eliminatedInRoundId !== selectedRound.id && selectedRound.order < snapshot.rounds.length)
         );
 
-        let roundStatusLabel = entry.isSeed ? SEED_LABEL : QUALIFIER_LABEL;
+        let roundStatusLabel = TEAM_STATUS_LABEL;
         let statusTone = "neutral";
 
         if (eliminated) {
@@ -1835,15 +1840,25 @@ function useTournamentOverview(selectedYear) {
       }),
     );
 
-    const decoratedCompetitors = competitors.map((competitor) => ({
-      ...competitor,
-      winningYears: competitor.winningYears
-        || registryById.get(String(competitor.entrantId))?.winningYears
-        || registryByName.get(String(competitor.name).toLowerCase())?.winningYears
-        || [],
-      seeds: competitor.seeds.map((player) => entrantsById.get(player.id)),
-      qualifiers: competitor.qualifiers.map((player) => entrantsById.get(player.id)),
-    }));
+    const decoratedCompetitors = competitors
+      .map((competitor) => {
+        const seeds = competitor.seeds.map((player) => entrantsById.get(player.id)).filter(Boolean);
+        const qualifiers = competitor.qualifiers.map((player) => entrantsById.get(player.id)).filter(Boolean);
+
+        return {
+          ...competitor,
+          winningYears: competitor.winningYears
+            || registryById.get(String(competitor.entrantId))?.winningYears
+            || registryByName.get(String(competitor.name).toLowerCase())?.winningYears
+            || [],
+          seeds,
+          qualifiers,
+          teamAssignments: [...seeds, ...qualifiers].sort((left, right) => (
+            String(left?.name || "").localeCompare(String(right?.name || ""))
+          )),
+        };
+      })
+      .sort((left, right) => left.name.localeCompare(right.name));
     const aliveEntrantsCount = Array.from(entrantsById.values()).filter((entry) => !entry.eliminated).length;
     const totalFieldSize = snapshot.rounds.reduce(
       (max, round) => Math.max(max, Number(round.entrantsLeft) || 0),
@@ -1990,11 +2005,11 @@ function TournamentStructurePage() {
             Auto phase: {defaultMode === "groups" ? "Groups" : "Knockout"}
           </p>
         </div>
-        <div className="matches-hero-tools">
-          <div className="matches-settings-shell entrants-settings-shell">
+        <div className="matches-hero-tools structure-hero-tools">
+          <div className="matches-settings-shell entrants-settings-shell structure-refresh-shell">
             <RefreshButton onClick={refresh} busy={refreshing} label={`Refresh ${selectedYear} structure data`} />
           </div>
-          <div className="bracket-toolbar bracket-toolbar-compact">
+          <div className="bracket-toolbar bracket-toolbar-compact structure-toolbar">
             <div className="bracket-control bracket-control-year">
               <p className="toolbar-label">Year</p>
               <label className="toolbar-select-shell">
@@ -2015,28 +2030,32 @@ function TournamentStructurePage() {
             <div className="bracket-control structure-mode-control">
               <p className="toolbar-label">Mode</p>
               <div className="structure-mode-switch" role="tablist" aria-label="Tournament structure mode">
-                <button
-                  type="button"
-                  className={`structure-mode-button${activeMode === "groups" ? " active" : ""}`}
-                  onClick={() => {
-                    setStructureMode("groups");
-                    setStructureModeYear(selectedYear);
-                  }}
-                  aria-selected={activeMode === "groups"}
-                >
-                  Groups
-                </button>
-                <button
-                  type="button"
-                  className={`structure-mode-button${activeMode === "knockout" ? " active" : ""}`}
-                  onClick={() => {
-                    setStructureMode("knockout");
-                    setStructureModeYear(selectedYear);
-                  }}
-                  aria-selected={activeMode === "knockout"}
-                >
-                  Knockout
-                </button>
+                <div className="structure-mode-label-row" aria-hidden="true">
+                  <span className={`structure-mode-side-label${activeMode === "groups" ? " active" : ""}`}>Group</span>
+                  <span className={`structure-mode-side-label${activeMode === "knockout" ? " active" : ""}`}>Knockout</span>
+                </div>
+                <div className="structure-mode-button-row">
+                  <button
+                    type="button"
+                    className={`structure-mode-option${activeMode === "groups" ? " active" : ""}`}
+                    onClick={() => {
+                      setStructureMode("groups");
+                      setStructureModeYear(selectedYear);
+                    }}
+                    aria-selected={activeMode === "groups"}
+                    aria-label="Show group structure"
+                  />
+                  <button
+                    type="button"
+                    className={`structure-mode-option${activeMode === "knockout" ? " active" : ""}`}
+                    onClick={() => {
+                      setStructureMode("knockout");
+                      setStructureModeYear(selectedYear);
+                    }}
+                    aria-selected={activeMode === "knockout"}
+                    aria-label="Show knockout structure"
+                  />
+                </div>
               </div>
             </div>
             <div className="bracket-control structure-summary-control">
@@ -2126,26 +2145,33 @@ function TournamentStructurePage() {
                                 key={`${match.key}-${side.id}`}
                                 className={`bracket-side-row${side.id === winnerId ? " winner" : ""}${winnerId && side.id !== winnerId ? " loser" : ""}${side.isPlaceholder ? " placeholder" : ""}${side.isUnassigned ? " unassigned" : ""}`}
                               >
-                                <div className="bracket-side-copy">
-                                  <span className="bracket-entrant-name">
-                                    <span>{side.entrantName}</span>
-                                    {(side.winningYears || []).length ? (
-                                      <span className="bracket-entrant-crowns" aria-label={`${side.winningYears.length} wins`}>
-                                        {side.winningYears.map((year) => (
-                                          <img
-                                            key={`${side.id}-${year}`}
-                                            className="competitor-crown"
-                                            src={crownIcon}
-                                            alt=""
-                                            aria-hidden="true"
-                                            title={`Winner ${year}`}
-                                          />
-                                        ))}
-                                      </span>
-                                    ) : null}
+                            <div className="bracket-side-copy">
+                              <span className="bracket-player-name">
+                                {!side.isPlaceholder && side.playerPhoto ? (
+                                  <img className="bracket-team-flag" src={side.playerPhoto} alt="" aria-hidden="true" />
+                                ) : !side.isPlaceholder ? (
+                                  <NationalityFlag nationality={side.playerNationality || side.playerName} className="bracket-team-flag" />
+                                ) : null}
+                                <span>{side.playerName}</span>
+                              </span>
+                              <span className="bracket-entrant-name">
+                                <span>{side.entrantName}</span>
+                                {(side.winningYears || []).length ? (
+                                  <span className="bracket-entrant-crowns" aria-label={`${side.winningYears.length} wins`}>
+                                    {side.winningYears.map((year) => (
+                                      <img
+                                        key={`${side.id}-${year}`}
+                                        className="competitor-crown"
+                                        src={crownIcon}
+                                        alt=""
+                                        aria-hidden="true"
+                                        title={`Winner ${year}`}
+                                      />
+                                    ))}
                                   </span>
-                                  <span className="bracket-player-name">{side.playerName}</span>
-                                </div>
+                                ) : null}
+                              </span>
+                            </div>
                                 {side.score !== null ? <span className="bracket-side-score">{side.score}</span> : null}
                               </div>
                             ))}
@@ -2331,20 +2357,8 @@ function EntrantsPage() {
   const [selectedYear, setSelectedYear] = usePublicSelectedYear();
   const [showPhotos, setShowPhotos] = usePublicShowPhotos();
   const { data, loading, error, derived, refresh, refreshing, lastUpdatedAt } = useTournamentOverview(selectedYear);
-  const [expandedCompetitors, setExpandedCompetitors] = useState({});
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
-  const isCompactViewport = useIsCompactViewport();
-
-  useEffect(() => {
-    setExpandedCompetitors({});
-  }, [data?.snapshot?.year, isCompactViewport]);
-
-  function toggleCompetitor(name) {
-    setExpandedCompetitors((current) => ({
-      ...current,
-      [name]: !(current[name] ?? !isCompactViewport),
-    }));
-  }
+  const [sortBy, setSortBy] = useSessionState(ENTRANTS_SORT_SESSION_KEY, "entrant");
 
   if (loading && !data) {
     return <PublicPageSkeleton mode="entrants" showGrid gridCount={4} />;
@@ -2363,6 +2377,28 @@ function EntrantsPage() {
 
   const poolConfigured = data.poolConfigured !== false;
   const { decoratedCompetitors } = derived;
+  const unifiedAssignments = decoratedCompetitors.flatMap((competitor) => (
+    competitor.teamAssignments.map((player, index) => ({
+      ...player,
+      entrantName: competitor.name,
+      winningYears: competitor.winningYears || [],
+      sortIndex: index,
+    }))
+  )).sort((left, right) => {
+    if (sortBy === "team") {
+      return (
+        left.name.localeCompare(right.name)
+        || left.entrantName.localeCompare(right.entrantName)
+        || left.sortIndex - right.sortIndex
+      );
+    }
+
+    return (
+      left.entrantName.localeCompare(right.entrantName)
+      || left.name.localeCompare(right.name)
+      || left.sortIndex - right.sortIndex
+    );
+  });
 
   return (
     <main className="app-shell">
@@ -2452,61 +2488,60 @@ function EntrantsPage() {
             <div>
               <p className="eyebrow">Entrants</p>
               <h2>{decoratedCompetitors.length} pool entrants</h2>
-              <p className="section-support-copy">Each entrant card lists the teams currently assigned to that pool entry.</p>
+              <p className="section-support-copy">One unified list of assignments, with entrant shown first and team alongside it.</p>
+            </div>
+            <div className="assignment-sort-control">
+              <p className="toolbar-label">Sort by</p>
+              <label className="toolbar-select-shell">
+                <select
+                  className="toolbar-select"
+                  value={sortBy}
+                  onChange={(event) => setSortBy(event.target.value)}
+                  aria-label="Sort assignments"
+                >
+                  <option value="entrant">Entrant</option>
+                  <option value="team">Team</option>
+                </select>
+              </label>
             </div>
           </section>
-          <section className="competitor-grid">
-          {decoratedCompetitors.map((competitor) => {
-            const liveCount = [...competitor.seeds, ...competitor.qualifiers].filter((player) => !player.eliminated).length;
-            const totalCount = competitor.seeds.length + competitor.qualifiers.length;
-            const isExpanded = expandedCompetitors[competitor.name] ?? !isCompactViewport;
-            return (
-              <article key={competitor.name} className="competitor-card">
-                <div className="competitor-header">
-                  <div className="competitor-heading">
-                    <div className="collapsible-title-row">
-                      <div className="competitor-title-inline">
-                        <h2>{competitor.name}</h2>
-                        <span className="live-pill inline">{liveCount} alive</span>
-                        {(competitor.winningYears || []).length ? (
-                          <div className="competitor-crowns" aria-label={`${competitor.winningYears.length} wins`}>
-                            {competitor.winningYears.map((year) => (
-                              <img
-                                key={year}
-                                className="competitor-crown"
-                                src={crownIcon}
-                                alt=""
-                                aria-hidden="true"
-                                title={`Winner ${year}`}
-                              />
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                      <ChevronToggle
-                        expanded={isExpanded}
-                        onToggle={() => toggleCompetitor(competitor.name)}
-                        label={`${competitor.name} picks`}
-                      />
+          <section className="assignment-list-card">
+            <ul className="assignment-list">
+              {unifiedAssignments.map((player) => (
+                <li key={player.id} className={player.eliminated ? "pick-row assignment-row eliminated" : "pick-row assignment-row"}>
+                  <div className="assignment-main">
+                    <div className={`assignment-line${player.eliminated ? " eliminated" : ""}`}>
+                      <span className="assignment-entrant">{player.entrantName}</span>
+                      {(player.winningYears || []).length ? (
+                        <span className="bracket-entrant-crowns" aria-label={`${player.winningYears.length} wins`}>
+                          {player.winningYears.map((year) => (
+                            <img
+                              key={`${player.id}-${year}`}
+                              className="competitor-crown"
+                              src={crownIcon}
+                              alt=""
+                              aria-hidden="true"
+                              title={`Winner ${year}`}
+                            />
+                          ))}
+                        </span>
+                      ) : null}
+                      <span className="assignment-separator" aria-hidden="true">/</span>
+                      {showPhotos ? (
+                        player.photo ? (
+                          <img className="assignment-flag" src={player.photo} alt="" loading="lazy" />
+                        ) : (
+                          <NationalityFlag nationality={player.nationality} className="assignment-flag" />
+                        )
+                      ) : null}
+                      <strong>{player.name}</strong>
                     </div>
-                    <p className="competitor-meta-copy">{totalCount} teams assigned</p>
+                    <small>{TEAM_ASSIGNMENT_LABEL}</small>
                   </div>
-                </div>
-                {isExpanded ? (
-                  <div className="pick-columns">
-                    <PickList title={SEED_LABEL} players={competitor.seeds} showPhotos={showPhotos} />
-                    <PickList title={QUALIFIER_LABEL} players={competitor.qualifiers} showPhotos={showPhotos} />
-                  </div>
-                ) : (
-                  <div className="collapsed-summary">
-                    <span>{competitor.seeds.filter((player) => !player.eliminated).length} group winners still alive</span>
-                    <span>{competitor.qualifiers.filter((player) => !player.eliminated).length} runners-up still alive</span>
-                    <span>{totalCount} teams assigned</span>
-                  </div>
-                )}
-              </article>
-            );
-          })}
+                  <span className={`pick-status ${player.statusTone}`}>{player.roundStatusLabel}</span>
+                </li>
+              ))}
+            </ul>
           </section>
         </>
       ) : null}
@@ -3195,6 +3230,14 @@ function BracketPage() {
                             className={`bracket-side-row${side.id === winnerId ? " winner" : ""}${winnerId && side.id !== winnerId ? " loser" : ""}${side.isPlaceholder ? " placeholder" : ""}${side.isUnassigned ? " unassigned" : ""}`}
                           >
                             <div className="bracket-side-copy">
+                              <span className="bracket-player-name">
+                                {!side.isPlaceholder && side.playerPhoto ? (
+                                  <img className="bracket-team-flag" src={side.playerPhoto} alt="" aria-hidden="true" />
+                                ) : !side.isPlaceholder ? (
+                                  <NationalityFlag nationality={side.playerNationality || side.playerName} className="bracket-team-flag" />
+                                ) : null}
+                                <span>{side.playerName}</span>
+                              </span>
                               <span className="bracket-entrant-name">
                                 <span>{side.entrantName}</span>
                                 {(side.winningYears || []).length ? (
@@ -3212,7 +3255,6 @@ function BracketPage() {
                                   </span>
                                 ) : null}
                               </span>
-                              <span className="bracket-player-name">{side.playerName}</span>
                             </div>
                             {side.score !== null ? <span className="bracket-side-score">{side.score}</span> : null}
                           </div>

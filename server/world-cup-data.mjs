@@ -3,7 +3,7 @@ const FLAG_BASE_URL = "https://flagcdn.com/w320";
 const TEAM_DEFINITIONS = [
   { id: 1, name: "Qatar", code: "qa", group: "A", confederation: "AFC", titles: 0, nickname: "The Maroons", founded: "1970-01-01", info: "Host nation in 2022 and first-time World Cup participant." },
   { id: 2, name: "Ecuador", code: "ec", group: "A", confederation: "CONMEBOL", titles: 0, nickname: "La Tri", founded: "1925-01-30", info: "Opened the 2022 tournament with a 2-0 win over Qatar." },
-  { id: 3, name: "Senegal", code: "sn", group: "A", confederation: "CAF", titles: 0, nickname: "The Lions of Teranga", founded: "1960-08-01", info: "Reached the 2022 knockout stage as Group A runners-up." },
+  { id: 3, name: "Senegal", code: "sn", group: "A", confederation: "CAF", titles: 0, nickname: "The Lions of Teranga", founded: "1960-08-01", info: "Reached the 2022 knockout stage from Group A." },
   { id: 4, name: "Netherlands", code: "nl", group: "A", confederation: "UEFA", titles: 0, nickname: "Oranje", founded: "1889-12-08", info: "Won Group A before reaching the quarter-finals." },
   { id: 5, name: "England", code: "gb-eng", group: "B", confederation: "UEFA", titles: 1, nickname: "The Three Lions", founded: "1863-10-26", info: "Led Group B with nine goals scored in the group stage." },
   { id: 6, name: "Iran", code: "ir", group: "B", confederation: "AFC", titles: 0, nickname: "Team Melli", founded: "1920-01-01", info: "Won once in Group B but missed the knockouts." },

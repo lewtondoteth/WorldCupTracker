@@ -11,7 +11,7 @@ This repo is a separate copy of the original app, adapted into a FIFA World Cup 
 
 ## Current Data Model
 
-- `Group winners` and `Runners-up` are the two assignment buckets used for pool picks
+- `Bucket A` and `Bucket B` are the two internal assignment buckets used for pool picks
 - Public pages cover:
   - `/teams` for group tables and entrant picks
   - `/fixtures` for tournament stages and results
