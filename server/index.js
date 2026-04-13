@@ -6,11 +6,9 @@ import { fileURLToPath } from "url";
 import { runtimeConfig } from "./env.mjs";
 import {
   readEntrantRegistry,
-  readPlayerOverrides,
   readPoolFileOptional,
   readSiteSettings,
   writeEntrantRegistry,
-  writePlayerOverrides,
   writePoolFile,
   writeSiteSettings,
 } from "./storage.mjs";
@@ -21,17 +19,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_DIST_DIR = path.join(__dirname, "..", "client", "dist");
 const PORT = runtimeConfig.port;
 const PUBLIC_SITE_PATHS = ["/", "/teams", "/fixtures", "/knockout", "/winners"];
-
-const PLAYER_OVERRIDE_FIELDS = [
-  "nickname",
-  "nationality",
-  "born",
-  "photo",
-  "twitter",
-  "websiteUrl",
-  "info",
-  "photoSource",
-];
 
 const app = express();
 let currentSiteSettings = { clacksNames: [] };
@@ -141,41 +128,14 @@ function normaliseEntrantRegistry(entries) {
   return nextEntries.sort((left, right) => left.name.localeCompare(right.name));
 }
 
-function normalisePlayerOverrides(overrides) {
-  const nextOverrides = [];
-  const seenPlayerIds = new Set();
-
-  for (const override of Array.isArray(overrides) ? overrides : []) {
-    const playerId = Number(override?.playerId);
-    if (!Number.isInteger(playerId) || playerId <= 0 || seenPlayerIds.has(playerId)) {
-      continue;
-    }
-
-    const nextOverride = { playerId };
-    for (const field of PLAYER_OVERRIDE_FIELDS) {
-      nextOverride[field] = typeof override?.[field] === "string" ? override[field].trim() : "";
-    }
-
-    const hasValue = PLAYER_OVERRIDE_FIELDS.some((field) => nextOverride[field]);
-    if (!hasValue) {
-      continue;
-    }
-
-    nextOverrides.push(nextOverride);
-    seenPlayerIds.add(playerId);
-  }
-
-  return nextOverrides.sort((left, right) => left.playerId - right.playerId);
-}
-
-function normaliseCompetitor(competitor, entrantIds) {
+function normaliseCompetitor(competitor, teamIds) {
   const entrantId = normaliseWhitespace(competitor?.entrantId) || createEntrantId();
   const name = normaliseWhitespace(competitor?.name) || "Unnamed entrant";
 
   const normaliseIdList = (value) => [...new Set(
     (Array.isArray(value) ? value : [])
       .map((item) => Number(item))
-      .filter((item) => Number.isInteger(item) && entrantIds.has(item)),
+      .filter((item) => Number.isInteger(item) && teamIds.has(item)),
   )];
 
   return {
@@ -187,12 +147,12 @@ function normaliseCompetitor(competitor, entrantIds) {
 }
 
 function preparePoolPayload(year, eventName, competitors, snapshot) {
-  const entrantIds = new Set((snapshot?.entrants || []).map((entry) => Number(entry.id)));
+  const teamIds = new Set(((snapshot?.allTeams?.length ? snapshot.allTeams : snapshot?.entrants) || []).map((entry) => Number(entry.id)));
   const nextCompetitors = [];
   const seenEntrants = new Set();
 
   for (const competitor of Array.isArray(competitors) ? competitors : []) {
-    const nextCompetitor = normaliseCompetitor(competitor, entrantIds);
+    const nextCompetitor = normaliseCompetitor(competitor, teamIds);
     if (seenEntrants.has(nextCompetitor.entrantId)) {
       continue;
     }
@@ -226,33 +186,15 @@ function mergeRegistryWithCompetitors(existingRegistry, competitors) {
   return nextRegistry;
 }
 
-function applyOverridesToEntrant(entry, overridesById) {
-  const override = overridesById.get(Number(entry.id));
-  if (!override) {
-    return entry;
-  }
-
-  return {
-    ...entry,
-    ...Object.fromEntries(
-      PLAYER_OVERRIDE_FIELDS.map((field) => [
-        field,
-        override[field] ? override[field] : entry[field],
-      ]),
-    ),
-  };
-}
-
-function buildCompetitorsForResponse(snapshot, poolData, entrantRegistry, overrides) {
+function buildCompetitorsForResponse(snapshot, poolData, entrantRegistry) {
   const registryById = new Map(normaliseEntrantRegistry(entrantRegistry).map((entrant) => [entrant.id, entrant]));
   const registryByName = new Map(normaliseEntrantRegistry(entrantRegistry).map((entrant) => [
     entrant.name.toLocaleLowerCase("en-GB"),
     entrant,
   ]));
-  const overridesById = new Map(normalisePlayerOverrides(overrides).map((override) => [override.playerId, override]));
-  const entrantsById = new Map((snapshot?.entrants || []).map((entry) => [
+  const entrantsById = new Map((((snapshot?.allTeams?.length ? snapshot.allTeams : snapshot?.entrants) || [])).map((entry) => [
     Number(entry.id),
-    applyOverridesToEntrant(entry, overridesById),
+    entry,
   ]));
 
   return (poolData?.competitors || []).map((competitor) => {
@@ -269,8 +211,8 @@ function buildCompetitorsForResponse(snapshot, poolData, entrantRegistry, overri
   });
 }
 
-function buildPoolResponse(snapshot, poolData, sourceFile, entrantRegistry, overrides) {
-  const competitors = buildCompetitorsForResponse(snapshot, poolData, entrantRegistry, overrides);
+function buildPoolResponse(snapshot, poolData, sourceFile, entrantRegistry) {
+  const competitors = buildCompetitorsForResponse(snapshot, poolData, entrantRegistry);
   const poolConfigured = competitors.length > 0;
 
   return {
@@ -282,11 +224,10 @@ function buildPoolResponse(snapshot, poolData, sourceFile, entrantRegistry, over
   };
 }
 
-function buildAdminPoolResponse(snapshot, poolData, sourceFile, entrantRegistry, overrides) {
+function buildAdminPoolResponse(snapshot, poolData, sourceFile, entrantRegistry) {
   return {
-    ...buildPoolResponse(snapshot, poolData, sourceFile, entrantRegistry, overrides),
+    ...buildPoolResponse(snapshot, poolData, sourceFile, entrantRegistry),
     entrantRegistry: normaliseEntrantRegistry(entrantRegistry),
-    playerOverrides: normalisePlayerOverrides(overrides),
   };
 }
 
@@ -296,44 +237,8 @@ function parseRefreshFlag(value) {
 
 async function getTournamentSnapshot(year, options = {}) {
   const snapshot = await worldCupDataProvider.getSnapshot(year, options);
-  const overrides = normalisePlayerOverrides(await readPlayerOverrides());
-  const overridesById = new Map(overrides.map((override) => [override.playerId, override]));
 
-  return {
-    ...snapshot,
-    entrants: (snapshot.entrants || []).map((entry) => applyOverridesToEntrant(entry, overridesById)),
-    seeds: (snapshot.seeds || []).map((entry) => applyOverridesToEntrant(entry, overridesById)),
-    qualifiers: (snapshot.qualifiers || []).map((entry) => applyOverridesToEntrant(entry, overridesById)),
-    allTeams: (snapshot.allTeams || []).map((entry) => applyOverridesToEntrant(entry, overridesById)),
-    groups: (snapshot.groups || []).map((group) => ({
-      ...group,
-      standings: group.standings.map((row) => ({
-        ...row,
-        team: applyOverridesToEntrant(row.team, overridesById),
-      })),
-      fixtures: group.fixtures.map((match) => ({
-        ...match,
-        player1: applyOverridesToEntrant(match.player1, overridesById),
-        player2: applyOverridesToEntrant(match.player2, overridesById),
-      })),
-    })),
-    fixtureStages: (snapshot.fixtureStages || []).map((stage) => ({
-      ...stage,
-      matches: stage.matches.map((match) => ({
-        ...match,
-        player1: applyOverridesToEntrant(match.player1, overridesById),
-        player2: applyOverridesToEntrant(match.player2, overridesById),
-      })),
-    })),
-    rounds: (snapshot.rounds || []).map((round) => ({
-      ...round,
-      matches: round.matches.map((match) => ({
-        ...match,
-        player1: applyOverridesToEntrant(match.player1, overridesById),
-        player2: applyOverridesToEntrant(match.player2, overridesById),
-      })),
-    })),
-  };
+  return snapshot;
 }
 
 function getRequestOrigin(req) {
@@ -432,13 +337,12 @@ app.get("/api/pool/:year", async (req, res) => {
   try {
     const year = Number(req.params.year);
     const forceRefresh = parseRefreshFlag(req.query.refresh);
-    const [snapshot, poolFile, entrantRegistry, overrides] = await Promise.all([
+    const [snapshot, poolFile, entrantRegistry] = await Promise.all([
       getTournamentSnapshot(year, { forceRefresh }),
       readPoolFileOptional(year),
       readEntrantRegistry(),
-      readPlayerOverrides(),
     ]);
-    res.json(buildPoolResponse(snapshot, poolFile.data, poolFile.filePath, entrantRegistry, overrides));
+    res.json(buildPoolResponse(snapshot, poolFile.data, poolFile.filePath, entrantRegistry));
   } catch (error) {
     res.status(500).json({ error: String(error.message || error) });
   }
@@ -455,12 +359,11 @@ app.post("/api/pool/:year/upload", async (req, res) => {
     }
 
     const payload = preparePoolPayload(year, req.body.eventName, req.body.competitors, snapshot);
-    const [sourceFile, entrantRegistry, overrides] = await Promise.all([
+    const [sourceFile, entrantRegistry] = await Promise.all([
       writePoolFile(year, payload),
       readEntrantRegistry(),
-      readPlayerOverrides(),
     ]);
-    res.json(buildPoolResponse(snapshot, payload, sourceFile, entrantRegistry, overrides));
+    res.json(buildPoolResponse(snapshot, payload, sourceFile, entrantRegistry));
   } catch (error) {
     res.status(400).json({ error: String(error.message || error) });
   }
@@ -470,13 +373,12 @@ app.get("/api/pool/:year/admin", async (req, res) => {
   try {
     const year = Number(req.params.year);
     const forceRefresh = parseRefreshFlag(req.query.refresh);
-    const [snapshot, poolFile, entrantRegistry, overrides] = await Promise.all([
+    const [snapshot, poolFile, entrantRegistry] = await Promise.all([
       getTournamentSnapshot(year, { forceRefresh }),
       readPoolFileOptional(year),
       readEntrantRegistry(),
-      readPlayerOverrides(),
     ]);
-    res.json(buildAdminPoolResponse(snapshot, poolFile.data, poolFile.filePath, entrantRegistry, overrides));
+    res.json(buildAdminPoolResponse(snapshot, poolFile.data, poolFile.filePath, entrantRegistry));
   } catch (error) {
     res.status(500).json({ error: String(error.message || error) });
   }
@@ -497,12 +399,9 @@ app.put("/api/pool/:year/admin", async (req, res) => {
       mergeRegistryWithCompetitors(existingRegistry, payload.competitors),
     );
 
-    const [sourceFile, overrides] = await Promise.all([
-      writePoolFile(year, payload),
-      readPlayerOverrides(),
-    ]);
+    const sourceFile = await writePoolFile(year, payload);
     await writeEntrantRegistry(entrantRegistry);
-    res.json(buildAdminPoolResponse(snapshot, payload, sourceFile, entrantRegistry, overrides));
+    res.json(buildAdminPoolResponse(snapshot, payload, sourceFile, entrantRegistry));
   } catch (error) {
     res.status(400).json({ error: String(error.message || error) });
   }
@@ -524,68 +423,6 @@ app.put("/api/entrants", async (req, res) => {
     const entrants = normaliseEntrantRegistry(req.body.entrants || []);
     await writeEntrantRegistry(entrants);
     res.json({ entrants });
-  } catch (error) {
-    res.status(400).json({ error: String(error.message || error) });
-  }
-});
-
-app.get("/api/player-overrides", async (_req, res) => {
-  try {
-    res.json({ overrides: normalisePlayerOverrides(await readPlayerOverrides()) });
-  } catch (error) {
-    res.status(500).json({ error: String(error.message || error) });
-  }
-});
-
-app.put("/api/player-overrides", async (req, res) => {
-  try {
-    if (!req.body || typeof req.body !== "object") {
-      return res.status(400).json({ error: "Team overrides save body must be JSON." });
-    }
-    const overrides = normalisePlayerOverrides(req.body.overrides || []);
-    await writePlayerOverrides(overrides);
-    res.json({ overrides });
-  } catch (error) {
-    res.status(400).json({ error: String(error.message || error) });
-  }
-});
-
-app.put("/api/player-overrides/:playerId", async (req, res) => {
-  try {
-    const playerId = Number(req.params.playerId);
-    if (!Number.isInteger(playerId) || playerId <= 0) {
-      return res.status(400).json({ error: "Team id must be a valid number." });
-    }
-    if (!req.body || typeof req.body !== "object") {
-      return res.status(400).json({ error: "Team override save body must be JSON." });
-    }
-
-    const existingOverrides = normalisePlayerOverrides(await readPlayerOverrides());
-    const nextOverrides = existingOverrides.filter((override) => Number(override.playerId) !== playerId);
-    const candidate = normalisePlayerOverrides([{ ...req.body, playerId }])[0];
-    if (candidate) {
-      nextOverrides.push(candidate);
-      nextOverrides.sort((left, right) => left.playerId - right.playerId);
-    }
-
-    await writePlayerOverrides(nextOverrides);
-    res.json({ override: candidate || null, overrides: nextOverrides });
-  } catch (error) {
-    res.status(400).json({ error: String(error.message || error) });
-  }
-});
-
-app.delete("/api/player-overrides/:playerId", async (req, res) => {
-  try {
-    const playerId = Number(req.params.playerId);
-    if (!Number.isInteger(playerId) || playerId <= 0) {
-      return res.status(400).json({ error: "Team id must be a valid number." });
-    }
-
-    const nextOverrides = normalisePlayerOverrides(await readPlayerOverrides())
-      .filter((override) => Number(override.playerId) !== playerId);
-    await writePlayerOverrides(nextOverrides);
-    res.json({ overrides: nextOverrides });
   } catch (error) {
     res.status(400).json({ error: String(error.message || error) });
   }

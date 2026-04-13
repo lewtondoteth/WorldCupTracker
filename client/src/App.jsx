@@ -19,6 +19,8 @@ const PUBLIC_YEAR_SESSION_KEY = "worldcup-public-selected-year";
 const PUBLIC_SHOW_PHOTOS_SESSION_KEY = "worldcup-public-show-photos";
 const STRUCTURE_MODE_SESSION_KEY = "worldcup-public-structure-mode";
 const STRUCTURE_MODE_YEAR_SESSION_KEY = "worldcup-public-structure-mode-year";
+const STRUCTURE_GROUPS_COLLAPSED_SESSION_KEY = "worldcup-public-structure-groups-collapsed";
+const STRUCTURE_GROUP_MATCHES_COLLAPSED_SESSION_KEY = "worldcup-public-structure-group-matches-collapsed";
 const MATCHES_ROUND_SESSION_KEY = "worldcup-public-fixtures-stage";
 const MATCHES_ENTRANT_FILTERS_SESSION_KEY = "worldcup-public-entrant-filters";
 const MATCHES_PLAYER_FILTERS_SESSION_KEY = "worldcup-public-team-filters";
@@ -30,17 +32,6 @@ const QUALIFIER_LABEL = "Bucket B";
 const TEAM_ASSIGNMENT_LABEL = "Assigned team";
 const TEAM_STATUS_LABEL = "Qualified";
 const SOURCE_LABEL = "FIFA World Cup data";
-const PLAYER_OVERRIDE_FIELDS = [
-  "nickname",
-  "nationality",
-  "born",
-  "photo",
-  "twitter",
-  "websiteUrl",
-  "info",
-  "photoSource",
-];
-
 const TEAM_SHORT_NAMES = {
   Argentina: "ARG",
   Australia: "AUS",
@@ -99,12 +90,12 @@ const PAGE_METADATA = {
   },
   "/admin": {
     title: `Admin | ${BRAND_NAME}`,
-    description: "Administrative controls for pool updates and team overrides.",
+    description: "Administrative controls for pool updates, entrants, and site settings.",
     robots: "noindex, nofollow",
   },
   "/admin/login": {
     title: `Admin Login | ${BRAND_NAME}`,
-    description: "Sign in to manage tournament data and team overrides.",
+    description: "Sign in to manage tournament data, entrants, and site settings.",
     robots: "noindex, nofollow",
   },
 };
@@ -194,21 +185,6 @@ function usePageMetadata() {
     updateMetaTag("name", "twitter:description", meta.description);
     upsertLinkTag("canonical", canonicalUrl);
   }, [location.pathname]);
-}
-
-function normalisePlayerOverrideDraft(override) {
-  const playerId = Number(override?.playerId);
-  if (!Number.isInteger(playerId) || playerId <= 0) {
-    return null;
-  }
-
-  const next = { playerId };
-  for (const field of PLAYER_OVERRIDE_FIELDS) {
-    next[field] = typeof override?.[field] === "string" ? override[field] : "";
-  }
-
-  const hasValue = PLAYER_OVERRIDE_FIELDS.some((field) => next[field].trim());
-  return hasValue ? next : null;
 }
 
 function useSessionState(key, initialValue) {
@@ -364,32 +340,9 @@ async function saveEntrants(payload) {
   return readJsonResponse(response, "Failed to save entrants");
 }
 
-async function fetchPlayerOverrides() {
-  const response = await fetch(`${API_BASE}/api/player-overrides`);
-  return readJsonResponse(response, "Failed to load player overrides");
-}
-
 async function fetchSiteSettings() {
   const response = await fetch(`${API_BASE}/api/site-settings`);
   return readJsonResponse(response, "Failed to load site settings");
-}
-
-async function savePlayerOverride(playerId, payload) {
-  const response = await fetch(`${API_BASE}/api/player-overrides/${playerId}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  return readJsonResponse(response, "Failed to save player override");
-}
-
-async function deletePlayerOverride(playerId) {
-  const response = await fetch(`${API_BASE}/api/player-overrides/${playerId}`, {
-    method: "DELETE",
-  });
-  return readJsonResponse(response, "Failed to clear player override");
 }
 
 async function saveSiteSettings(payload) {
@@ -699,10 +652,39 @@ function normaliseTargetCountInput(value) {
   return parsed;
 }
 
+function normaliseAdminCompetitor(competitor) {
+  const legacyTeamIds = [...(competitor?.seedIds || []), ...(competitor?.qualifierIds || [])];
+  const teamIds = [...new Set(
+    (Array.isArray(competitor?.teamIds) ? competitor.teamIds : legacyTeamIds)
+      .map((item) => Number(item))
+      .filter((item) => Number.isInteger(item) && item > 0),
+  )];
+
+  return {
+    ...competitor,
+    teamIds,
+  };
+}
+
+function normaliseAdminBuilderData(data) {
+  if (!data?.poolData) {
+    return data;
+  }
+
+  return {
+    ...data,
+    poolData: {
+      ...data.poolData,
+      competitors: (data.poolData.competitors || []).map((competitor) => normaliseAdminCompetitor(competitor)),
+    },
+  };
+}
+
 function buildAutoAssignment(snapshot, competitors, targetCountsOverride = null) {
   const roundOne = snapshot.rounds.find((round) => round.key === "round-of-16") || snapshot.rounds[0];
-  const actualPlayers = snapshot.entrants.filter((entry) => !isPlaceholderEntrant(entry));
-  const entrantOrder = new Map(snapshot.entrants.map((entry, index) => [entry.id, index]));
+  const actualTeams = (snapshot.allTeams?.length ? snapshot.allTeams : snapshot.entrants)
+    .filter((entry) => !isPlaceholderEntrant(entry));
+  const teamOrder = new Map(actualTeams.map((entry, index) => [entry.id, index]));
   const entrantIds = competitors.map((competitor, index) => competitor.entrantId || `competitor-${index}`);
 
   if (!entrantIds.length) {
@@ -715,47 +697,36 @@ function buildAutoAssignment(snapshot, competitors, targetCountsOverride = null)
     throw new Error("At least two entrants are needed to separate first-round opponents.");
   }
 
-  const bucketKeyForPlayer = (player) => (player.isSeed ? "seedIds" : "qualifierIds");
-  const allSeeds = actualPlayers.filter((player) => player.isSeed);
-  const allQualifiers = actualPlayers.filter((player) => !player.isSeed);
-  const targetCounts = targetCountsOverride || {
-    seedIds: buildBalancedTargetCounts(allSeeds.length, entrantIds),
-    qualifierIds: buildBalancedTargetCounts(allQualifiers.length, entrantIds),
-  };
+  const targetCounts = targetCountsOverride || buildBalancedTargetCounts(actualTeams.length, entrantIds);
 
   const candidateMatches = shuffleArray(roundOne?.matches || []);
 
-  for (let attempt = 0; attempt < 300; attempt += 1) {
-    const nextCompetitors = competitors.map((competitor) => ({
-      ...competitor,
-      seedIds: [],
-      qualifierIds: [],
-    }));
+    for (let attempt = 0; attempt < 300; attempt += 1) {
+      const nextCompetitors = competitors.map((competitor) => ({
+        ...competitor,
+        teamIds: [],
+      }));
     const competitorIndexById = new Map(nextCompetitors.map((competitor, index) => [
       competitor.entrantId || `competitor-${index}`,
       index,
     ]));
-    const bucketCountsByEntrant = new Map(entrantIds.map((entrantId) => [
-      entrantId,
-      { seedIds: 0, qualifierIds: 0 },
-    ]));
+    const countsByEntrant = new Map(entrantIds.map((entrantId) => [entrantId, 0]));
     const ownerByPlayerId = new Map();
     const assignedPlayerIds = new Set();
 
-    function assignPlayerToEntrant(player, excludedEntrantId = null) {
-      const bucket = bucketKeyForPlayer(player);
+    function assignTeamToEntrant(team, excludedEntrantId = null) {
       const eligibleEntrants = entrantIds.filter((entrantId) => entrantId !== excludedEntrantId);
       if (!eligibleEntrants.length) {
         return null;
       }
 
       const withCapacity = eligibleEntrants.filter((entrantId) => (
-        (bucketCountsByEntrant.get(entrantId)?.[bucket] || 0) < (targetCounts[bucket].get(entrantId) || 0)
+        (countsByEntrant.get(entrantId) || 0) < (targetCounts.get(entrantId) || 0)
       ));
       const candidateEntrants = (withCapacity.length ? withCapacity : eligibleEntrants)
         .map((entrantId) => ({
           entrantId,
-          count: bucketCountsByEntrant.get(entrantId)?.[bucket] || 0,
+          count: countsByEntrant.get(entrantId) || 0,
         }));
       const minCount = Math.min(...candidateEntrants.map((candidate) => candidate.count));
       const lowestFilled = candidateEntrants.filter((candidate) => candidate.count === minCount);
@@ -771,14 +742,11 @@ function buildAutoAssignment(snapshot, competitors, targetCountsOverride = null)
 
       nextCompetitors[competitorIndex] = {
         ...nextCompetitors[competitorIndex],
-        [bucket]: [...nextCompetitors[competitorIndex][bucket], player.id],
+        teamIds: [...nextCompetitors[competitorIndex].teamIds, team.id],
       };
-      bucketCountsByEntrant.set(chosen.entrantId, {
-        ...bucketCountsByEntrant.get(chosen.entrantId),
-        [bucket]: (bucketCountsByEntrant.get(chosen.entrantId)?.[bucket] || 0) + 1,
-      });
-      ownerByPlayerId.set(player.id, chosen.entrantId);
-      assignedPlayerIds.add(player.id);
+      countsByEntrant.set(chosen.entrantId, (countsByEntrant.get(chosen.entrantId) || 0) + 1);
+      ownerByPlayerId.set(team.id, chosen.entrantId);
+      assignedPlayerIds.add(team.id);
       return chosen.entrantId;
     }
 
@@ -797,12 +765,12 @@ function buildAutoAssignment(snapshot, competitors, targetCountsOverride = null)
 
       if (unassignedSides.length === 2) {
         const [firstSide, secondSide] = unassignedSides;
-        const firstOwner = assignPlayerToEntrant(firstSide);
+        const firstOwner = assignTeamToEntrant(firstSide);
         if (!firstOwner) {
           failed = true;
           break;
         }
-        const secondOwner = assignPlayerToEntrant(secondSide, firstOwner);
+        const secondOwner = assignTeamToEntrant(secondSide, firstOwner);
         if (!secondOwner) {
           failed = true;
           break;
@@ -813,7 +781,7 @@ function buildAutoAssignment(snapshot, competitors, targetCountsOverride = null)
       const soloSide = unassignedSides[0];
       const opponent = sides.find((player) => player.id !== soloSide.id);
       const blockedEntrantId = opponent ? ownerByPlayerId.get(opponent.id) || null : null;
-      if (!assignPlayerToEntrant(soloSide, blockedEntrantId)) {
+      if (!assignTeamToEntrant(soloSide, blockedEntrantId)) {
         failed = true;
         break;
       }
@@ -823,9 +791,9 @@ function buildAutoAssignment(snapshot, competitors, targetCountsOverride = null)
       continue;
     }
 
-    const leftoverPlayers = shuffleArray(actualPlayers.filter((player) => !assignedPlayerIds.has(player.id)));
-    for (const player of leftoverPlayers) {
-      if (!assignPlayerToEntrant(player)) {
+    const leftoverTeams = shuffleArray(actualTeams.filter((team) => !assignedPlayerIds.has(team.id)));
+    for (const team of leftoverTeams) {
+      if (!assignTeamToEntrant(team)) {
         failed = true;
         break;
       }
@@ -844,24 +812,22 @@ function buildAutoAssignment(snapshot, competitors, targetCountsOverride = null)
       return Boolean(leftOwner && rightOwner && leftOwner === rightOwner);
     });
 
-    if (hasConflict || assignedPlayerIds.size !== actualPlayers.length) {
+    if (hasConflict || assignedPlayerIds.size !== actualTeams.length) {
       continue;
     }
 
     const sortedCompetitors = nextCompetitors.map((competitor) => ({
       ...competitor,
-      seedIds: [...competitor.seedIds].sort((left, right) => (entrantOrder.get(left) ?? 999) - (entrantOrder.get(right) ?? 999)),
-      qualifierIds: [...competitor.qualifierIds].sort((left, right) => (entrantOrder.get(left) ?? 999) - (entrantOrder.get(right) ?? 999)),
+      teamIds: [...competitor.teamIds].sort((left, right) => (teamOrder.get(left) ?? 999) - (teamOrder.get(right) ?? 999)),
     }));
 
     return {
       competitors: sortedCompetitors,
-      assignedSeedCount: allSeeds.length,
-      assignedQualifierCount: allQualifiers.length,
+      assignedTeamCount: actualTeams.length,
     };
   }
 
-  throw new Error("Automatic assignment could not find a valid draw. Try adding more entrants or refreshing the player list.");
+  throw new Error("Automatic assignment could not find a valid draw. Try adding more entrants or refreshing the team list.");
 }
 
 function SiteHeader({ mode = "home", poolConfigured = false }) {
@@ -1033,6 +999,29 @@ function getEntrantShortName(name) {
   return trimmedName.slice(0, 3).toUpperCase();
 }
 
+function normaliseCollapsedSectionMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([year, keys]) => [year, normaliseSessionList(keys)]),
+  );
+}
+
+function toggleCollapsedKey(map, year, key) {
+  const yearKey = String(year);
+  const currentKeys = normaliseSessionList(map?.[yearKey]);
+  const nextKeys = currentKeys.includes(key)
+    ? currentKeys.filter((entry) => entry !== key)
+    : [...currentKeys, key];
+
+  return {
+    ...map,
+    [yearKey]: nextKeys,
+  };
+}
+
 function isOpenTournamentMatch(match) {
   return isActiveTournamentMatch(match) && (match.unfinished || !match.winnerId);
 }
@@ -1156,7 +1145,16 @@ function GroupFixtureList({ fixtures = [], ownershipByPlayerId = new Map() }) {
   );
 }
 
-function GroupStageSection({ group, showPhotos = true, ownershipByPlayerId = new Map(), compact = false }) {
+function GroupStageSection({
+  group,
+  showPhotos = true,
+  ownershipByPlayerId = new Map(),
+  compact = false,
+  tableExpanded = true,
+  matchesExpanded = true,
+  onToggleTable,
+  onToggleMatches,
+}) {
   return (
     <article key={group.key} className="group-standings-card group-stage-card">
       <div className="group-standings-header group-stage-header">
@@ -1164,73 +1162,99 @@ function GroupStageSection({ group, showPhotos = true, ownershipByPlayerId = new
           <p className="eyebrow">Group</p>
           <h3>{group.name}</h3>
         </div>
-        <span className="group-stage-fixture-count">{group.fixtures.length} matches</span>
-      </div>
-
-      <div className="group-table-shell">
-        <table className={compact ? "group-table compact" : "group-table"}>
-          <thead>
-            <tr>
-              <th scope="col">{compact ? "Team" : "Team"}</th>
-              <th scope="col">P</th>
-              <th scope="col">W</th>
-              <th scope="col">D</th>
-              <th scope="col">L</th>
-              {compact ? <th scope="col">GF</th> : null}
-              {compact ? <th scope="col">GA</th> : null}
-              {compact ? <th scope="col">+/-</th> : null}
-              <th scope="col">Pts</th>
-              {!compact ? <th scope="col">GF</th> : null}
-              {!compact ? <th scope="col">GA</th> : null}
-              {!compact ? <th scope="col">GD</th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {group.standings.map((row) => (
-              <tr key={row.team.id}>
-                <td>
-                  <div className="group-table-team">
-                    {showPhotos && row.team.photo ? (
-                      <img className="group-table-team-photo" src={row.team.photo} alt="" loading="lazy" />
-                    ) : (
-                      <NationalityFlag nationality={row.team.nationality} className="group-table-team-flag" />
-                    )}
-                    <div className="group-table-team-copy">
-                      <strong title={row.team.name}>{compact ? getTeamShortName(row.team.name) : row.team.name}</strong>
-                      {ownershipByPlayerId.get(row.team.id)?.entrantName ? (
-                        <small className="group-team-owner">
-                          {compact
-                            ? getEntrantShortName(ownershipByPlayerId.get(row.team.id).entrantName)
-                            : ownershipByPlayerId.get(row.team.id).entrantName}
-                        </small>
-                      ) : null}
-                    </div>
-                  </div>
-                </td>
-                <td>{row.played}</td>
-                <td>{row.won}</td>
-                <td>{row.drawn}</td>
-                <td>{row.lost}</td>
-                {compact ? <td>{row.goalsFor}</td> : null}
-                {compact ? <td>{row.goalsAgainst}</td> : null}
-                {compact ? <td>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td> : null}
-                <td><strong>{row.points}</strong></td>
-                {!compact ? <td>{row.goalsFor}</td> : null}
-                {!compact ? <td>{row.goalsAgainst}</td> : null}
-                {!compact ? <td>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td> : null}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="group-fixture-section">
-        <div className="group-fixture-header">
-          <p className="eyebrow">Matches</p>
-          <span>{group.fixtures.length}</span>
+        <div className="group-stage-header-actions">
+          <span className="group-stage-fixture-count">{group.fixtures.length} matches</span>
+          <ChevronToggle
+            expanded={tableExpanded}
+            onToggle={onToggleTable}
+            label={group.name}
+            className="group-section-toggle"
+          />
         </div>
-        <GroupFixtureList fixtures={group.fixtures} ownershipByPlayerId={ownershipByPlayerId} />
       </div>
+
+      {tableExpanded ? (
+        <div className="group-table-shell">
+          <table className={compact ? "group-table compact" : "group-table"}>
+            <thead>
+              <tr>
+                <th scope="col">{compact ? "Team" : "Team"}</th>
+                <th scope="col">P</th>
+                <th scope="col">W</th>
+                <th scope="col">D</th>
+                <th scope="col">L</th>
+                {compact ? <th scope="col">GF</th> : null}
+                {compact ? <th scope="col">GA</th> : null}
+                {compact ? <th scope="col">+/-</th> : null}
+                <th scope="col">Pts</th>
+                {!compact ? <th scope="col">GF</th> : null}
+                {!compact ? <th scope="col">GA</th> : null}
+                {!compact ? <th scope="col">GD</th> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {group.standings.map((row) => (
+                <tr key={row.team.id}>
+                  <td>
+                    <div className="group-table-team">
+                      {showPhotos && row.team.photo ? (
+                        <img className="group-table-team-photo" src={row.team.photo} alt="" loading="lazy" />
+                      ) : (
+                        <NationalityFlag nationality={row.team.nationality} className="group-table-team-flag" />
+                      )}
+                      <div className="group-table-team-copy">
+                        <strong title={row.team.name}>{compact ? getTeamShortName(row.team.name) : row.team.name}</strong>
+                        {ownershipByPlayerId.get(row.team.id)?.entrantName ? (
+                          <small className="group-team-owner">
+                            {compact
+                              ? getEntrantShortName(ownershipByPlayerId.get(row.team.id).entrantName)
+                              : ownershipByPlayerId.get(row.team.id).entrantName}
+                          </small>
+                        ) : null}
+                      </div>
+                    </div>
+                  </td>
+                  <td>{row.played}</td>
+                  <td>{row.won}</td>
+                  <td>{row.drawn}</td>
+                  <td>{row.lost}</td>
+                  {compact ? <td>{row.goalsFor}</td> : null}
+                  {compact ? <td>{row.goalsAgainst}</td> : null}
+                  {compact ? <td>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td> : null}
+                  <td><strong>{row.points}</strong></td>
+                  {!compact ? <td>{row.goalsFor}</td> : null}
+                  {!compact ? <td>{row.goalsAgainst}</td> : null}
+                  {!compact ? <td>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td> : null}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="group-section-collapsed-note">Table hidden</p>
+      )}
+
+      {tableExpanded ? (
+        <div className="group-fixture-section">
+          <div className="group-fixture-header">
+            <div className="group-fixture-title">
+              <p className="eyebrow">Matches</p>
+              <span>{group.fixtures.length}</span>
+            </div>
+            <ChevronToggle
+              expanded={matchesExpanded}
+              onToggle={onToggleMatches}
+              label={`${group.name} matches`}
+              className="group-section-toggle"
+            />
+          </div>
+          {matchesExpanded ? (
+            <GroupFixtureList fixtures={group.fixtures} ownershipByPlayerId={ownershipByPlayerId} />
+          ) : (
+            <p className="group-section-collapsed-note">Matches hidden</p>
+          )}
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -1464,22 +1488,21 @@ function PlayerBioDialog({ player, onClose }) {
   );
 }
 
-function AdminPlayerCard({ player, bucket, onDragStart, onDragEnd, onRemove }) {
+function AdminTeamCard({ team, onDragStart, onDragEnd, onRemove }) {
   return (
     <li
-      className="admin-player-card"
+      className="admin-team-card"
       draggable
-      onDragStart={(event) => onDragStart(event, player, bucket)}
+      onDragStart={(event) => onDragStart(event, team)}
       onDragEnd={onDragEnd}
     >
       <div>
-        <strong>{player.name}</strong>
-        <small>{player.nationality || "Unknown"}</small>
+        <strong>{team.name}</strong>
+        <small>{team.nationality || "Unknown"}</small>
       </div>
-      <div className="admin-player-card-meta">
-        <span className="admin-player-chip">{player.isSeed ? SEED_LABEL : QUALIFIER_LABEL}</span>
+      <div className="admin-team-card-meta">
         {onRemove ? (
-          <button type="button" className="admin-player-remove" onClick={() => onRemove(player.id, bucket)}>
+          <button type="button" className="admin-team-remove" onClick={() => onRemove(team.id)}>
             Remove
           </button>
         ) : null}
@@ -1488,50 +1511,49 @@ function AdminPlayerCard({ player, bucket, onDragStart, onDragEnd, onRemove }) {
   );
 }
 
-function AdminPlayerLane({
+function AdminTeamLane({
   title,
-  bucket,
-  players,
+  teams,
   emptyCopy,
   onDrop,
   onDragStart,
   onDragEnd,
   onRemove,
-  assignablePlayers,
+  assignableTeams,
   onAssign,
   assignLabel,
 }) {
-  const [selectedPlayerId, setSelectedPlayerId] = useState("");
+  const [selectedTeamId, setSelectedTeamId] = useState("");
 
   useEffect(() => {
-    if (!assignablePlayers?.some((player) => String(player.id) === selectedPlayerId)) {
-      setSelectedPlayerId("");
+    if (!assignableTeams?.some((team) => String(team.id) === selectedTeamId)) {
+      setSelectedTeamId("");
     }
-  }, [assignablePlayers, selectedPlayerId]);
+  }, [assignableTeams, selectedTeamId]);
 
   return (
     <section
-      className={players.length ? "admin-player-lane" : "admin-player-lane empty"}
+      className={teams.length ? "admin-team-lane" : "admin-team-lane empty"}
       onDragOver={(event) => event.preventDefault()}
-      onDrop={(event) => onDrop(event, bucket)}
+      onDrop={onDrop}
     >
-      <div className="admin-player-lane-header">
+      <div className="admin-team-lane-header">
         <h3>{title}</h3>
-        <span>{players.length}</span>
+        <span>{teams.length}</span>
       </div>
-      {assignablePlayers?.length && onAssign ? (
+      {assignableTeams?.length && onAssign ? (
         <div className="admin-lane-assign">
           <label className="toolbar-select-shell admin-select-shell">
             <select
               className="toolbar-select"
-              value={selectedPlayerId}
-              onChange={(event) => setSelectedPlayerId(event.target.value)}
-              aria-label={assignLabel || `Add player to ${title}`}
+              value={selectedTeamId}
+              onChange={(event) => setSelectedTeamId(event.target.value)}
+              aria-label={assignLabel || `Add team to ${title}`}
             >
-              <option value="">{assignLabel || "Add player"}</option>
-              {assignablePlayers.map((player) => (
-                <option key={player.id} value={player.id}>
-                  {player.name}
+              <option value="">{assignLabel || "Add team"}</option>
+              {assignableTeams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
                 </option>
               ))}
             </select>
@@ -1540,25 +1562,24 @@ function AdminPlayerLane({
             type="button"
             className="admin-secondary-button admin-inline-add-button"
             onClick={() => {
-              if (!selectedPlayerId) {
+              if (!selectedTeamId) {
                 return;
               }
-              onAssign(Number(selectedPlayerId), bucket);
-              setSelectedPlayerId("");
+              onAssign(Number(selectedTeamId));
+              setSelectedTeamId("");
             }}
-            disabled={!selectedPlayerId}
+            disabled={!selectedTeamId}
           >
             Add
           </button>
         </div>
       ) : null}
-      {players.length ? (
-        <ul className="admin-player-list">
-          {players.map((player) => (
-            <AdminPlayerCard
-              key={player.id}
-              player={player}
-              bucket={bucket}
+      {teams.length ? (
+        <ul className="admin-team-list">
+          {teams.map((team) => (
+            <AdminTeamCard
+              key={team.id}
+              team={team}
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
               onRemove={onRemove}
@@ -1971,9 +1992,16 @@ function TournamentStructurePage() {
   const [selectedYear, setSelectedYear] = usePublicSelectedYear();
   const [structureMode, setStructureMode] = useSessionState(STRUCTURE_MODE_SESSION_KEY, "groups");
   const [structureModeYear, setStructureModeYear] = useSessionState(STRUCTURE_MODE_YEAR_SESSION_KEY, null);
+  const [collapsedGroupsRaw, setCollapsedGroups] = useSessionState(STRUCTURE_GROUPS_COLLAPSED_SESSION_KEY, {});
+  const [collapsedGroupMatchesRaw, setCollapsedGroupMatches] = useSessionState(STRUCTURE_GROUP_MATCHES_COLLAPSED_SESSION_KEY, {});
   const { data, loading, error, refresh, refreshing, lastUpdatedAt } = usePublicTournamentData(selectedYear);
   const isCompactViewport = useIsCompactViewport();
   const isVeryCompactViewport = useIsCompactViewport(480);
+  const collapsedGroups = useMemo(() => normaliseCollapsedSectionMap(collapsedGroupsRaw), [collapsedGroupsRaw]);
+  const collapsedGroupMatches = useMemo(
+    () => normaliseCollapsedSectionMap(collapsedGroupMatchesRaw),
+    [collapsedGroupMatchesRaw],
+  );
 
   const bracketDerived = useMemo(() => {
     if (!data?.snapshot?.rounds?.length) {
@@ -2163,6 +2191,28 @@ function TournamentStructurePage() {
                 showPhotos
                 ownershipByPlayerId={ownershipByPlayerId}
                 compact={isCompactViewport}
+                tableExpanded={!normaliseSessionList(collapsedGroups[String(selectedYear)]).includes(group.key)}
+                matchesExpanded={!normaliseSessionList(collapsedGroupMatches[String(selectedYear)]).includes(group.key)}
+                onToggleTable={() => {
+                  const isCollapsed = normaliseSessionList(collapsedGroups[String(selectedYear)]).includes(group.key);
+                  setCollapsedGroups((current) => toggleCollapsedKey(normaliseCollapsedSectionMap(current), selectedYear, group.key));
+                  if (!isCollapsed) {
+                    setCollapsedGroupMatches((current) => {
+                      const currentMap = normaliseCollapsedSectionMap(current);
+                      const yearKey = String(selectedYear);
+                      const currentKeys = normaliseSessionList(currentMap[yearKey]);
+                      return currentKeys.includes(group.key)
+                        ? currentMap
+                        : {
+                          ...currentMap,
+                          [yearKey]: [...currentKeys, group.key],
+                        };
+                    });
+                  }
+                }}
+                onToggleMatches={() => {
+                  setCollapsedGroupMatches((current) => toggleCollapsedKey(normaliseCollapsedSectionMap(current), selectedYear, group.key));
+                }}
               />
             ))}
           </section>
@@ -2542,7 +2592,7 @@ function EntrantsPage() {
       {error ? <p className="status-banner error">{error}</p> : null}
       {!poolConfigured ? (
         <p className="status-banner">
-          The pool is not fully configured yet. Entrant cards will appear here once the knockout teams have been assigned.
+          The pool is not fully configured yet. Entrant cards will appear here once the tournament teams have been assigned.
         </p>
       ) : null}
 
@@ -3465,22 +3515,16 @@ function AdminPage() {
   const [autoAssigning, setAutoAssigning] = useState(false);
   const [entrantsLoading, setEntrantsLoading] = useState(false);
   const [savingEntrants, setSavingEntrants] = useState(false);
-  const [playerOverridesLoading, setPlayerOverridesLoading] = useState(false);
-  const [savingPlayerOverrides, setSavingPlayerOverrides] = useState(false);
   const [siteSettingsLoading, setSiteSettingsLoading] = useState(false);
   const [savingSiteSettings, setSavingSiteSettings] = useState(false);
-  const [status, setStatus] = useState("Build the current year's World Cup pool by dragging knockout teams into each entrant, then save it.");
+  const [status, setStatus] = useState("Build the current year's World Cup pool by assigning tournament teams to each entrant, then save it.");
   const [error, setError] = useState("");
-  const [playerOverrideStatus, setPlayerOverrideStatus] = useState("");
   const [siteSettingsStatus, setSiteSettingsStatus] = useState("");
   const [builder, setBuilder] = useState(null);
   const [entrantRegistry, setEntrantRegistry] = useState([]);
-  const [playerOverrides, setPlayerOverrides] = useState([]);
   const [siteSettings, setSiteSettings] = useState({ clacksNames: [], clacksHeaderPreview: "" });
   const [selectedRegistryEntrantId, setSelectedRegistryEntrantId] = useState("");
   const [newEntrantName, setNewEntrantName] = useState("");
-  const [playerSearch, setPlayerSearch] = useState("");
-  const [selectedPlayerOverrideId, setSelectedPlayerOverrideId] = useState("");
   const [clacksDraft, setClacksDraft] = useState("");
   const [showAutoAssignConfirm, setShowAutoAssignConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -3493,7 +3537,7 @@ function AdminPage() {
       setBuilderLoading(true);
       setError("");
       const data = await fetchAdminPoolBuilder(selectedAdminYear);
-      setBuilder(data);
+      setBuilder(normaliseAdminBuilderData(data));
       const nextRegistry = data.entrantRegistry || [];
       setEntrantRegistry(nextRegistry);
       lastSavedEntrantsRef.current = JSON.stringify(nextRegistry);
@@ -3521,19 +3565,6 @@ function AdminPage() {
     }
   }
 
-  async function loadPlayerOverrides() {
-    try {
-      setPlayerOverridesLoading(true);
-      setError("");
-      const data = await fetchPlayerOverrides();
-      setPlayerOverrides(data.overrides || []);
-    } catch (loadError) {
-      setError(loadError.message || "Failed to load player overrides.");
-    } finally {
-      setPlayerOverridesLoading(false);
-    }
-  }
-
   async function loadSiteSettings() {
     try {
       setSiteSettingsLoading(true);
@@ -3555,7 +3586,6 @@ function AdminPage() {
   useEffect(() => {
     if (authenticated) {
       loadEntrants();
-      loadPlayerOverrides();
       loadSiteSettings();
     }
   }, [authenticated]);
@@ -3654,16 +3684,37 @@ function AdminPage() {
       return null;
     }
 
-    const entrantsById = new Map(builder.snapshot.entrants.map((entry) => [entry.id, entry]));
+    const teamMetadataById = new Map();
+    for (const row of builder.snapshot.entrants || []) {
+      teamMetadataById.set(row.id, row);
+    }
+    for (const group of builder.snapshot.groups || []) {
+      for (const row of group.standings || []) {
+        teamMetadataById.set(row.team.id, {
+          ...teamMetadataById.get(row.team.id),
+          ...row.team,
+          isSeed: row.position === 1,
+        });
+      }
+    }
+    const allTournamentTeams = (builder.snapshot.allTeams?.length ? builder.snapshot.allTeams : builder.snapshot.entrants || [])
+      .map((team) => ({
+        ...teamMetadataById.get(team.id),
+        ...team,
+        isSeed: teamMetadataById.get(team.id)?.isSeed ?? team.isSeed ?? false,
+      }))
+      .filter((team) => !team.isPlaceholder)
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const entrantsById = new Map(allTournamentTeams.map((entry) => [entry.id, entry]));
     const registryById = new Map(entrantRegistry.map((entrant) => [entrant.id, entrant]));
     const competitors = (builder.poolData?.competitors || []).map((competitor) => {
       const registryEntrant = registryById.get(competitor.entrantId);
+      const teams = (competitor.teamIds || []).map((id) => entrantsById.get(id)).filter(Boolean);
       return {
         ...competitor,
         entrantId: competitor.entrantId || createEntrantId(),
         name: registryEntrant?.name || competitor.name,
-        seeds: (competitor.seedIds || []).map((id) => entrantsById.get(id)).filter(Boolean),
-        qualifiers: (competitor.qualifierIds || []).map((id) => entrantsById.get(id)).filter(Boolean),
+        teamAssignments: teams.sort((left, right) => left.name.localeCompare(right.name)),
       };
     });
     const assignedIds = new Set();
@@ -3673,10 +3724,7 @@ function AdminPage() {
       if (competitor.entrantId) {
         assignedEntrantIds.add(competitor.entrantId);
       }
-      for (const id of competitor.seedIds || []) {
-        assignedIds.add(id);
-      }
-      for (const id of competitor.qualifierIds || []) {
+      for (const id of competitor.teamIds || []) {
         assignedIds.add(id);
       }
     }
@@ -3685,59 +3733,17 @@ function AdminPage() {
       entrantsById,
       competitors,
       availableRegistryEntrants: entrantRegistry.filter((entrant) => !assignedEntrantIds.has(entrant.id)),
-      availableSeeds: builder.snapshot.seeds.filter((player) => !assignedIds.has(player.id)),
-      availableQualifiers: builder.snapshot.qualifiers.filter((player) => !assignedIds.has(player.id)),
+      availableTeams: allTournamentTeams
+        .filter((player) => !assignedIds.has(player.id))
+        .slice()
+        .sort((left, right) => left.name.localeCompare(right.name)),
     };
   }, [builder, entrantRegistry]);
 
-  const availablePlayersForOverrides = useMemo(() => (
-    (builder?.snapshot?.entrants || [])
-      .filter((entry) => !entry.isPlaceholder)
-      .slice()
-      .sort((left, right) => left.name.localeCompare(right.name))
-  ), [builder]);
-
-  const filteredPlayersForOverrides = useMemo(() => {
-    const searchTerm = playerSearch.trim().toLowerCase();
-    if (!searchTerm) {
-      return availablePlayersForOverrides;
-    }
-
-    return availablePlayersForOverrides.filter((player) => (
-      player.name.toLowerCase().includes(searchTerm)
-      || String(player.nationality || "").toLowerCase().includes(searchTerm)
-    ));
-  }, [availablePlayersForOverrides, playerSearch]);
-
-  const playerOverridesById = useMemo(() => new Map(
-    playerOverrides.map((override) => [Number(override.playerId), override]),
-  ), [playerOverrides]);
-
-  const selectedOverridePlayer = useMemo(() => {
-    const selectedId = Number(selectedPlayerOverrideId);
-    return filteredPlayersForOverrides.find((player) => player.id === selectedId) || null;
-  }, [filteredPlayersForOverrides, selectedPlayerOverrideId]);
-
-  const selectedPlayerOverride = selectedOverridePlayer
-    ? playerOverridesById.get(selectedOverridePlayer.id) || null
-    : null;
   const clacksDraftPreview = useMemo(
     () => buildClacksHeaderPreview(clacksDraft.split("\n")),
     [clacksDraft],
   );
-
-  useEffect(() => {
-    if (!filteredPlayersForOverrides.length) {
-      setSelectedPlayerOverrideId("");
-      return;
-    }
-
-    const selectedId = Number(selectedPlayerOverrideId);
-    const stillVisible = filteredPlayersForOverrides.some((player) => player.id === selectedId);
-    if (!stillVisible) {
-      setSelectedPlayerOverrideId(String(filteredPlayersForOverrides[0].id));
-    }
-  }, [filteredPlayersForOverrides, selectedPlayerOverrideId]);
 
   const autoAssignDerived = useMemo(() => {
     if (!builder?.snapshot || !builderDerived?.competitors?.length) {
@@ -3745,22 +3751,17 @@ function AdminPage() {
     }
 
     const entrantIds = builderDerived.competitors.map((competitor, index) => competitor.entrantId || `competitor-${index}`);
-    const totalSeeds = builder.snapshot.seeds.length;
-    const totalQualifiers = builder.snapshot.qualifiers.length;
-    const requiresCustomTargets = (
-      totalSeeds % entrantIds.length !== 0
-      || totalQualifiers % entrantIds.length !== 0
-    );
-    const suggestedSeedTargets = buildSuggestedTargetCounts(totalSeeds, entrantIds);
-    const suggestedQualifierTargets = buildSuggestedTargetCounts(totalQualifiers, entrantIds);
+    const allTournamentTeams = (builder.snapshot.allTeams?.length ? builder.snapshot.allTeams : builder.snapshot.entrants)
+      .filter((entry) => !entry.isPlaceholder);
+    const totalTeams = allTournamentTeams.length;
+    const requiresCustomTargets = totalTeams % entrantIds.length !== 0;
+    const suggestedTeamTargets = buildSuggestedTargetCounts(totalTeams, entrantIds);
 
     return {
       entrantIds,
-      totalSeeds,
-      totalQualifiers,
+      totalTeams,
       requiresCustomTargets,
-      suggestedSeedTargets,
-      suggestedQualifierTargets,
+      suggestedTeamTargets,
     };
   }, [builder, builderDerived]);
 
@@ -3769,21 +3770,17 @@ function AdminPage() {
       return null;
     }
 
-    let assignedSeeds = 0;
-    let assignedQualifiers = 0;
+    let assignedTeams = 0;
 
     for (const [index, competitor] of builderDerived.competitors.entries()) {
       const entrantId = competitor.entrantId || `competitor-${index}`;
       const target = autoAssignTargets[entrantId] || {};
-      assignedSeeds += normaliseTargetCountInput(target.seedIds) || 0;
-      assignedQualifiers += normaliseTargetCountInput(target.qualifierIds) || 0;
+      assignedTeams += normaliseTargetCountInput(target.teamIds) || 0;
     }
 
     return {
-      assignedSeeds,
-      assignedQualifiers,
-      totalSeeds: autoAssignDerived.totalSeeds,
-      totalQualifiers: autoAssignDerived.totalQualifiers,
+      assignedTeams,
+      totalTeams: autoAssignDerived.totalTeams,
     };
   }, [autoAssignDerived, autoAssignTargets, builderDerived]);
 
@@ -3812,8 +3809,7 @@ function AdminPage() {
       builderDerived.competitors.map((competitor, index) => {
         const entrantId = competitor.entrantId || `competitor-${index}`;
         return [entrantId, {
-          seedIds: String(autoAssignDerived.suggestedSeedTargets.get(entrantId) || 0),
-          qualifierIds: String(autoAssignDerived.suggestedQualifierTargets.get(entrantId) || 0),
+          teamIds: String(autoAssignDerived.suggestedTeamTargets.get(entrantId) || 0),
         }];
       }),
     ));
@@ -3838,50 +3834,35 @@ function AdminPage() {
       return { valid: false, message: "The tournament builder is still loading." };
     }
 
-    const seedTargets = new Map();
-    const qualifierTargets = new Map();
-    let seedTotal = 0;
-    let qualifierTotal = 0;
+    const teamTargets = new Map();
+    let teamTotal = 0;
 
     for (const [index, competitor] of builderDerived.competitors.entries()) {
       const entrantId = competitor.entrantId || `competitor-${index}`;
       const target = autoAssignTargets[entrantId] || {};
-      const seedCount = normaliseTargetCountInput(target.seedIds);
-      const qualifierCount = normaliseTargetCountInput(target.qualifierIds);
+      const teamCount = normaliseTargetCountInput(target.teamIds);
 
-      if (seedCount === null || qualifierCount === null) {
+      if (teamCount === null) {
         return {
           valid: false,
           message: `Enter valid whole numbers for ${competitor.name}.`,
         };
       }
 
-      seedTargets.set(entrantId, seedCount);
-      qualifierTargets.set(entrantId, qualifierCount);
-      seedTotal += seedCount;
-      qualifierTotal += qualifierCount;
+      teamTargets.set(entrantId, teamCount);
+      teamTotal += teamCount;
     }
 
-    if (seedTotal !== autoAssignDerived.totalSeeds) {
+    if (teamTotal !== autoAssignDerived.totalTeams) {
       return {
         valid: false,
-        message: `${SEED_LABEL} targets must add up to ${autoAssignDerived.totalSeeds}.`,
-      };
-    }
-
-    if (qualifierTotal !== autoAssignDerived.totalQualifiers) {
-      return {
-        valid: false,
-        message: `${QUALIFIER_LABEL} targets must add up to ${autoAssignDerived.totalQualifiers}.`,
+        message: `Team targets must add up to ${autoAssignDerived.totalTeams}.`,
       };
     }
 
     return {
       valid: true,
-      targetCounts: {
-        seedIds: seedTargets,
-        qualifierIds: qualifierTargets,
-      },
+      targetCounts: teamTargets,
     };
   }
 
@@ -3913,10 +3894,10 @@ function AdminPage() {
     }
 
     setError("");
-    setStatus(`Added ${selectedEntrant.name}. Drag teams into their ${SEED_LABEL.toLowerCase()} and ${QUALIFIER_LABEL.toLowerCase()} lists.`);
+    setStatus(`Added ${selectedEntrant.name}. Drag teams into their assignment list.`);
     setCompetitors((competitors) => [
       ...competitors,
-      { entrantId: selectedEntrant.id, name: selectedEntrant.name, seedIds: [], qualifierIds: [] },
+      { entrantId: selectedEntrant.id, name: selectedEntrant.name, teamIds: [] },
     ]);
     setSelectedRegistryEntrantId("");
   }
@@ -3972,75 +3953,6 @@ function AdminPage() {
     )));
   }
 
-  function handlePlayerOverrideFieldChange(playerId, field, value) {
-    setPlayerOverrideStatus("");
-    setPlayerOverrides((current) => {
-      const next = new Map(current.map((override) => [Number(override.playerId), {
-        ...override,
-        playerId: Number(override.playerId),
-      }]));
-      const existing = next.get(playerId) || { playerId };
-      const candidate = normalisePlayerOverrideDraft({
-        ...existing,
-        [field]: value,
-      });
-
-      if (candidate) {
-        next.set(playerId, candidate);
-      } else {
-        next.delete(playerId);
-      }
-
-      return Array.from(next.values()).sort((left, right) => left.playerId - right.playerId);
-    });
-  }
-
-  async function handleClearSelectedPlayerOverride() {
-    if (!selectedOverridePlayer) {
-      return;
-    }
-
-    try {
-      setSavingPlayerOverrides(true);
-      setError("");
-      const response = await deletePlayerOverride(selectedOverridePlayer.id);
-      setPlayerOverrides(response.overrides || []);
-      setPlayerOverrideStatus(`Cleared overrides for ${selectedOverridePlayer.name}.`);
-    } catch (saveError) {
-      setError(saveError.message || "The team override could not be cleared.");
-    } finally {
-      setSavingPlayerOverrides(false);
-    }
-  }
-
-  async function handleSavePlayerOverride() {
-    if (!selectedOverridePlayer) {
-      return;
-    }
-
-    try {
-      setSavingPlayerOverrides(true);
-      setError("");
-      const candidate = normalisePlayerOverrideDraft({
-        playerId: selectedOverridePlayer.id,
-        ...(selectedPlayerOverride || {}),
-      });
-      const response = candidate
-        ? await savePlayerOverride(selectedOverridePlayer.id, candidate)
-        : await deletePlayerOverride(selectedOverridePlayer.id);
-      setPlayerOverrides(response.overrides || []);
-      setPlayerOverrideStatus(
-        candidate
-          ? `Saved overrides for ${selectedOverridePlayer.name}.`
-          : `Cleared overrides for ${selectedOverridePlayer.name}.`,
-      );
-    } catch (saveError) {
-      setError(saveError.message || "The team override could not be saved.");
-    } finally {
-      setSavingPlayerOverrides(false);
-    }
-  }
-
   async function handleSaveSiteSettings() {
     try {
       setSavingSiteSettings(true);
@@ -4067,27 +3979,22 @@ function AdminPage() {
     }
   }
 
-  function movePlayer(playerId, sourceBucket, target) {
+  function moveTeam(teamId, target) {
     setBuilder((current) => {
       if (!current?.snapshot) {
         return current;
       }
 
-      const player = current.snapshot.entrants.find((entry) => entry.id === playerId);
-      if (!player) {
+      const allTournamentTeams = current.snapshot.allTeams?.length ? current.snapshot.allTeams : current.snapshot.entrants;
+      const team = allTournamentTeams.find((entry) => entry.id === teamId);
+      if (!team) {
         return current;
       }
 
-      const targetBucket = target.type === "competitor" ? target.bucket : null;
-      if (targetBucket && targetBucket !== sourceBucket) {
-        return current;
-      }
-
-      const entrantOrder = new Map(current.snapshot.entrants.map((entry, index) => [entry.id, index]));
+      const entrantOrder = new Map(allTournamentTeams.map((entry, index) => [entry.id, index]));
       const nextCompetitors = (current.poolData?.competitors || []).map((competitor) => ({
         ...competitor,
-        seedIds: (competitor.seedIds || []).filter((id) => id !== playerId),
-        qualifierIds: (competitor.qualifierIds || []).filter((id) => id !== playerId),
+        teamIds: (competitor.teamIds || []).filter((id) => id !== teamId),
       }));
 
       if (target.type === "competitor") {
@@ -4097,11 +4004,11 @@ function AdminPage() {
         if (targetIndex === -1) {
           return current;
         }
-        const nextBucket = [...(nextCompetitors[targetIndex][target.bucket] || []), playerId];
-        nextBucket.sort((left, right) => (entrantOrder.get(left) ?? 999) - (entrantOrder.get(right) ?? 999));
+        const nextTeamIds = [...(nextCompetitors[targetIndex].teamIds || []), teamId];
+        nextTeamIds.sort((left, right) => (entrantOrder.get(left) ?? 999) - (entrantOrder.get(right) ?? 999));
         nextCompetitors[targetIndex] = {
           ...nextCompetitors[targetIndex],
-          [target.bucket]: nextBucket,
+          teamIds: nextTeamIds,
         };
       }
 
@@ -4115,9 +4022,11 @@ function AdminPage() {
     });
   }
 
-  function handleDragStart(event, player, bucket) {
+  function handleDragStart(event, team) {
     event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", JSON.stringify({ playerId: player.id, bucket }));
+    event.dataTransfer.setData("text/plain", JSON.stringify({
+      teamId: team.id,
+    }));
   }
 
   function handleDragEnd() {
@@ -4132,18 +4041,18 @@ function AdminPage() {
         return;
       }
       const data = JSON.parse(raw);
-      movePlayer(Number(data.playerId), data.bucket, target);
+      moveTeam(Number(data.teamId), target);
     } catch {
       setError("That drag action could not be processed.");
     }
   }
 
-  function handleRemoveAssignedPlayer(playerId, bucket) {
-    movePlayer(playerId, bucket, { type: "pool" });
+  function handleRemoveAssignedTeam(teamId) {
+    moveTeam(teamId, { type: "pool" });
   }
 
-  function handleAssignAvailablePlayer(entrantId, bucket, playerId) {
-    movePlayer(playerId, bucket, { type: "competitor", entrantId, bucket });
+  function handleAssignAvailableTeam(entrantId, teamId) {
+    moveTeam(teamId, { type: "competitor", entrantId });
   }
 
   function handleResetYearPicks() {
@@ -4155,15 +4064,14 @@ function AdminPage() {
     setError("");
     setBuilder((current) => ({
       ...current,
-      poolData: {
-        ...current.poolData,
-        competitors: (current.poolData?.competitors || []).map((competitor) => ({
-          ...competitor,
-          seedIds: [],
-          qualifierIds: [],
-        })),
-      },
-    }));
+        poolData: {
+          ...current.poolData,
+          competitors: (current.poolData?.competitors || []).map((competitor) => ({
+            ...competitor,
+            teamIds: [],
+          })),
+        },
+      }));
     setShowAutoAssignConfirm(false);
     setShowResetConfirm(false);
     setAutoAssignTargets({});
@@ -4208,7 +4116,7 @@ function AdminPage() {
       }));
       setShowAutoAssignConfirm(false);
       setStatus(
-        `Assigned ${result.assignedSeedCount} ${SEED_LABEL.toLowerCase()} and ${result.assignedQualifierCount} ${QUALIFIER_LABEL.toLowerCase()} automatically. Round-of-16 opponents were kept apart.`,
+        `Assigned ${result.assignedTeamCount} tournament teams automatically. Round-of-16 opponents were kept apart where possible.`,
       );
     } catch (assignError) {
       setError(assignError.message || "Automatic assignment failed.");
@@ -4231,13 +4139,13 @@ function AdminPage() {
         competitors: (builder.poolData.competitors || []).map((competitor) => ({
           entrantId: competitor.entrantId,
           name: competitor.name.trim(),
-          seedIds: competitor.seedIds || [],
-          qualifierIds: competitor.qualifierIds || [],
+          seedIds: (competitor.teamIds || []).filter((teamId) => builderDerived.entrantsById.get(teamId)?.isSeed),
+          qualifierIds: (competitor.teamIds || []).filter((teamId) => !builderDerived.entrantsById.get(teamId)?.isSeed),
         })),
       };
 
       const response = await saveAdminPoolBuilder(selectedAdminYear, payload);
-      setBuilder(response);
+      setBuilder(normaliseAdminBuilderData(response));
       setStatus(`Saved the tournament builder to ${response.sourceFile}.`);
     } catch (saveError) {
       setError(saveError.message || "The tournament builder could not be saved.");
@@ -4249,16 +4157,13 @@ function AdminPage() {
   function handleAdminYearChange(nextYear) {
     setSelectedAdminYear(nextYear);
     setError("");
-    setPlayerOverrideStatus("");
     setSiteSettingsStatus("");
   }
 
   const adminLoadingNotice = siteSettingsLoading
     ? "Loading site settings..."
     : builderLoading
-      ? (adminView === "players"
-        ? `Loading team data for ${selectedAdminYear}...`
-        : `Loading tournament data for ${selectedAdminYear}...`)
+      ? `Loading tournament data for ${selectedAdminYear}...`
       : "";
 
   if (!authenticated) {
@@ -4319,13 +4224,6 @@ function AdminPage() {
           </button>
           <button
             type="button"
-            className={adminView === "players" ? "admin-menu-button active" : "admin-menu-button"}
-            onClick={() => setAdminView("players")}
-          >
-            Teams
-          </button>
-          <button
-            type="button"
             className={adminView === "clacks" ? "admin-menu-button active" : "admin-menu-button"}
             onClick={() => setAdminView("clacks")}
           >
@@ -4333,7 +4231,7 @@ function AdminPage() {
           </button>
         </div>
 
-        <div className={`admin-builder-toolbar${adminView === "entrants" ? " entrants-view" : ""}${adminView === "players" ? " players-view" : ""}${adminView === "clacks" ? " clacks-view" : ""}`}>
+        <div className={`admin-builder-toolbar${adminView === "entrants" ? " entrants-view" : ""}${adminView === "clacks" ? " clacks-view" : ""}`}>
           {adminView === "builder" ? (
             <>
               <div className="admin-stat-card">
@@ -4354,12 +4252,8 @@ function AdminPage() {
                 </label>
               </div>
               <div className="admin-stat-card">
-                <p className="toolbar-label">{SEED_LABEL}</p>
-                <p className="toolbar-value">{builderDerived?.availableSeeds.length ?? 0}</p>
-              </div>
-              <div className="admin-stat-card">
-                <p className="toolbar-label">{QUALIFIER_LABEL}</p>
-                <p className="toolbar-value">{builderDerived?.availableQualifiers.length ?? 0}</p>
+                <p className="toolbar-label">Available teams</p>
+                <p className="toolbar-value">{builderDerived?.availableTeams.length ?? 0}</p>
               </div>
               <div className="admin-stat-card">
                 <p className="toolbar-label">Tournament entrants</p>
@@ -4391,38 +4285,6 @@ function AdminPage() {
                 </p>
               </div>
             </>
-          ) : adminView === "players" ? (
-            <>
-              <div className="admin-stat-card">
-                <p className="toolbar-label">Team year</p>
-                <label className="toolbar-select-shell admin-select-shell">
-                  <select
-                    className="toolbar-select"
-                    value={selectedAdminYear}
-                    onChange={(event) => handleAdminYearChange(Number(event.target.value))}
-                    aria-label="Select team year"
-                  >
-                    {ADMIN_YEAR_OPTIONS.map((year) => (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="admin-stat-card">
-                <p className="toolbar-label">Teams in field</p>
-                <p className="toolbar-value">{availablePlayersForOverrides.length}</p>
-              </div>
-              <div className="admin-stat-card">
-                <p className="toolbar-label">Custom profiles</p>
-                <p className="toolbar-value">{playerOverrides.filter((override) => String(override.info || "").trim()).length}</p>
-              </div>
-              <div className="admin-stat-card">
-                <p className="toolbar-label">Custom photos</p>
-                <p className="toolbar-value">{playerOverrides.filter((override) => String(override.photo || "").trim()).length}</p>
-              </div>
-            </>
           ) : (
             <>
               <div className="admin-stat-card">
@@ -4450,7 +4312,7 @@ function AdminPage() {
           <div className="admin-builder-header">
             <div>
               <p className="eyebrow">Tournament Builder</p>
-              <h2>Create pool entrants and assign the current knockout teams</h2>
+              <h2>Create pool entrants and assign the current tournament teams</h2>
               <p className="admin-copy">Saved entrants are reused as the starting list for future years.</p>
             </div>
             <div className="admin-actions">
@@ -4499,26 +4361,22 @@ function AdminPage() {
                 <p className="eyebrow">Auto-Assign Wizard</p>
                 <h3>Randomly distribute the current draw</h3>
                 <p className="admin-copy">
-                  This clears the current {SEED_LABEL.toLowerCase()} and {QUALIFIER_LABEL.toLowerCase()} assignments for {selectedAdminYear}, then redistributes all qualified teams across the existing entrants.
-                  The wizard keeps round-of-16 opponents away from the same entrant and balances the draw as evenly as possible.
+                  This clears the current team assignments for {selectedAdminYear}, then redistributes the full tournament field across the existing entrants.
+                  The wizard keeps round-of-16 opponents away from the same entrant where possible and balances the draw as evenly as possible.
                 </p>
               </div>
               <div className="admin-auto-assign-stats">
-                <span>{autoAssignDerived?.totalSeeds ?? 0} {SEED_LABEL.toLowerCase()}</span>
-                <span>{autoAssignDerived?.totalQualifiers ?? 0} {QUALIFIER_LABEL.toLowerCase()}</span>
+                <span>{autoAssignDerived?.totalTeams ?? 0} teams</span>
                 <span>{builderDerived?.competitors?.length ?? 0} entrants</span>
               </div>
               {autoAssignDerived?.requiresCustomTargets ? (
                 <div className="admin-auto-assign-targets">
                   <p className="admin-copy">
-                    This year cannot be split evenly, so enter how many {SEED_LABEL.toLowerCase()} and {QUALIFIER_LABEL.toLowerCase()} each entrant should receive before the wizard runs.
+                    This year cannot be split evenly, so enter how many teams each entrant should receive before the wizard runs.
                   </p>
                   <div className="admin-auto-assign-progress">
                     <span>
-                      {SEED_LABEL} assigned: <strong>{autoAssignProgress?.assignedSeeds ?? 0}</strong> / {autoAssignProgress?.totalSeeds ?? 0}
-                    </span>
-                    <span>
-                      {QUALIFIER_LABEL} assigned: <strong>{autoAssignProgress?.assignedQualifiers ?? 0}</strong> / {autoAssignProgress?.totalQualifiers ?? 0}
+                      Teams assigned: <strong>{autoAssignProgress?.assignedTeams ?? 0}</strong> / {autoAssignProgress?.totalTeams ?? 0}
                     </span>
                   </div>
                   <div className="admin-auto-assign-target-grid">
@@ -4528,21 +4386,13 @@ function AdminPage() {
                       return (
                         <article key={entrantId} className="admin-auto-assign-target-card">
                           <h4>{competitor.name}</h4>
-                          <label className="admin-field" htmlFor={`auto-seeds-${entrantId}`}>{SEED_LABEL}</label>
+                          <label className="admin-field" htmlFor={`auto-teams-${entrantId}`}>Teams</label>
                           <input
-                            id={`auto-seeds-${entrantId}`}
+                            id={`auto-teams-${entrantId}`}
                             className="admin-auto-assign-input"
                             inputMode="numeric"
-                            value={target.seedIds ?? ""}
-                            onChange={(event) => handleAutoAssignTargetChange(entrantId, "seedIds", event.target.value)}
-                          />
-                          <label className="admin-field" htmlFor={`auto-qualifiers-${entrantId}`}>{QUALIFIER_LABEL}</label>
-                          <input
-                            id={`auto-qualifiers-${entrantId}`}
-                            className="admin-auto-assign-input"
-                            inputMode="numeric"
-                            value={target.qualifierIds ?? ""}
-                            onChange={(event) => handleAutoAssignTargetChange(entrantId, "qualifierIds", event.target.value)}
+                            value={target.teamIds ?? ""}
+                            onChange={(event) => handleAutoAssignTargetChange(entrantId, "teamIds", event.target.value)}
                           />
                         </article>
                       );
@@ -4580,7 +4430,7 @@ function AdminPage() {
                 <p className="eyebrow">Reset Picks</p>
                 <h3>Clear the {selectedAdminYear} assignments</h3>
                 <p className="admin-copy">
-                  This removes all current {SEED_LABEL.toLowerCase()} and {QUALIFIER_LABEL.toLowerCase()} picks for the selected year, but keeps the entrant list itself in place.
+                  This removes all current team picks for the selected year, but keeps the entrant list itself in place.
                   You can then reassign teams manually or run the auto-assign wizard again.
                 </p>
               </div>
@@ -4629,25 +4479,15 @@ function AdminPage() {
           </form>
 
           {builderLoading && !builder ? (
-            <p className="admin-copy">Loading current knockout teams...</p>
+            <p className="admin-copy">Loading current tournament teams...</p>
           ) : builderDerived ? (
             <div className="admin-builder-grid">
               <aside className="admin-pool-column">
-                <AdminPlayerLane
-                  title={`Available ${SEED_LABEL.toLowerCase()}`}
-                  bucket="seedIds"
-                  players={builderDerived.availableSeeds}
-                  emptyCopy={`All ${SEED_LABEL.toLowerCase()} have been assigned.`}
-                  onDrop={(event, bucket) => handleDrop(event, { type: "pool", bucket })}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                />
-                <AdminPlayerLane
-                  title={`Available ${QUALIFIER_LABEL.toLowerCase()}`}
-                  bucket="qualifierIds"
-                  players={builderDerived.availableQualifiers}
-                  emptyCopy={`All ${QUALIFIER_LABEL.toLowerCase()} have been assigned.`}
-                  onDrop={(event, bucket) => handleDrop(event, { type: "pool", bucket })}
+                <AdminTeamLane
+                  title="Available teams"
+                  teams={builderDerived.availableTeams}
+                  emptyCopy="All tournament teams have been assigned."
+                  onDrop={(event) => handleDrop(event, { type: "pool" })}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                 />
@@ -4661,45 +4501,31 @@ function AdminPage() {
                         <h3 className="admin-competitor-title">{competitor.name}</h3>
                         <button
                           type="button"
-                          className="admin-player-remove"
+                          className="admin-team-remove"
                           onClick={() => handleRemoveCompetitor(competitor.entrantId)}
                         >
                           Remove entrant
                         </button>
                       </div>
                       <div className="admin-competitor-lanes">
-                        <AdminPlayerLane
-                          title={SEED_LABEL}
-                          bucket="seedIds"
-                          players={competitor.seeds}
-                          emptyCopy={`Drop ${SEED_LABEL.toLowerCase()} here.`}
-                          onDrop={(event, bucket) => handleDrop(event, { type: "competitor", entrantId: competitor.entrantId, bucket })}
+                        <AdminTeamLane
+                          title="Assigned teams"
+                          teams={competitor.teamAssignments}
+                          emptyCopy="Drop tournament teams here."
+                          onDrop={(event) => handleDrop(event, { type: "competitor", entrantId: competitor.entrantId })}
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
-                          onRemove={handleRemoveAssignedPlayer}
-                          assignablePlayers={builderDerived.availableSeeds}
-                          onAssign={(playerId, bucket) => handleAssignAvailablePlayer(competitor.entrantId, bucket, playerId)}
-                          assignLabel={`Add available ${SEED_LABEL.slice(0, -1).toLowerCase()}`}
-                        />
-                        <AdminPlayerLane
-                          title={QUALIFIER_LABEL}
-                          bucket="qualifierIds"
-                          players={competitor.qualifiers}
-                          emptyCopy={`Drop ${QUALIFIER_LABEL.toLowerCase()} here.`}
-                          onDrop={(event, bucket) => handleDrop(event, { type: "competitor", entrantId: competitor.entrantId, bucket })}
-                          onDragStart={handleDragStart}
-                          onDragEnd={handleDragEnd}
-                          onRemove={handleRemoveAssignedPlayer}
-                          assignablePlayers={builderDerived.availableQualifiers}
-                          onAssign={(playerId, bucket) => handleAssignAvailablePlayer(competitor.entrantId, bucket, playerId)}
-                          assignLabel="Add available runner-up"
+                          onRemove={handleRemoveAssignedTeam}
+                          assignableTeams={builderDerived.availableTeams}
+                          onAssign={(teamId) => handleAssignAvailableTeam(competitor.entrantId, teamId)}
+                          assignLabel="Add available team"
                         />
                       </div>
                     </article>
                   ))
                 ) : (
                   <article className="admin-competitor-card admin-empty-competitor-card">
-                    <p className="admin-copy">Add a pool entrant to start assigning the current year's knockout teams.</p>
+                    <p className="admin-copy">Add a pool entrant to start assigning the current year&apos;s tournament teams.</p>
                   </article>
                 )}
               </section>
@@ -4805,188 +4631,6 @@ function AdminPage() {
             </div>
           )}
         </section>
-        ) : adminView === "players" ? (
-        <section className="admin-builder-panel">
-          <div className="admin-builder-header">
-            <div>
-              <p className="eyebrow">Team Overrides</p>
-              <h2>Override team profiles, links, and badges</h2>
-              <p className="admin-copy">Leave any field blank to fall back to the bundled World Cup dataset. Saved overrides are used everywhere that team appears.</p>
-            </div>
-            <div className="admin-actions">
-              <button type="button" className="admin-secondary-button" onClick={loadPlayerOverrides} disabled={playerOverridesLoading}>
-                {playerOverridesLoading ? "Refreshing..." : "Refresh overrides"}
-              </button>
-            </div>
-          </div>
-
-          {playerOverrideStatus ? <p className="status-banner">{playerOverrideStatus}</p> : null}
-
-          {builderLoading ? (
-            <p className="admin-copy">Loading teams for {selectedAdminYear}...</p>
-          ) : (
-            <div className="admin-player-overrides-layout">
-              <aside className="admin-player-directory">
-                <label className="admin-field" htmlFor="player-override-search">Find team</label>
-                <input
-                  id="player-override-search"
-                  className="admin-competitor-input"
-                  value={playerSearch}
-                  onChange={(event) => setPlayerSearch(event.target.value)}
-                  placeholder="Search by name or country"
-                />
-                <div className="admin-player-directory-list">
-                  {filteredPlayersForOverrides.length ? (
-                    filteredPlayersForOverrides.map((player) => (
-                      <button
-                        key={player.id}
-                        type="button"
-                        className={selectedOverridePlayer?.id === player.id ? "admin-player-directory-item active" : "admin-player-directory-item"}
-                        onClick={() => setSelectedPlayerOverrideId(String(player.id))}
-                      >
-                        <strong>{player.name}</strong>
-                        <span>{player.nationality || "Unknown nationality"}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <p className="admin-empty-copy">No teams match that search.</p>
-                  )}
-                </div>
-              </aside>
-
-              <section className="admin-player-override-editor">
-                {selectedOverridePlayer ? (
-                  <>
-                    <div className="admin-player-override-header">
-                      {selectedPlayerOverride?.photo || selectedOverridePlayer.photo ? (
-                        <img
-                          className="admin-player-override-photo"
-                          src={selectedPlayerOverride?.photo || selectedOverridePlayer.photo}
-                          alt=""
-                        />
-                      ) : (
-                        <div className="admin-player-override-photo fallback" aria-hidden="true">
-                          {selectedOverridePlayer.name.slice(0, 1)}
-                        </div>
-                      )}
-                      <div>
-                        <h3>{selectedOverridePlayer.name}</h3>
-                        <p className="admin-copy">
-                          {selectedPlayerOverride?.nationality || selectedOverridePlayer.nationality || "Unknown nationality"}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className="admin-submit admin-player-save-button"
-                        onClick={handleSavePlayerOverride}
-                        disabled={savingPlayerOverrides || playerOverridesLoading}
-                      >
-                        {savingPlayerOverrides ? "Saving..." : "Save team"}
-                      </button>
-                    </div>
-
-                    <div className="admin-player-override-grid">
-                      <div>
-                        <label className="admin-field" htmlFor="player-override-nickname">Nickname</label>
-                        <input
-                          id="player-override-nickname"
-                          className="admin-competitor-input"
-                          value={selectedPlayerOverride?.nickname || ""}
-                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "nickname", event.target.value)}
-                          placeholder="Only shown when set here"
-                        />
-                      </div>
-                      <div>
-                        <label className="admin-field" htmlFor="player-override-photo">Image URL</label>
-                        <input
-                          id="player-override-photo"
-                          className="admin-competitor-input"
-                          value={selectedPlayerOverride?.photo || ""}
-                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "photo", event.target.value)}
-                          placeholder={selectedOverridePlayer.photo || "Leave blank to use the bundled badge"}
-                        />
-                      </div>
-                      <div>
-                        <label className="admin-field" htmlFor="player-override-url">Profile URL</label>
-                        <input
-                          id="player-override-url"
-                          className="admin-competitor-input"
-                          value={selectedPlayerOverride?.websiteUrl || ""}
-                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "websiteUrl", event.target.value)}
-                          placeholder={selectedOverridePlayer.websiteUrl || "Leave blank to keep the default link"}
-                        />
-                      </div>
-                      <div>
-                        <label className="admin-field" htmlFor="player-override-twitter">Twitter/X</label>
-                        <input
-                          id="player-override-twitter"
-                          className="admin-competitor-input"
-                          value={selectedPlayerOverride?.twitter || ""}
-                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "twitter", event.target.value)}
-                          placeholder={selectedOverridePlayer.twitter || "Optional"}
-                        />
-                      </div>
-                      <div>
-                        <label className="admin-field" htmlFor="player-override-photo-source">Photo source</label>
-                        <input
-                          id="player-override-photo-source"
-                          className="admin-competitor-input"
-                          value={selectedPlayerOverride?.photoSource || ""}
-                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "photoSource", event.target.value)}
-                          placeholder={selectedOverridePlayer.photoSource || "Optional"}
-                        />
-                      </div>
-                      <div>
-                        <label className="admin-field" htmlFor="player-override-nationality">Nationality</label>
-                        <input
-                          id="player-override-nationality"
-                          className="admin-competitor-input"
-                          value={selectedPlayerOverride?.nationality || ""}
-                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "nationality", event.target.value)}
-                          placeholder={selectedOverridePlayer.nationality || "Leave blank to use API nationality"}
-                        />
-                      </div>
-                      <div>
-                        <label className="admin-field" htmlFor="player-override-born">Founded</label>
-                        <input
-                          id="player-override-born"
-                          className="admin-competitor-input"
-                          value={selectedPlayerOverride?.born || ""}
-                          onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "born", event.target.value)}
-                          placeholder={selectedOverridePlayer.born || "YYYY-MM-DD"}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="admin-player-override-field">
-                      <label className="admin-field" htmlFor="player-override-info">Admin profile override</label>
-                      <textarea
-                        id="player-override-info"
-                        className="admin-player-override-textarea"
-                        value={selectedPlayerOverride?.info || ""}
-                        onChange={(event) => handlePlayerOverrideFieldChange(selectedOverridePlayer.id, "info", event.target.value)}
-                        placeholder={selectedOverridePlayer.info || "Write the admin-controlled profile text here"}
-                      />
-                    </div>
-
-                    <div className="admin-actions">
-                      <button
-                        type="button"
-                        className="admin-secondary-button"
-                        onClick={handleClearSelectedPlayerOverride}
-                        disabled={savingPlayerOverrides}
-                      >
-                        Clear this team override
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <p className="admin-copy">Choose a team from the list to edit its override data.</p>
-                )}
-              </section>
-            </div>
-          )}
-        </section>
         ) : (
         <section className="admin-builder-panel">
           <div className="admin-builder-header">
@@ -5012,7 +4656,7 @@ function AdminPage() {
               <label className="admin-field" htmlFor="clacks-names">Names</label>
               <textarea
                 id="clacks-names"
-                className="admin-player-override-textarea admin-clacks-textarea"
+                className="admin-textarea admin-clacks-textarea"
                 value={clacksDraft}
                 onChange={(event) => setClacksDraft(event.target.value)}
                 placeholder={"Terry Pratchett\nAnother Name"}
