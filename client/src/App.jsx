@@ -41,6 +41,41 @@ const PLAYER_OVERRIDE_FIELDS = [
   "photoSource",
 ];
 
+const TEAM_SHORT_NAMES = {
+  Argentina: "ARG",
+  Australia: "AUS",
+  Belgium: "BEL",
+  Brazil: "BRA",
+  Cameroon: "CMR",
+  Canada: "CAN",
+  "Costa Rica": "CRC",
+  Croatia: "CRO",
+  Denmark: "DEN",
+  Ecuador: "ECU",
+  England: "ENG",
+  France: "FRA",
+  Germany: "GER",
+  Ghana: "GHA",
+  Iran: "IRN",
+  Japan: "JPN",
+  Mexico: "MEX",
+  Morocco: "MAR",
+  Netherlands: "NED",
+  Poland: "POL",
+  Portugal: "POR",
+  Qatar: "QAT",
+  "Saudi Arabia": "KSA",
+  Senegal: "SEN",
+  Serbia: "SRB",
+  Spain: "ESP",
+  Switzerland: "SUI",
+  Tunisia: "TUN",
+  Uruguay: "URU",
+  "United States": "USA",
+  Wales: "WAL",
+  "South Korea": "KOR",
+};
+
 const PAGE_METADATA = {
   "/": {
     title: `${BRAND_NAME} | FIFA World Cup Pool Tracker`,
@@ -985,6 +1020,19 @@ function getFixtureStages(snapshot) {
   return snapshot?.fixtureStages?.length ? snapshot.fixtureStages : (snapshot?.rounds || []);
 }
 
+function getTeamShortName(name) {
+  return TEAM_SHORT_NAMES[String(name || "").trim()] || String(name || "").trim();
+}
+
+function getEntrantShortName(name) {
+  const trimmedName = String(name || "").trim();
+  if (!trimmedName) {
+    return "";
+  }
+
+  return trimmedName.slice(0, 3).toUpperCase();
+}
+
 function isOpenTournamentMatch(match) {
   return isActiveTournamentMatch(match) && (match.unfinished || !match.winnerId);
 }
@@ -1108,7 +1156,7 @@ function GroupFixtureList({ fixtures = [], ownershipByPlayerId = new Map() }) {
   );
 }
 
-function GroupStageSection({ group, showPhotos = true, ownershipByPlayerId = new Map() }) {
+function GroupStageSection({ group, showPhotos = true, ownershipByPlayerId = new Map(), compact = false }) {
   return (
     <article key={group.key} className="group-standings-card group-stage-card">
       <div className="group-standings-header group-stage-header">
@@ -1120,18 +1168,21 @@ function GroupStageSection({ group, showPhotos = true, ownershipByPlayerId = new
       </div>
 
       <div className="group-table-shell">
-        <table className="group-table">
+        <table className={compact ? "group-table compact" : "group-table"}>
           <thead>
             <tr>
-              <th scope="col">Team</th>
+              <th scope="col">{compact ? "Team" : "Team"}</th>
               <th scope="col">P</th>
               <th scope="col">W</th>
               <th scope="col">D</th>
               <th scope="col">L</th>
-              <th scope="col">GF</th>
-              <th scope="col">GA</th>
-              <th scope="col">GD</th>
+              {compact ? <th scope="col">GF</th> : null}
+              {compact ? <th scope="col">GA</th> : null}
+              {compact ? <th scope="col">+/-</th> : null}
               <th scope="col">Pts</th>
+              {!compact ? <th scope="col">GF</th> : null}
+              {!compact ? <th scope="col">GA</th> : null}
+              {!compact ? <th scope="col">GD</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -1145,9 +1196,13 @@ function GroupStageSection({ group, showPhotos = true, ownershipByPlayerId = new
                       <NationalityFlag nationality={row.team.nationality} className="group-table-team-flag" />
                     )}
                     <div className="group-table-team-copy">
-                      <strong>{row.team.name}</strong>
+                      <strong title={row.team.name}>{compact ? getTeamShortName(row.team.name) : row.team.name}</strong>
                       {ownershipByPlayerId.get(row.team.id)?.entrantName ? (
-                        <small className="group-team-owner">{ownershipByPlayerId.get(row.team.id).entrantName}</small>
+                        <small className="group-team-owner">
+                          {compact
+                            ? getEntrantShortName(ownershipByPlayerId.get(row.team.id).entrantName)
+                            : ownershipByPlayerId.get(row.team.id).entrantName}
+                        </small>
                       ) : null}
                     </div>
                   </div>
@@ -1156,10 +1211,13 @@ function GroupStageSection({ group, showPhotos = true, ownershipByPlayerId = new
                 <td>{row.won}</td>
                 <td>{row.drawn}</td>
                 <td>{row.lost}</td>
-                <td>{row.goalsFor}</td>
-                <td>{row.goalsAgainst}</td>
-                <td>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td>
+                {compact ? <td>{row.goalsFor}</td> : null}
+                {compact ? <td>{row.goalsAgainst}</td> : null}
+                {compact ? <td>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td> : null}
                 <td><strong>{row.points}</strong></td>
+                {!compact ? <td>{row.goalsFor}</td> : null}
+                {!compact ? <td>{row.goalsAgainst}</td> : null}
+                {!compact ? <td>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td> : null}
               </tr>
             ))}
           </tbody>
@@ -2099,7 +2157,13 @@ function TournamentStructurePage() {
         groups.length ? (
           <section className="group-stage-grid">
             {groups.map((group) => (
-              <GroupStageSection key={group.key} group={group} showPhotos ownershipByPlayerId={ownershipByPlayerId} />
+              <GroupStageSection
+                key={group.key}
+                group={group}
+                showPhotos
+                ownershipByPlayerId={ownershipByPlayerId}
+                compact={isCompactViewport}
+              />
             ))}
           </section>
         ) : (
