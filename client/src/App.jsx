@@ -6,8 +6,8 @@ import walesFlag from "./assets/flags/wales.svg";
 const APP_ENV = import.meta.env.VITE_APP_ENV || (import.meta.env.DEV ? "local" : "production");
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
 const API_TARGET = API_BASE || "same-origin /api";
-const BRAND_NAME = "WorldCupPool";
-const BRAND_SHORT_NAME = "WorldCupPool";
+const BRAND_NAME = "Ennis Cup";
+const BRAND_SHORT_NAME = "Ennis Cup";
 const PUBLIC_DEFAULT_YEAR = new Date().getFullYear();
 const PUBLIC_YEAR_OPTIONS = [2026, 2022];
 const ADMIN_DEFAULT_YEAR = PUBLIC_YEAR_OPTIONS[0];
@@ -27,7 +27,7 @@ const MATCHES_ROUND_SESSION_KEY = "worldcup-public-fixtures-stage";
 const MATCHES_ENTRANT_FILTERS_SESSION_KEY = "worldcup-public-entrant-filters";
 const MATCHES_PLAYER_FILTERS_SESSION_KEY = "worldcup-public-team-filters";
 const MATCHES_COUNTRY_FILTERS_SESSION_KEY = "worldcup-public-country-filters";
-const SITE_DESCRIPTION = "Track a World Cup pool with group tables, bracket progression, fixtures, and winners.";
+const SITE_DESCRIPTION = "Track the Ennis Cup alongside the FIFA World Cup 2026 with group tables, fixtures, bracket progression, and winners.";
 const SEED_LABEL = "Bucket A";
 const QUALIFIER_LABEL = "Bucket B";
 const TEAM_ASSIGNMENT_LABEL = "Assigned team";
@@ -70,7 +70,7 @@ const TEAM_SHORT_NAMES = {
 
 const PAGE_METADATA = {
   "/": {
-    title: `${BRAND_NAME} | FIFA World Cup Pool Tracker`,
+    title: `${BRAND_NAME} | FIFA World Cup 2026 Pool Tracker`,
     description: SITE_DESCRIPTION,
   },
   "/entrants": {
@@ -2440,7 +2440,7 @@ function HomePage() {
         <div className="hero-grid" />
         <div className="hero-header">
           <div className="hero-copy">
-            <p className="hero-kicker">World Cup pool dashboard {selectedYear}</p>
+            <p className="hero-kicker">Ennis Cup dashboard</p>
             <h1>
               {BRAND_NAME}
               <label className="hero-year-select-shell">
@@ -2470,16 +2470,17 @@ function HomePage() {
         <div className="hero-image-shell hero-tournament-mark" aria-hidden="true">
           <img className="hero-image tournament-mark-image" src="/cup-balls.png" alt="" loading="eager" />
           <div className="tournament-mark-copy">
-            <span>{selectedYear}</span>
-            <strong>{isUpcomingTournament ? "Host countdown" : "Final tournament"}</strong>
+            <span>Competition</span>
+            <strong>{snapshot.eventName || `FIFA World Cup ${selectedYear}`}</strong>
           </div>
         </div>
       </section>
 
       <section className="summary-strip">
         <article className="summary-card">
-          <p className="toolbar-label">Event</p>
-          <p className="summary-value">{BRAND_SHORT_NAME} {selectedYear}</p>
+          <p className="toolbar-label">Competition</p>
+          <p className="summary-value">{snapshot.eventName || `FIFA World Cup ${selectedYear}`}</p>
+          <p className="summary-copy">Pool: {BRAND_SHORT_NAME}</p>
           {snapshot.dataSourceMode === "live" ? (
             <p className="summary-copy">Live data from football-data.org</p>
           ) : null}
@@ -3709,7 +3710,7 @@ function WinnersPage() {
         <p className="status-banner">No past winners have been recorded yet.</p>
       )}
 
-      <SourceTag sourceLabel="WorldCupPool winner registry" sourceUrl="https://github.com/lewtondoteth/WorldCupTracker" />
+      <SourceTag sourceLabel="Ennis Cup winner registry" sourceUrl="https://github.com/lewtondoteth/WorldCupTracker" />
     </main>
   );
 }

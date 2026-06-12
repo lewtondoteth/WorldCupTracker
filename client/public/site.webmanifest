@@ -1,7 +1,7 @@
 {
-  "name": "WorldCupPool",
-  "short_name": "WorldCupPool",
-  "description": "Track a World Cup pool with group tables, fixtures, bracket progression, and winners.",
+  "name": "Ennis Cup",
+  "short_name": "Ennis Cup",
+  "description": "Track the Ennis Cup alongside the FIFA World Cup 2026 with group tables, fixtures, bracket progression, and winners.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f7f1e3",
