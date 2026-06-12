@@ -2498,21 +2498,17 @@ function HomePage() {
           </p>
         </article>
         <article className="summary-card">
-          <p className="toolbar-label">{tournamentComplete ? "Pool winner" : hasTbdEntrants ? "Qualified so far" : "Teams alive"}</p>
+          <p className="toolbar-label">{tournamentComplete ? "Pool winner" : "Teams alive"}</p>
           <p className="summary-value">
             {tournamentComplete
               ? `${winningCompetitorName}${championPlayerName ? ` (${championPlayerName})` : ""}`
-              : hasTbdEntrants
-                ? qualifiedEntrantsCount
-                : aliveEntrantsCount}
+              : aliveEntrantsCount}
           </p>
           <p className="summary-copy">
             {isUpcomingTournament
               ? `Waiting for the final ${selectedYear} field`
               : tournamentComplete
               ? `Champion of the pool for ${selectedYear}`
-              : hasTbdEntrants
-                ? `${spacesLeftCount} space${spacesLeftCount === 1 ? "" : "s"} left to fill`
               : "Still live in the knockout draw"}
           </p>
         </article>
@@ -2710,7 +2706,6 @@ function EntrantsPage() {
                         </div>
                         <small>{player.group ? `Group ${player.group}` : TEAM_ASSIGNMENT_LABEL}</small>
                       </div>
-                      <span className={`pick-status ${player.statusTone}`}>{player.roundStatusLabel}</span>
                     </li>
                   ))}
                 </ul>
@@ -2743,7 +2738,6 @@ function EntrantsPage() {
                         </div>
                         <small>{team.group ? `Group ${team.group}` : (team.confederation || TEAM_ASSIGNMENT_LABEL)}</small>
                       </div>
-                      <span className={`pick-status ${team.statusTone || "neutral"}`}>{team.roundStatusLabel || TEAM_STATUS_LABEL}</span>
                     </li>
                   ))}
                 </ul>
@@ -2777,7 +2771,6 @@ function EntrantsPage() {
                     </div>
                     <small>{team.group ? `Group ${team.group}` : (team.confederation || TEAM_ASSIGNMENT_LABEL)}</small>
                   </div>
-                  <span className={`pick-status ${team.statusTone || "neutral"}`}>{team.roundStatusLabel || TEAM_STATUS_LABEL}</span>
                 </li>
               ))}
             </ul>
