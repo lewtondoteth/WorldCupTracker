@@ -1960,11 +1960,40 @@ function useTournamentOverview(selectedYear) {
         return [entry.id, { ...entry, eliminated, inPlay, roundStatusLabel, statusTone }];
       }),
     );
+    const tournamentTeamsById = new Map();
+
+    for (const entry of snapshot.allTeams || []) {
+      tournamentTeamsById.set(entry.id, {
+        ...entry,
+        ...(entrantsById.get(entry.id) || {}),
+      });
+    }
+
+    for (const group of snapshot.groups || []) {
+      for (const row of group.standings || []) {
+        tournamentTeamsById.set(row.team.id, {
+          ...row.team,
+          ...(tournamentTeamsById.get(row.team.id) || {}),
+          ...(entrantsById.get(row.team.id) || {}),
+        });
+      }
+    }
+
+    for (const [teamId, entry] of entrantsById.entries()) {
+      tournamentTeamsById.set(teamId, {
+        ...(tournamentTeamsById.get(teamId) || {}),
+        ...entry,
+      });
+    }
 
     const decoratedCompetitors = competitors
       .map((competitor) => {
-        const seeds = competitor.seeds.map((player) => entrantsById.get(player.id)).filter(Boolean);
-        const qualifiers = competitor.qualifiers.map((player) => entrantsById.get(player.id)).filter(Boolean);
+        const seeds = competitor.seeds
+          .map((player) => tournamentTeamsById.get(player.id) || player)
+          .filter(Boolean);
+        const qualifiers = competitor.qualifiers
+          .map((player) => tournamentTeamsById.get(player.id) || player)
+          .filter(Boolean);
 
         return {
           ...competitor,

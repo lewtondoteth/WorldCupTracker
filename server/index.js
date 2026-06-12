@@ -198,10 +198,19 @@ function buildCompetitorsForResponse(snapshot, poolData, entrantRegistry) {
     entrant.name.toLocaleLowerCase("en-GB"),
     entrant,
   ]));
-  const entrantsById = new Map((((snapshot?.allTeams?.length ? snapshot.allTeams : snapshot?.entrants) || [])).map((entry) => [
-    Number(entry.id),
-    entry,
-  ]));
+  const entrantsById = new Map();
+
+  for (const entry of ((snapshot?.allTeams?.length ? snapshot.allTeams : snapshot?.entrants) || [])) {
+    entrantsById.set(Number(entry.id), entry);
+  }
+
+  for (const group of snapshot?.groups || []) {
+    for (const row of group?.standings || []) {
+      if (row?.team?.id !== undefined && !entrantsById.has(Number(row.team.id))) {
+        entrantsById.set(Number(row.team.id), row.team);
+      }
+    }
+  }
 
   return (poolData?.competitors || []).map((competitor) => {
     const registryMatch = registryById.get(competitor.entrantId)
