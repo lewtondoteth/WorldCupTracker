@@ -493,7 +493,24 @@ if (existsSync(CLIENT_DIST_DIR)) {
   });
 }
 
-app.listen(PORT, async () => {
+const HOST = "0.0.0.0";
+const server = app.listen(PORT, HOST, async () => {
   currentSiteSettings = normaliseSiteSettings(await readSiteSettings());
-  console.log(`WorldCupPool server listening on http://localhost:${PORT}`);
+  console.log(`WorldCupPool server listening on http://${HOST}:${PORT}`);
 });
+
+function shutdown(signal) {
+  console.log(`[server] received ${signal}, shutting down gracefully`);
+  server.close((error) => {
+    if (error) {
+      console.error("[server] error while closing:", error);
+      process.exit(1);
+      return;
+    }
+
+    process.exit(0);
+  });
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
