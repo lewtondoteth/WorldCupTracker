@@ -18,7 +18,7 @@ import { createFootballDataProvider } from "./football-data-provider.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_DIST_DIR = path.join(__dirname, "..", "client", "dist");
 const PORT = runtimeConfig.port;
-const PUBLIC_SITE_PATHS = ["/", "/teams", "/fixtures", "/knockout", "/winners"];
+const PUBLIC_SITE_PATHS = ["/", "/structure", "/teams", "/fixtures", "/table", "/knockout", "/winners"];
 
 const app = express();
 let currentSiteSettings = { clacksNames: [] };
@@ -41,6 +41,12 @@ app.use(async (_req, res, next) => {
   next();
 });
 app.use(express.json({ limit: "1mb" }));
+app.use("/api", (_req, res, next) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
+  next();
+});
 
 const staticWorldCupDataProvider = {
   key: "static-2022",
@@ -54,7 +60,7 @@ const staticWorldCupDataProvider = {
   },
 };
 
-const worldCupDataProvider = runtimeConfig.footballApiKey
+const worldCupDataProvider = runtimeConfig.liveTournamentData && runtimeConfig.footballApiKey
   ? createFootballDataProvider({
     baseUrl: runtimeConfig.footballApiBaseUrl,
     apiKey: runtimeConfig.footballApiKey,

@@ -443,17 +443,19 @@ export function buildUpcomingWorldCupSnapshot(targetYear) {
   const year = Number(targetYear);
   const fixtureStages = [
     { id: 201, key: "group-stage", name: "Group Stage", shortLabel: "GS", order: 1, matchCount: 0, matches: [] },
-    { id: 202, key: "round-of-16", name: "Round of 16", shortLabel: "R16", order: 2, matchCount: 0, matches: [] },
-    { id: 203, key: "quarterfinals", name: "Quarter-finals", shortLabel: "QF", order: 3, matchCount: 0, matches: [] },
-    { id: 204, key: "semifinals", name: "Semi-finals", shortLabel: "SF", order: 4, matchCount: 0, matches: [] },
-    { id: 205, key: "third-place", name: "Third-place Play-off", shortLabel: "3P", order: 5, matchCount: 0, matches: [] },
-    { id: 206, key: "final", name: "Final", shortLabel: "F", order: 6, matchCount: 0, matches: [] },
+    { id: 202, key: "round-of-32", name: "Round of 32", shortLabel: "R32", order: 2, matchCount: 0, matches: [] },
+    { id: 203, key: "round-of-16", name: "Round of 16", shortLabel: "R16", order: 3, matchCount: 0, matches: [] },
+    { id: 204, key: "quarterfinals", name: "Quarter-finals", shortLabel: "QF", order: 4, matchCount: 0, matches: [] },
+    { id: 205, key: "semifinals", name: "Semi-finals", shortLabel: "SF", order: 5, matchCount: 0, matches: [] },
+    { id: 206, key: "third-place", name: "Third-place Play-off", shortLabel: "3P", order: 6, matchCount: 0, matches: [] },
+    { id: 207, key: "final", name: "Final", shortLabel: "F", order: 7, matchCount: 0, matches: [] },
   ];
   const rounds = [
-    { id: 101, key: "round-of-16", name: "Round of 16", shortLabel: "R16", entrantsLeft: 16, order: 1, matchCount: 0, matches: [] },
-    { id: 102, key: "quarterfinals", name: "Quarter-finals", shortLabel: "QF", entrantsLeft: 8, order: 2, matchCount: 0, matches: [] },
-    { id: 103, key: "semifinals", name: "Semi-finals", shortLabel: "SF", entrantsLeft: 4, order: 3, matchCount: 0, matches: [] },
-    { id: 104, key: "final", name: "Final", shortLabel: "F", entrantsLeft: 2, order: 4, matchCount: 0, matches: [] },
+    { id: 101, key: "round-of-32", name: "Round of 32", shortLabel: "R32", entrantsLeft: 32, order: 1, matchCount: 0, matches: [] },
+    { id: 102, key: "round-of-16", name: "Round of 16", shortLabel: "R16", entrantsLeft: 16, order: 2, matchCount: 0, matches: [] },
+    { id: 103, key: "quarterfinals", name: "Quarter-finals", shortLabel: "QF", entrantsLeft: 8, order: 3, matchCount: 0, matches: [] },
+    { id: 104, key: "semifinals", name: "Semi-finals", shortLabel: "SF", entrantsLeft: 4, order: 4, matchCount: 0, matches: [] },
+    { id: 105, key: "final", name: "Final", shortLabel: "F", entrantsLeft: 2, order: 5, matchCount: 0, matches: [] },
   ];
 
   return {

@@ -1,5 +1,5 @@
-const STATIC_CACHE = "pellegrino-static-v1";
-const RUNTIME_CACHE = "pellegrino-runtime-v1";
+const STATIC_CACHE = "worldcuppool-static-v2";
+const RUNTIME_CACHE = "worldcuppool-runtime-v2";
 const APP_SHELL_URLS = [
   "/",
   "/favicon.ico",
@@ -8,7 +8,8 @@ const APP_SHELL_URLS = [
   "/apple-touch-icon.png",
   "/android-chrome-192x192.png",
   "/android-chrome-512x512.png",
-  "/dogsplayingpool.jpeg",
+  "/cup-logo.png",
+  "/cup-balls.png",
   "/site.webmanifest",
 ];
 

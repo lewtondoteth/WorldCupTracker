@@ -19,11 +19,12 @@ const RESOURCE_TTL_BY_KEY = {
 function mapStage(stage) {
   const map = {
     GROUP_STAGE: { key: "group-stage", name: "Group Stage", shortLabel: "GS", order: 1 },
-    LAST_16: { key: "round-of-16", name: "Round of 16", shortLabel: "R16", order: 2 },
-    QUARTER_FINALS: { key: "quarterfinals", name: "Quarter-finals", shortLabel: "QF", order: 3 },
-    SEMI_FINALS: { key: "semifinals", name: "Semi-finals", shortLabel: "SF", order: 4 },
-    THIRD_PLACE: { key: "third-place", name: "Third-place Play-off", shortLabel: "3P", order: 5 },
-    FINAL: { key: "final", name: "Final", shortLabel: "F", order: 6 },
+    LAST_32: { key: "round-of-32", name: "Round of 32", shortLabel: "R32", order: 2 },
+    LAST_16: { key: "round-of-16", name: "Round of 16", shortLabel: "R16", order: 3 },
+    QUARTER_FINALS: { key: "quarterfinals", name: "Quarter-finals", shortLabel: "QF", order: 4 },
+    SEMI_FINALS: { key: "semifinals", name: "Semi-finals", shortLabel: "SF", order: 5 },
+    THIRD_PLACE: { key: "third-place", name: "Third-place Play-off", shortLabel: "3P", order: 6 },
+    FINAL: { key: "final", name: "Final", shortLabel: "F", order: 7 },
   };
 
   return map[stage] || { key: String(stage || "other").toLowerCase(), name: String(stage || "Other"), shortLabel: "OT", order: 99 };
@@ -103,9 +104,12 @@ function buildResultMetadata(match) {
 function mapTeam(team, standingsByTeamId, extra = {}) {
   const standing = standingsByTeamId.get(Number(team?.id)) || null;
   const area = team?.area || {};
+  const teamId = Number(team?.id) || 0;
+  const teamName = team?.name || team?.shortName || (teamId > 0 ? "Unknown team" : "TBD");
+  const isPlaceholder = teamId <= 0 || /^unknown team$/i.test(String(teamName).trim()) || /^tbd$/i.test(String(teamName).trim());
   return {
-    id: Number(team?.id),
-    name: team?.name || team?.shortName || "Unknown team",
+    id: teamId,
+    name: teamName,
     nationality: area.name || team?.name || "",
     photo: team?.crest || area.flag || "",
     shortName: team?.shortName || team?.tla || team?.name || "",
@@ -121,6 +125,7 @@ function mapTeam(team, standingsByTeamId, extra = {}) {
     numMaximums: 0,
     confederation: area.parentArea || area.name || "",
     group: standing?.group || "",
+    isPlaceholder,
     ...extra,
   };
 }
@@ -149,12 +154,10 @@ function mapMatch(match, standingsByTeamId) {
     player1: {
       ...mapTeam(match?.homeTeam, standingsByTeamId),
       score: homeScore,
-      isPlaceholder: false,
     },
     player2: {
       ...mapTeam(match?.awayTeam, standingsByTeamId),
       score: awayScore,
-      isPlaceholder: false,
     },
     stageKey: stageMeta.key,
   };
@@ -163,7 +166,7 @@ function mapMatch(match, standingsByTeamId) {
 function buildStandingsIndex(standingsResponse) {
   const standingsByTeamId = new Map();
 
-  for (const standing of standingsResponse?.standings || []) {
+  for (const standing of (standingsResponse?.standings || []).filter((row) => String(row?.type || "TOTAL").toUpperCase() === "TOTAL")) {
     const group = groupCodeToLetter(standing?.group);
     for (const row of standing?.table || []) {
       standingsByTeamId.set(Number(row?.team?.id), {
@@ -186,13 +189,29 @@ function buildStandingsIndex(standingsResponse) {
 
 function buildGroups(standingsResponse, matchesResponse, standingsByTeamId) {
   const matches = matchesResponse?.matches || [];
+  const standingsByGroup = new Map(
+    (standingsResponse?.standings || [])
+      .filter((standing) => String(standing?.type || "TOTAL").toUpperCase() === "TOTAL")
+      .map((standing) => [groupCodeToLetter(standing?.group), standing])
+      .filter(([group]) => Boolean(group)),
+  );
+  const groupsFromMatches = [...new Set(
+    matches
+      .map((match) => groupCodeToLetter(match?.group))
+      .filter(Boolean),
+  )];
+  const allGroupKeys = [...new Set([
+    ...standingsByGroup.keys(),
+    ...groupsFromMatches,
+  ])].sort();
 
-  return (standingsResponse?.standings || []).map((standing) => {
-    const group = groupCodeToLetter(standing?.group);
-    return {
-      key: group,
-      name: `Group ${group}`,
-      standings: (standing?.table || []).map((row) => ({
+  return allGroupKeys.map((group) => {
+    const standing = standingsByGroup.get(group) || null;
+    const groupMatches = matches.filter((match) => groupCodeToLetter(match?.group) === group);
+    let standings;
+
+    if (standing?.table?.length) {
+      standings = standing.table.map((row) => ({
         position: Number(row?.position) || 0,
         team: mapTeam(row?.team, standingsByTeamId),
         played: Number(row?.playedGames) || 0,
@@ -203,10 +222,91 @@ function buildGroups(standingsResponse, matchesResponse, standingsByTeamId) {
         goalsAgainst: Number(row?.goalsAgainst) || 0,
         goalDifference: Number(row?.goalDifference) || 0,
         points: Number(row?.points) || 0,
-      })),
-      fixtures: matches
-        .filter((match) => groupCodeToLetter(match?.group) === group)
-        .map((match) => mapMatch(match, standingsByTeamId)),
+      }));
+    } else {
+      const rowsByTeamId = new Map();
+
+      function ensureRow(team) {
+        const teamId = Number(team?.id) || 0;
+        if (!teamId || rowsByTeamId.has(teamId)) {
+          return rowsByTeamId.get(teamId) || null;
+        }
+        const row = {
+          position: 0,
+          team: mapTeam(team, standingsByTeamId, { group }),
+          played: 0,
+          won: 0,
+          drawn: 0,
+          lost: 0,
+          goalsFor: 0,
+          goalsAgainst: 0,
+          goalDifference: 0,
+          points: 0,
+        };
+        rowsByTeamId.set(teamId, row);
+        return row;
+      }
+
+      for (const match of groupMatches) {
+        const home = ensureRow(match?.homeTeam);
+        const away = ensureRow(match?.awayTeam);
+        if (!home || !away) {
+          continue;
+        }
+
+        const status = String(match?.status || "").toUpperCase();
+        if (!["FINISHED", "AWARDED"].includes(status)) {
+          continue;
+        }
+
+        const homeGoals = scoreValue(match?.score?.fullTime, "home");
+        const awayGoals = scoreValue(match?.score?.fullTime, "away");
+
+        home.played += 1;
+        away.played += 1;
+        home.goalsFor += homeGoals;
+        home.goalsAgainst += awayGoals;
+        away.goalsFor += awayGoals;
+        away.goalsAgainst += homeGoals;
+
+        if (homeGoals > awayGoals) {
+          home.won += 1;
+          home.points += 3;
+          away.lost += 1;
+        } else if (awayGoals > homeGoals) {
+          away.won += 1;
+          away.points += 3;
+          home.lost += 1;
+        } else {
+          home.drawn += 1;
+          away.drawn += 1;
+          home.points += 1;
+          away.points += 1;
+        }
+      }
+
+      standings = [...rowsByTeamId.values()]
+        .map((row) => ({
+          ...row,
+          goalDifference: row.goalsFor - row.goalsAgainst,
+        }))
+        .sort((left, right) => (
+          right.points - left.points
+          || right.goalDifference - left.goalDifference
+          || right.goalsFor - left.goalsFor
+          || left.team.name.localeCompare(right.team.name)
+        ))
+        .map((row, index) => ({
+          ...row,
+          position: index + 1,
+        }));
+    }
+
+    return {
+      key: group,
+      name: `Group ${group}`,
+      standings,
+      fixtures: groupMatches.map((match) => mapMatch(match, standingsByTeamId)),
     };
   });
 }
@@ -234,27 +334,47 @@ function buildFixtureStages(matchesResponse, standingsByTeamId) {
 }
 
 function buildKnockoutSnapshot(fixtureStages) {
+  const entrantsLeftLookup = {
+    "round-of-32": 32,
+    "round-of-16": 16,
+    quarterfinals: 8,
+    semifinals: 4,
+    final: 2,
+  };
+
   return fixtureStages
-    .filter((stage) => ["round-of-16", "quarterfinals", "semifinals", "final"].includes(stage.key))
+    .filter((stage) => ["round-of-32", "round-of-16", "quarterfinals", "semifinals", "final"].includes(stage.key))
     .map((stage, index) => ({
       id: 100 + index + 1,
       key: stage.key,
       name: stage.name,
       shortLabel: stage.shortLabel,
-      entrantsLeft: Math.max(stage.matches.length * 2, 2),
+      entrantsLeft: entrantsLeftLookup[stage.key] || Math.max(stage.matches.length * 2, 2),
       order: index + 1,
       matchCount: stage.matches.length,
       matches: stage.matches,
     }));
 }
 
-function buildQualifiedEntrants(groups, rounds) {
+function buildQualifiedEntrants(groups, rounds, allTeams) {
   const qualificationRows = groups.flatMap((group) => group.standings.slice(0, 2));
   const matchList = rounds.flatMap((round) => round.matches.map((match) => ({ ...match, roundId: round.id, roundKey: round.key })));
   const entrants = [];
+  const seenTeamIds = new Set();
 
-  for (const row of qualificationRows) {
+  const sourceRows = qualificationRows.length
+    ? qualificationRows
+    : (allTeams || []).map((team, index) => ({
+      position: index < Math.ceil((allTeams || []).length / 2) ? 1 : 2,
+      team,
+    }));
+
+  for (const row of sourceRows) {
     const teamId = row.team.id;
+    if (seenTeamIds.has(teamId)) {
+      continue;
+    }
+
     const elimination = matchList.find((match) => (
       [match.player1.id, match.player2.id].includes(teamId) && match.winnerId && match.winnerId !== teamId
     )) || null;
@@ -268,6 +388,7 @@ function buildQualifiedEntrants(groups, rounds) {
       isPlaceholder: false,
       isChampion: rounds.some((round) => round.key === "final" && round.matches.some((match) => match.winnerId === teamId)),
     });
+    seenTeamIds.add(teamId);
   }
 
   return entrants;
@@ -301,8 +422,8 @@ function buildSnapshotFromResources(year, resources) {
   const groups = buildGroups(standingsData, matchesData, standingsByTeamId);
   const fixtureStages = buildFixtureStages(matchesData, standingsByTeamId);
   const rounds = buildKnockoutSnapshot(fixtureStages);
-  const entrants = buildQualifiedEntrants(groups, rounds);
   const allTeams = (teamsData?.teams || []).map((team) => mapTeam(team, standingsByTeamId));
+  const entrants = buildQualifiedEntrants(groups, rounds, allTeams);
   const finalStage = fixtureStages.find((stage) => stage.key === "final");
   const winnerTeamId = Number(finalStage?.matches?.[0]?.winnerId) || null;
 
@@ -420,6 +541,27 @@ function decorateSnapshot(snapshot, record) {
   };
 }
 
+function snapshotNeedsRebuild(record) {
+  if (!record?.snapshot) {
+    return true;
+  }
+
+  const hasCompleteResources = RESOURCE_ORDER.every((key) => Boolean(record?.resources?.[key]?.data));
+  if (!hasCompleteResources) {
+    return false;
+  }
+
+  const snapshotGroups = Array.isArray(record.snapshot.groups) ? record.snapshot.groups : [];
+  const resourceGroupMatches = record.resources.matches?.data?.matches || [];
+  const hasPublishedGroupAssignments = resourceGroupMatches.some((match) => Boolean(groupCodeToLetter(match?.group)));
+
+  if (!snapshotGroups.length && hasPublishedGroupAssignments) {
+    return true;
+  }
+
+  return false;
+}
+
 function getAllMatchesFromSnapshot(snapshot) {
   if (snapshot?.fixtureStages?.length) {
     return snapshot.fixtureStages.flatMap((stage) => stage.matches || []);
@@ -430,7 +572,7 @@ function getAllMatchesFromSnapshot(snapshot) {
 export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBuilder = buildStaticWorldCupSnapshot, upcomingSnapshotBuilder = buildUpcomingWorldCupSnapshot }) {
   const apiBaseUrl = String(baseUrl || DEFAULT_BASE_URL).replace(/\/$/, "");
   let blockedUntil = 0;
-  let lastFailureFallback = null;
+  const failureFallbackByYear = new Map();
 
   async function persistRecord(record) {
     await writeTournamentLiveCache(record.year, record);
@@ -573,7 +715,7 @@ export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBu
       return record;
     }
 
-    if (!pendingResources.length && record.snapshot) {
+    if (!pendingResources.length && record.snapshot && !snapshotNeedsRebuild(record)) {
       record.refreshState = "ready";
       await persistRecord(record);
       return record;
@@ -582,10 +724,12 @@ export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBu
     record.refreshState = "refreshing";
     await persistRecord(record);
 
-    for (const resourceKey of pendingResources) {
-      const refreshed = await refreshResource(record, resourceKey, season);
-      if (!refreshed) {
-        break;
+    if (pendingResources.length) {
+      for (const resourceKey of pendingResources) {
+        const refreshed = await refreshResource(record, resourceKey, season);
+        if (!refreshed) {
+          break;
+        }
       }
     }
 
@@ -608,37 +752,35 @@ export function createFootballDataProvider({ baseUrl, apiKey, fallbackSnapshotBu
   return {
     key: "football-data.org",
     async getSnapshot(year, options = {}) {
-      if (Number(year) !== 2022) {
-        return upcomingSnapshotBuilder(year);
-      }
-
-      if (lastFailureFallback && Date.now() < lastFailureFallback.expiresAt && !options.forceRefresh) {
-        return lastFailureFallback.snapshot;
+      const season = Number(year);
+      const cachedFailureFallback = failureFallbackByYear.get(season);
+      if (cachedFailureFallback && Date.now() < cachedFailureFallback.expiresAt && !options.forceRefresh) {
+        return cachedFailureFallback.snapshot;
       }
 
       try {
-        const record = await ensureSnapshotRecord(year, options);
+        const record = await ensureSnapshotRecord(season, options);
         if (record.snapshot) {
           const decorated = decorateSnapshot(record.snapshot, record);
-          lastFailureFallback = null;
+          failureFallbackByYear.delete(season);
           return decorated;
         }
         throw new Error(record.lastError || "No complete live snapshot is cached yet.");
       } catch (error) {
-        console.warn(`[football-data] snapshot fallback for ${year}:`, error?.message || error);
-        const record = await loadRecord(year);
-        const fallback = Number(year) === 2022
-          ? fallbackSnapshotBuilder(year)
-          : upcomingSnapshotBuilder(year);
+        console.warn(`[football-data] snapshot fallback for ${season}:`, error?.message || error);
+        const record = await loadRecord(season);
+        const fallback = season === 2022
+          ? fallbackSnapshotBuilder(season)
+          : upcomingSnapshotBuilder(season);
         const fallbackSnapshot = decorateSnapshot({
           ...fallback,
-          dataSourceMode: Number(year) === 2022 ? "fallback-static" : fallback.dataSourceMode,
-          dataSourceLabel: Number(year) === 2022 ? "Static fallback after football-data.org error" : fallback.dataSourceLabel,
+          dataSourceMode: season === 2022 ? "fallback-static" : fallback.dataSourceMode,
+          dataSourceLabel: season === 2022 ? "Static fallback after football-data.org error" : fallback.dataSourceLabel,
         }, record);
-        lastFailureFallback = {
+        failureFallbackByYear.set(season, {
           snapshot: fallbackSnapshot,
           expiresAt: Date.now() + ((error?.status === 429 ? Math.max((error.resetInSeconds || 0) * 1000, RATE_LIMIT_FALLBACK_TTL_MS) : RATE_LIMIT_FALLBACK_TTL_MS)),
-        };
+        });
         return cloneFallbackSnapshot(fallbackSnapshot, fallbackSnapshot.cache);
       }
     },

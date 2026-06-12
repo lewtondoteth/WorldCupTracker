@@ -3,17 +3,16 @@ node_modules/
 dist/
 build/
 .env
+.env.local
 .DS_Store
 *.log
 
 # Ignore SQLite database and cache files
-server/snooker_cache.db
-server/snooker_cache.sqlite
 *.sqlite
 *.db
 
 # Ignore generated/local JSON data files
-server/data/player-overrides.json
+server/data/cache/
 server/data/pools/*.json
 server/data/static/*.json
 
@@ -37,5 +36,6 @@ server/node_modules/
 server/dist/
 server/build/
 server/.env
+server/.env.local
 server/.DS_Store
 server/*.log

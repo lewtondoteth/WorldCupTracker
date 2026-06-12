@@ -33,7 +33,9 @@ async function readJson(filePath) {
 
 async function writeJson(filePath, payload) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  await fs.writeFile(temporaryPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  await fs.rename(temporaryPath, filePath);
 }
 
 async function seedFromBundledFileIfMissing(targetPath, bundledPath, fallbackData = null) {

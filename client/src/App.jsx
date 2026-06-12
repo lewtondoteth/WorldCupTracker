@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import crownIcon from "../../res/crown.png";
 import walesFlag from "./assets/flags/wales.svg";
@@ -13,12 +13,14 @@ const PUBLIC_YEAR_OPTIONS = [2026, 2022];
 const ADMIN_DEFAULT_YEAR = PUBLIC_YEAR_OPTIONS[0];
 const ADMIN_YEAR_OPTIONS = PUBLIC_YEAR_OPTIONS;
 const WINNER_YEAR_OPTIONS = Array.from({ length: ADMIN_DEFAULT_YEAR - 2022 + 1 }, (_, index) => ADMIN_DEFAULT_YEAR - index);
-const ADMIN_PASSWORD = "painting";
+const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || "ears";
 const ADMIN_SESSION_KEY = "worldcup-admin-authenticated";
 const PUBLIC_YEAR_SESSION_KEY = "worldcup-public-selected-year";
 const PUBLIC_SHOW_PHOTOS_SESSION_KEY = "worldcup-public-show-photos";
 const STRUCTURE_MODE_SESSION_KEY = "worldcup-public-structure-mode";
 const STRUCTURE_MODE_YEAR_SESSION_KEY = "worldcup-public-structure-mode-year";
+const TABLE_MODE_SESSION_KEY = "worldcup-public-table-mode";
+const TABLE_MODE_YEAR_SESSION_KEY = "worldcup-public-table-mode-year";
 const STRUCTURE_GROUPS_COLLAPSED_SESSION_KEY = "worldcup-public-structure-groups-collapsed";
 const STRUCTURE_GROUP_MATCHES_COLLAPSED_SESSION_KEY = "worldcup-public-structure-group-matches-collapsed";
 const MATCHES_ROUND_SESSION_KEY = "worldcup-public-fixtures-stage";
@@ -26,7 +28,7 @@ const MATCHES_ENTRANT_FILTERS_SESSION_KEY = "worldcup-public-entrant-filters";
 const MATCHES_PLAYER_FILTERS_SESSION_KEY = "worldcup-public-team-filters";
 const MATCHES_COUNTRY_FILTERS_SESSION_KEY = "worldcup-public-country-filters";
 const ENTRANTS_SORT_SESSION_KEY = "worldcup-entrants-sort";
-const SITE_DESCRIPTION = "Track a World Cup pool with group tables, fixtures, knockout rounds, and winners.";
+const SITE_DESCRIPTION = "Track a World Cup pool with group tables, bracket progression, fixtures, and winners.";
 const SEED_LABEL = "Bucket A";
 const QUALIFIER_LABEL = "Bucket B";
 const TEAM_ASSIGNMENT_LABEL = "Assigned team";
@@ -74,7 +76,7 @@ const PAGE_METADATA = {
   },
   "/teams": {
     title: `Teams | ${BRAND_NAME}`,
-    description: "Browse group tables, qualified teams, and pool assignments.",
+    description: "Browse assigned teams, entrant picks, and pool ownership at a glance.",
   },
   "/structure": {
     title: `Structure | ${BRAND_NAME}`,
@@ -83,6 +85,10 @@ const PAGE_METADATA = {
   "/fixtures": {
     title: `Fixtures | ${BRAND_NAME}`,
     description: "Follow match results from the group stage through the final.",
+  },
+  "/table": {
+    title: `Table | ${BRAND_NAME}`,
+    description: "Browse the World Cup group tables and bracket progression in one place.",
   },
   "/winners": {
     title: `Winners | ${BRAND_NAME}`,
@@ -288,28 +294,22 @@ async function readJsonResponse(response, fallbackMessage) {
   return data;
 }
 
+const NO_STORE_FETCH_OPTIONS = { cache: "no-store" };
+
 async function fetchPool(year, options = {}) {
   const params = new URLSearchParams();
   if (options.forceRefresh) {
     params.set("refresh", "1");
   }
-  const response = await fetch(`${API_BASE}/api/pool/${year}${params.toString() ? `?${params.toString()}` : ""}`);
+  const response = await fetch(
+    `${API_BASE}/api/pool/${year}${params.toString() ? `?${params.toString()}` : ""}`,
+    NO_STORE_FETCH_OPTIONS,
+  );
   return readJsonResponse(response, "Failed to load pool data");
 }
 
-async function uploadPool(payload, year = PUBLIC_DEFAULT_YEAR) {
-  const response = await fetch(`${API_BASE}/api/pool/${year}/upload`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  return readJsonResponse(response, "Upload failed");
-}
-
 async function fetchAdminPoolBuilder(year) {
-  const response = await fetch(`${API_BASE}/api/pool/${year}/admin`);
+  const response = await fetch(`${API_BASE}/api/pool/${year}/admin`, NO_STORE_FETCH_OPTIONS);
   return readJsonResponse(response, "Failed to load admin builder");
 }
 
@@ -325,7 +325,7 @@ async function saveAdminPoolBuilder(year, payload) {
 }
 
 async function fetchEntrants() {
-  const response = await fetch(`${API_BASE}/api/entrants`);
+  const response = await fetch(`${API_BASE}/api/entrants`, NO_STORE_FETCH_OPTIONS);
   return readJsonResponse(response, "Failed to load entrants");
 }
 
@@ -341,7 +341,7 @@ async function saveEntrants(payload) {
 }
 
 async function fetchSiteSettings() {
-  const response = await fetch(`${API_BASE}/api/site-settings`);
+  const response = await fetch(`${API_BASE}/api/site-settings`, NO_STORE_FETCH_OPTIONS);
   return readJsonResponse(response, "Failed to load site settings");
 }
 
@@ -365,7 +365,7 @@ async function fetchHeadToHead(player1Id, player2Id, year, options = {}) {
   if (options.forceRefresh) {
     params.set("refresh", "1");
   }
-  const response = await fetch(`${API_BASE}/api/head-to-head?${params.toString()}`);
+  const response = await fetch(`${API_BASE}/api/head-to-head?${params.toString()}`, NO_STORE_FETCH_OPTIONS);
   return readJsonResponse(response, "Failed to load head-to-head history");
 }
 
@@ -482,30 +482,6 @@ function formatPlayerBirthDate(value) {
   });
 }
 
-function getPlayerAge(value) {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  const today = new Date();
-  let age = today.getFullYear() - parsed.getFullYear();
-  const birthdayPassed = (
-    today.getMonth() > parsed.getMonth()
-    || (today.getMonth() === parsed.getMonth() && today.getDate() >= parsed.getDate())
-  );
-
-  if (!birthdayPassed) {
-    age -= 1;
-  }
-
-  return age >= 0 ? age : null;
-}
-
 function normaliseExternalUrl(value, fallbackPrefix = "https://") {
   const nextValue = String(value || "").trim();
   if (!nextValue) {
@@ -606,7 +582,7 @@ function ChevronToggle({ expanded, onToggle, label, className = "" }) {
 
 function isPlaceholderMatchPlayer(player) {
   const name = String(player?.name || "").trim();
-  return !name || /^tbd$/i.test(name);
+  return !name || /^tbd$/i.test(name) || /^unknown team$/i.test(name) || player?.isPlaceholder === true || Number(player?.id) <= 0;
 }
 
 function isPlaceholderEntrant(entry) {
@@ -681,7 +657,7 @@ function normaliseAdminBuilderData(data) {
 }
 
 function buildAutoAssignment(snapshot, competitors, targetCountsOverride = null) {
-  const roundOne = snapshot.rounds.find((round) => round.key === "round-of-16") || snapshot.rounds[0];
+  const openingKnockoutRound = snapshot.rounds[0] || null;
   const actualTeams = (snapshot.allTeams?.length ? snapshot.allTeams : snapshot.entrants)
     .filter((entry) => !isPlaceholderEntrant(entry));
   const teamOrder = new Map(actualTeams.map((entry, index) => [entry.id, index]));
@@ -691,15 +667,15 @@ function buildAutoAssignment(snapshot, competitors, targetCountsOverride = null)
     throw new Error("Add at least one entrant before running automatic assignment.");
   }
 
-  if (entrantIds.length < 2 && roundOne?.matches.some((match) => (
+  if (entrantIds.length < 2 && openingKnockoutRound?.matches.some((match) => (
     !isPlaceholderMatchPlayer(match.player1) && !isPlaceholderMatchPlayer(match.player2)
   ))) {
-    throw new Error("At least two entrants are needed to separate first-round opponents.");
+    throw new Error("At least two entrants are needed to separate opening-round opponents.");
   }
 
   const targetCounts = targetCountsOverride || buildBalancedTargetCounts(actualTeams.length, entrantIds);
 
-  const candidateMatches = shuffleArray(roundOne?.matches || []);
+  const candidateMatches = shuffleArray(openingKnockoutRound?.matches || []);
 
     for (let attempt = 0; attempt < 300; attempt += 1) {
       const nextCompetitors = competitors.map((competitor) => ({
@@ -830,7 +806,7 @@ function buildAutoAssignment(snapshot, competitors, targetCountsOverride = null)
   throw new Error("Automatic assignment could not find a valid draw. Try adding more entrants or refreshing the team list.");
 }
 
-function SiteHeader({ mode = "home", poolConfigured = false }) {
+function SiteHeader({ mode = "home" }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = () => setMenuOpen(false);
 
@@ -857,14 +833,18 @@ function SiteHeader({ mode = "home", poolConfigured = false }) {
             <>
               <a className="site-menu-link" href="#overview" onClick={closeMenu}>Overview</a>
               <Link className="site-menu-link" to="/structure" onClick={closeMenu}>Structure</Link>
-              <Link className="site-menu-link" to="/teams" onClick={closeMenu}>Entrants</Link>
+              <Link className="site-menu-link" to="/teams" onClick={closeMenu}>Teams</Link>
+              <Link className="site-menu-link" to="/fixtures" onClick={closeMenu}>Fixtures</Link>
+              <Link className="site-menu-link" to="/table" onClick={closeMenu}>Table</Link>
               <Link className="site-menu-link" to="/winners" onClick={closeMenu}>Winners</Link>
             </>
           ) : (
             <>
               <Link className="site-menu-link" to="/" onClick={closeMenu}>Tournament</Link>
               <Link className={`site-menu-link${mode === "structure" ? " current" : ""}`} to="/structure" onClick={closeMenu}>Structure</Link>
-              <Link className={`site-menu-link${mode === "entrants" ? " current" : ""}`} to="/teams" onClick={closeMenu}>Entrants</Link>
+              <Link className={`site-menu-link${mode === "teams" ? " current" : ""}`} to="/teams" onClick={closeMenu}>Teams</Link>
+              <Link className={`site-menu-link${mode === "fixtures" ? " current" : ""}`} to="/fixtures" onClick={closeMenu}>Fixtures</Link>
+              <Link className={`site-menu-link${mode === "table" ? " current" : ""}`} to="/table" onClick={closeMenu}>Table</Link>
               <Link className={`site-menu-link${mode === "winners" ? " current" : ""}`} to="/winners" onClick={closeMenu}>Winners</Link>
             </>
           )}
@@ -1255,6 +1235,76 @@ function GroupStageSection({
           )}
         </div>
       ) : null}
+    </article>
+  );
+}
+
+function GroupStandingsCard({ group, showPhotos = true, ownershipByPlayerId = new Map(), compact = false }) {
+  return (
+    <article className="group-standings-card">
+      <div className="group-standings-header">
+        <div>
+          <p className="eyebrow">Group</p>
+          <h3>{group.name}</h3>
+        </div>
+        <span className="group-stage-fixture-count">{group.fixtures.length} matches</span>
+      </div>
+      <div className="group-table-shell">
+        <table className={compact ? "group-table compact" : "group-table"}>
+          <thead>
+            <tr>
+              <th scope="col">Team</th>
+              <th scope="col">P</th>
+              <th scope="col">W</th>
+              <th scope="col">D</th>
+              <th scope="col">L</th>
+              {compact ? <th scope="col">GF</th> : null}
+              {compact ? <th scope="col">GA</th> : null}
+              {compact ? <th scope="col">+/-</th> : null}
+              <th scope="col">Pts</th>
+              {!compact ? <th scope="col">GF</th> : null}
+              {!compact ? <th scope="col">GA</th> : null}
+              {!compact ? <th scope="col">GD</th> : null}
+            </tr>
+          </thead>
+          <tbody>
+            {group.standings.map((row) => (
+              <tr key={row.team.id}>
+                <td>
+                  <div className="group-table-team">
+                    {showPhotos && row.team.photo ? (
+                      <img className="group-table-team-photo" src={row.team.photo} alt="" loading="lazy" />
+                    ) : (
+                      <NationalityFlag nationality={row.team.nationality} className="group-table-team-flag" />
+                    )}
+                    <div className="group-table-team-copy">
+                      <strong title={row.team.name}>{compact ? getTeamShortName(row.team.name) : row.team.name}</strong>
+                      {ownershipByPlayerId.get(row.team.id)?.entrantName ? (
+                        <small className="group-team-owner">
+                          {compact
+                            ? getEntrantShortName(ownershipByPlayerId.get(row.team.id).entrantName)
+                            : ownershipByPlayerId.get(row.team.id).entrantName}
+                        </small>
+                      ) : null}
+                    </div>
+                  </div>
+                </td>
+                <td>{row.played}</td>
+                <td>{row.won}</td>
+                <td>{row.drawn}</td>
+                <td>{row.lost}</td>
+                {compact ? <td>{row.goalsFor}</td> : null}
+                {compact ? <td>{row.goalsAgainst}</td> : null}
+                {compact ? <td>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td> : null}
+                <td><strong>{row.points}</strong></td>
+                {!compact ? <td>{row.goalsFor}</td> : null}
+                {!compact ? <td>{row.goalsAgainst}</td> : null}
+                {!compact ? <td>{row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}</td> : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </article>
   );
 }
@@ -1660,7 +1710,7 @@ function createPendingBracketSide(label) {
 
 function createBracketSideFromPlayer(player, ownershipByPlayerId) {
   if (!player || isPlaceholderMatchPlayer(player)) {
-    return createPendingBracketSide("Awaiting player");
+    return createPendingBracketSide("Awaiting team");
   }
 
   const owner = ownershipByPlayerId.get(player.id);
@@ -1686,7 +1736,7 @@ function deriveBracketSideFromPreviousMatch(previousMatch, fallbackLabel) {
     return { ...previousMatch.winnerSide };
   }
 
-  return createPendingBracketSide(`Winner of ${previousMatch.label}`);
+  return createPendingBracketSide(`Winner of Match ${previousMatch.number}`);
 }
 
 function buildBracketRounds(snapshotRounds, competitors) {
@@ -1733,7 +1783,7 @@ function buildBracketRounds(snapshotRounds, competitors) {
 
       return {
         key: `${round.key}-${matchIndex + 1}`,
-        label: actualMatch ? `${round.shortLabel} ${actualMatch.number}` : `${round.shortLabel} ${matchIndex + 1}`,
+        label: actualMatch ? `Match ${actualMatch.number}` : `Match ${matchIndex + 1}`,
         number: actualMatch?.number || matchIndex + 1,
         state: actualMatch ? (actualMatch.unfinished ? "in-play" : "finished") : "pending",
         scheduledDate: actualMatch?.scheduledDate || "",
@@ -1853,13 +1903,6 @@ function useTournamentOverview(selectedYear) {
       autoSelectedRoundYearRef.current = data.snapshot.year;
     }
   }, [data, selectedRoundKey]);
-
-  function toggleCompetitor(name) {
-    setExpandedCompetitors((current) => ({
-      ...current,
-      [name]: !(current[name] ?? true),
-    }));
-  }
 
   const derived = useMemo(() => {
     if (!data?.snapshot?.rounds?.length) {
@@ -2076,7 +2119,7 @@ function TournamentStructurePage() {
 
   return (
     <main className="app-shell bracket-page-shell">
-      <SiteHeader mode="structure" poolConfigured={poolConfigured} />
+      <SiteHeader mode="structure" />
 
       <section className="bracket-hero-card">
         <div className="bracket-hero-copy">
@@ -2318,8 +2361,6 @@ function HomePage() {
     refresh,
     refreshing,
     lastUpdatedAt,
-    selectedRoundKey,
-    setSelectedRoundKey,
     derived,
   } = useTournamentOverview(selectedYear);
 
@@ -2357,7 +2398,7 @@ function HomePage() {
 
   return (
     <main className="app-shell">
-      <SiteHeader mode="home" poolConfigured={poolConfigured} />
+      <SiteHeader mode="home" />
 
       {isYearSwitching ? (
         <p className="status-banner" aria-live="polite">
@@ -2391,14 +2432,15 @@ function HomePage() {
             </h1>
             <div className="hero-actions">
               {poolConfigured ? <Link className="admin-pill-link" to="/teams">View teams</Link> : null}
-              <Link className="admin-pill-link subtle" to="/structure">Open structure</Link>
+              <Link className="admin-pill-link subtle" to="/fixtures">Open fixtures</Link>
+              <Link className="admin-pill-link subtle" to="/table">Open table</Link>
               <Link className="admin-pill-link subtle" to="/winners">Open winners</Link>
             </div>
             <RefreshButton onClick={refresh} busy={refreshing} label={`Refresh ${selectedYear} tournament data`} className="hero-refresh-button" />
           </div>
         </div>
         <div className="hero-image-shell hero-tournament-mark" aria-hidden="true">
-          <div className="tournament-mark-ball" />
+          <img className="hero-image tournament-mark-image" src="/cup-balls.png" alt="" loading="eager" />
           <div className="tournament-mark-copy">
             <span>{selectedYear}</span>
             <strong>{isUpcomingTournament ? "Host countdown" : "Final tournament"}</strong>
@@ -2437,7 +2479,7 @@ function HomePage() {
           </p>
           <p className="summary-copy">
             {isUpcomingTournament
-              ? "Waiting for the final 2026 field"
+              ? `Waiting for the final ${selectedYear} field`
               : tournamentComplete
               ? `Champion of the pool for ${selectedYear}`
               : hasTbdEntrants
@@ -2475,13 +2517,13 @@ function EntrantsPage() {
   const [sortBy, setSortBy] = useSessionState(ENTRANTS_SORT_SESSION_KEY, "entrant");
 
   if (loading && !data) {
-    return <PublicPageSkeleton mode="entrants" showGrid gridCount={4} />;
+    return <PublicPageSkeleton mode="teams" showGrid gridCount={4} />;
   }
 
   if (!data || !data.snapshot?.rounds?.length || !derived) {
     return (
       <PublicErrorState
-        mode="entrants"
+        mode="teams"
         title="Team data is unavailable"
         message={error || "The teams page could not be loaded right now."}
         lastUpdatedAt={lastUpdatedAt}
@@ -2491,6 +2533,10 @@ function EntrantsPage() {
 
   const poolConfigured = data.poolConfigured !== false;
   const { decoratedCompetitors } = derived;
+  const availableTeams = ((data.snapshot.allTeams?.length ? data.snapshot.allTeams : data.snapshot.entrants) || [])
+    .filter((team) => !isPlaceholderEntrant(team))
+    .slice()
+    .sort((left, right) => left.name.localeCompare(right.name));
   const unifiedAssignments = decoratedCompetitors.flatMap((competitor) => (
     competitor.teamAssignments.map((player, index) => ({
       ...player,
@@ -2516,7 +2562,7 @@ function EntrantsPage() {
 
   return (
     <main className="app-shell">
-      <SiteHeader mode="entrants" poolConfigured={poolConfigured} />
+      <SiteHeader mode="teams" />
 
       <section className="bracket-hero-card">
         <div className="bracket-hero-copy">
@@ -2592,7 +2638,7 @@ function EntrantsPage() {
       {error ? <p className="status-banner error">{error}</p> : null}
       {!poolConfigured ? (
         <p className="status-banner">
-          The pool is not fully configured yet. Entrant cards will appear here once the tournament teams have been assigned.
+          The pool is not fully configured yet. The live tournament field is shown below, and entrant cards will appear here once teams have been assigned.
         </p>
       ) : null}
 
@@ -2658,7 +2704,39 @@ function EntrantsPage() {
             </ul>
           </section>
         </>
-      ) : null}
+      ) : (
+        <>
+          <section className="section-heading">
+            <div>
+              <p className="eyebrow">Tournament field</p>
+              <h2>{availableTeams.length} available teams</h2>
+              <p className="section-support-copy">Live tournament teams are available now, even before pool assignments have been set up.</p>
+            </div>
+          </section>
+          <section className="assignment-list-card">
+            <ul className="assignment-list">
+              {availableTeams.map((team) => (
+                <li key={team.id} className="pick-row assignment-row">
+                  <div className="assignment-main">
+                    <div className="assignment-line">
+                      {showPhotos ? (
+                        team.photo ? (
+                          <img className="assignment-flag" src={team.photo} alt="" loading="lazy" />
+                        ) : (
+                          <NationalityFlag nationality={team.nationality} className="assignment-flag" />
+                        )
+                      ) : null}
+                      <strong>{team.name}</strong>
+                    </div>
+                    <small>{team.group ? `Group ${team.group}` : (team.confederation || TEAM_ASSIGNMENT_LABEL)}</small>
+                  </div>
+                  <span className={`pick-status ${team.statusTone || "neutral"}`}>{team.roundStatusLabel || TEAM_STATUS_LABEL}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </>
+      )}
 
       <SourceTag lastUpdatedAt={lastUpdatedAt} sourceLabel={data.snapshot.dataSourceLabel || SOURCE_LABEL} sourceUrl={data.snapshot.dataSourceUrl} />
     </main>
@@ -2684,7 +2762,10 @@ function MatchesPage() {
   const selectedCountryFilters = normaliseSessionList(selectedCountryFiltersRaw);
   const snapshotRounds = getFixtureStages(data?.snapshot);
   const selectedRoundSnapshot = snapshotRounds.find((round) => round.key === selectedRoundKey) || snapshotRounds[0] || null;
-  const selectedRoundMatches = selectedRoundSnapshot?.matches || [];
+  const selectedRoundMatches = useMemo(
+    () => selectedRoundSnapshot?.matches || [],
+    [selectedRoundSnapshot],
+  );
 
   useEffect(() => {
     if (!snapshotRounds.length) {
@@ -2702,7 +2783,7 @@ function MatchesPage() {
     if (yearChanged) {
       autoSelectedRoundYearRef.current = data.snapshot?.year;
     }
-  }, [data, selectedRoundKey, snapshotRounds]);
+  }, [data, selectedRoundKey, setSelectedRoundKey, snapshotRounds]);
 
   useEffect(() => {
     if (!displayRoundKey && selectedRoundKey) {
@@ -2772,13 +2853,13 @@ function MatchesPage() {
   }, [countryOptions, selectedCountryFilters, selectedCountryFiltersRaw, setSelectedCountryFilters]);
 
   if (loading && !data) {
-    return <PublicPageSkeleton mode="matches" showGrid gridCount={5} />;
+    return <PublicPageSkeleton mode="fixtures" showGrid gridCount={5} />;
   }
 
   if (!data || !snapshotRounds.length) {
     return (
       <PublicErrorState
-        mode="matches"
+        mode="fixtures"
         title="Fixture data is unavailable"
         message={error || "The fixtures page could not be loaded right now."}
         lastUpdatedAt={lastUpdatedAt}
@@ -2786,7 +2867,6 @@ function MatchesPage() {
     );
   }
 
-  const { snapshot } = data;
   const selectedRound = snapshotRounds.find((round) => round.key === selectedRoundKey) || snapshotRounds[0];
   const displayRound = snapshotRounds.find((round) => round.key === displayRoundKey) || selectedRound;
   const isYearSwitching = loading && Boolean(data) && data.snapshot?.year !== selectedYear;
@@ -2832,7 +2912,7 @@ function MatchesPage() {
 
   return (
     <main className="app-shell">
-      <SiteHeader mode="matches" poolConfigured={poolConfigured} />
+      <SiteHeader mode="fixtures" />
 
       <section className="bracket-hero-card matches-hero-card">
         <div className="bracket-hero-copy">
@@ -3096,6 +3176,9 @@ function BracketPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedYear, setSelectedYear] = usePublicSelectedYear();
+  const [showPhotos] = usePublicShowPhotos();
+  const [tableMode, setTableMode] = useSessionState(TABLE_MODE_SESSION_KEY, "groups");
+  const [tableModeYear, setTableModeYear] = useSessionState(TABLE_MODE_YEAR_SESSION_KEY, null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -3181,23 +3264,42 @@ function BracketPage() {
       championPlayerName: championPlayer?.name || "",
     };
   }, [data]);
+  const ownershipByPlayerId = useMemo(
+    () => buildOwnershipMap(data?.competitors || []),
+    [data?.competitors],
+  );
+
+  useEffect(() => {
+    if (!data?.snapshot) {
+      return;
+    }
+
+    const defaultMode = getDefaultStructureMode(data.snapshot);
+    if (tableModeYear !== data.snapshot.year) {
+      setTableMode(defaultMode);
+      setTableModeYear(data.snapshot.year);
+    }
+  }, [data?.snapshot, setTableMode, setTableModeYear, tableModeYear]);
 
   if (loading && !data) {
-    return <PublicPageSkeleton mode="bracket" showGrid gridCount={3} />;
+    return <PublicPageSkeleton mode="knockout" showGrid gridCount={3} />;
   }
 
   if (!data || !data.snapshot?.rounds?.length || !derived) {
     return (
       <PublicErrorState
-        mode="bracket"
-        title="Knockout data is unavailable"
-        message={error || "The knockout view could not be loaded right now."}
+        mode="table"
+        title="Table data is unavailable"
+        message={error || "The table view could not be loaded right now."}
         lastUpdatedAt={lastUpdatedAt}
       />
     );
   }
 
   const poolConfigured = data.poolConfigured !== false;
+  const groups = data.snapshot?.groups || [];
+  const activeMode = tableMode === "knockout" ? "knockout" : "groups";
+  const defaultMode = getDefaultStructureMode(data.snapshot);
   const bracketUnit = isVeryCompactViewport ? 320 : isCompactViewport ? 280 : 208;
   const bracketHeight = derived.bracketRounds[0].bracketMatches.length * bracketUnit;
 
@@ -3218,20 +3320,28 @@ function BracketPage() {
 
   return (
     <main className="app-shell bracket-page-shell">
-      <SiteHeader mode="bracket" poolConfigured={poolConfigured} />
+      <SiteHeader mode="table" />
 
       <section className="bracket-hero-card">
         <div className="bracket-hero-copy">
-          <p className="hero-kicker">Knockout tree</p>
-          <h1>{BRAND_SHORT_NAME} Knockout</h1>
+          <p className="hero-kicker">Tournament table</p>
+          <h1>{BRAND_SHORT_NAME} Table</h1>
+          <p className="bracket-hero-note">
+            {activeMode === "groups"
+              ? "Group stage standings and group-by-group progress"
+              : "Knockout tree and carry-forward match winners"}
+          </p>
+          <p className="structure-phase-note">
+            Auto phase: {defaultMode === "groups" ? "Group Stage" : "Knockout"}
+          </p>
           <p className="bracket-hero-note">
             {lastUpdatedAt
-              ? `Updated ${lastUpdatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+              ? `Updated ${formatFooterTimestamp(lastUpdatedAt)}`
               : "Waiting for live data"}
           </p>
         </div>
         <div className="matches-hero-tools">
-          <RefreshButton onClick={refreshBracketData} busy={refreshing} label={`Refresh ${selectedYear} knockout data`} />
+          <RefreshButton onClick={refreshBracketData} busy={refreshing} label={`Refresh ${selectedYear} table data`} />
           <div className="bracket-toolbar bracket-toolbar-compact">
             <div className="bracket-control bracket-control-year">
               <p className="toolbar-label">Year</p>
@@ -3250,18 +3360,53 @@ function BracketPage() {
                 </select>
               </label>
             </div>
+            <div className="bracket-control structure-mode-control">
+              <p className="toolbar-label">View</p>
+              <div className="structure-mode-switch" role="tablist" aria-label="Table view mode">
+                <div className="structure-mode-label-row" aria-hidden="true">
+                  <span className={`structure-mode-side-label${activeMode === "groups" ? " active" : ""}`}>Group Stage</span>
+                  <span className={`structure-mode-side-label${activeMode === "knockout" ? " active" : ""}`}>Knockout</span>
+                </div>
+                <div className="structure-mode-button-row">
+                  <button
+                    type="button"
+                    className={`structure-mode-option${activeMode === "groups" ? " active" : ""}`}
+                    onClick={() => {
+                      setTableMode("groups");
+                      setTableModeYear(selectedYear);
+                    }}
+                    aria-selected={activeMode === "groups"}
+                    aria-label="Show group stage table"
+                  />
+                  <button
+                    type="button"
+                    className={`structure-mode-option${activeMode === "knockout" ? " active" : ""}`}
+                    onClick={() => {
+                      setTableMode("knockout");
+                      setTableModeYear(selectedYear);
+                    }}
+                    aria-selected={activeMode === "knockout"}
+                    aria-label="Show knockout table"
+                  />
+                </div>
+              </div>
+            </div>
             <div className="bracket-control">
-              <span className="bracket-inline-label">{derived.tournamentComplete ? "Status" : "Active round"}</span>
+              <span className="bracket-inline-label">{activeMode === "groups" ? "Coverage" : (derived.tournamentComplete ? "Status" : "Active round")}</span>
               <strong className="bracket-inline-value">
-                {derived.tournamentComplete
+                {activeMode === "groups"
+                  ? `${groups.length} groups`
+                  : derived.tournamentComplete
                   ? "Complete"
                   : derived.bracketRounds.find((round) => round.key === derived.activeRoundKey)?.name || "Round of 16"}
               </strong>
             </div>
             <div className="bracket-control">
-              <span className="bracket-inline-label">{derived.tournamentComplete ? "Winner" : "Completed"}</span>
+              <span className="bracket-inline-label">{activeMode === "groups" ? "Matches" : (derived.tournamentComplete ? "Winner" : "Completed")}</span>
               <strong className={`bracket-inline-value${derived.tournamentComplete ? " bracket-inline-value-wrap" : ""}`}>
-                {derived.tournamentComplete
+                {activeMode === "groups"
+                  ? groups.reduce((total, group) => total + group.fixtures.length, 0)
+                  : derived.tournamentComplete
                   ? `${derived.winningCompetitorName}${derived.championPlayerName ? ` (${derived.championPlayerName})` : ""}`
                   : derived.completedMatches}
               </strong>
@@ -3285,20 +3430,38 @@ function BracketPage() {
 
       <section className="section-heading">
         <div>
-          <p className="eyebrow">Progression View</p>
-          <h2>{data.snapshot.eventName}</h2>
-        </div>
-        <div className="matches-heading-actions">
-          <Link
-            className="matches-filter-button"
-            to="/fixtures"
-            onClick={() => jumpToMatchesRound("group-stage")}
-          >
-            <span>View Group Stage</span>
-          </Link>
+          <p className="eyebrow">{activeMode === "groups" ? "Group Stage" : "Knockout"}</p>
+          <h2>{activeMode === "groups" ? `${selectedYear} groups` : data.snapshot.eventName}</h2>
+          <p className="section-support-copy">
+            {activeMode === "groups"
+              ? "Follow each group table while the opening stage is live."
+              : "Winner placeholders feed the bracket forward until the knockout teams are set."}
+          </p>
         </div>
       </section>
 
+      {activeMode === "groups" ? (
+        groups.length ? (
+        <>
+          <section className="group-stage-grid">
+            {groups.map((group) => (
+              <GroupStandingsCard
+                key={group.key}
+                group={group}
+                showPhotos={showPhotos}
+                ownershipByPlayerId={ownershipByPlayerId}
+                compact={isCompactViewport}
+              />
+            ))}
+          </section>
+        </>
+        ) : (
+        <p className="status-banner">
+          Group standings are not available for {selectedYear} yet.
+        </p>
+        )
+      ) : (
+      <>
       <section className="bracket-board-shell">
         <div className="bracket-board">
           {derived.bracketRounds.map((round, roundIndex) => (
@@ -3383,6 +3546,8 @@ function BracketPage() {
           ))}
         </div>
       </section>
+      </>
+      )}
 
       <SourceTag lastUpdatedAt={lastUpdatedAt} sourceLabel={data.snapshot.dataSourceLabel || SOURCE_LABEL} sourceUrl={data.snapshot.dataSourceUrl} />
     </main>
@@ -3509,7 +3674,6 @@ function AdminPage() {
   const [selectedAdminYear, setSelectedAdminYear] = useState(ADMIN_DEFAULT_YEAR);
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const [uploading, setUploading] = useState(false);
   const [builderLoading, setBuilderLoading] = useState(false);
   const [savingBuilder, setSavingBuilder] = useState(false);
   const [autoAssigning, setAutoAssigning] = useState(false);
@@ -3532,7 +3696,7 @@ function AdminPage() {
   const entrantRegistryLoadedRef = useRef(false);
   const lastSavedEntrantsRef = useRef("[]");
 
-  async function loadBuilder() {
+  const loadBuilder = useCallback(async () => {
     try {
       setBuilderLoading(true);
       setError("");
@@ -3547,9 +3711,9 @@ function AdminPage() {
     } finally {
       setBuilderLoading(false);
     }
-  }
+  }, [selectedAdminYear]);
 
-  async function loadEntrants() {
+  const loadEntrants = useCallback(async () => {
     try {
       setEntrantsLoading(true);
       setError("");
@@ -3563,9 +3727,9 @@ function AdminPage() {
     } finally {
       setEntrantsLoading(false);
     }
-  }
+  }, []);
 
-  async function loadSiteSettings() {
+  const loadSiteSettings = useCallback(async () => {
     try {
       setSiteSettingsLoading(true);
       setError("");
@@ -3581,14 +3745,14 @@ function AdminPage() {
     } finally {
       setSiteSettingsLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     if (authenticated) {
       loadEntrants();
       loadSiteSettings();
     }
-  }, [authenticated]);
+  }, [authenticated, loadEntrants, loadSiteSettings]);
 
   useEffect(() => {
     if (authenticated) {
@@ -3598,7 +3762,7 @@ function AdminPage() {
       setShowResetConfirm(false);
       setAutoAssignTargets({});
     }
-  }, [authenticated, selectedAdminYear]);
+  }, [authenticated, loadBuilder]);
 
   useEffect(() => {
     if (!authenticated || !entrantRegistryLoadedRef.current || entrantsLoading || savingEntrants) {
@@ -3634,7 +3798,7 @@ function AdminPage() {
     }, 400);
 
     return () => window.clearTimeout(timeoutId);
-  }, [authenticated, entrantRegistry, entrantsLoading, savingEntrants]);
+  }, [authenticated, entrantRegistry, entrantsLoading, loadBuilder, savingEntrants]);
 
   function handlePasswordSubmit(event) {
     event.preventDefault();
@@ -3654,29 +3818,6 @@ function AdminPage() {
     setAuthenticated(false);
     setPassword("");
     setPasswordError("");
-  }
-
-  async function handleUpload(event) {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    try {
-      const text = await file.text();
-      const payload = JSON.parse(text);
-      setUploading(true);
-      setError("");
-      const response = await uploadPool(payload, selectedAdminYear);
-      setStatus(`Loaded ${file.name} into ${response.sourceFile}.`);
-      await loadBuilder();
-      await loadEntrants();
-    } catch (uploadError) {
-      setError(uploadError.message || "That file could not be uploaded.");
-    } finally {
-      setUploading(false);
-      event.target.value = "";
-    }
   }
 
   const builderDerived = useMemo(() => {
@@ -4362,7 +4503,7 @@ function AdminPage() {
                 <h3>Randomly distribute the current draw</h3>
                 <p className="admin-copy">
                   This clears the current team assignments for {selectedAdminYear}, then redistributes the full tournament field across the existing entrants.
-                  The wizard keeps round-of-16 opponents away from the same entrant where possible and balances the draw as evenly as possible.
+                  The wizard keeps opening-round opponents away from the same entrant where possible and balances the draw as evenly as possible.
                 </p>
               </div>
               <div className="admin-auto-assign-stats">
@@ -4716,12 +4857,13 @@ export default function App() {
       <Route path="/structure" element={<TournamentStructurePage />} />
       <Route path="/groups" element={<Navigate to="/structure" replace />} />
       <Route path="/teams" element={<EntrantsPage />} />
-      <Route path="/fixtures" element={<Navigate to="/structure" replace />} />
-      <Route path="/knockout" element={<Navigate to="/structure" replace />} />
+      <Route path="/fixtures" element={<MatchesPage />} />
+      <Route path="/table" element={<BracketPage />} />
+      <Route path="/knockout" element={<Navigate to="/table" replace />} />
       <Route path="/group-stage" element={<Navigate to="/structure" replace />} />
       <Route path="/entrants" element={<Navigate to="/teams" replace />} />
-      <Route path="/matches" element={<Navigate to="/structure" replace />} />
-      <Route path="/bracket" element={<Navigate to="/structure" replace />} />
+      <Route path="/matches" element={<Navigate to="/fixtures" replace />} />
+      <Route path="/bracket" element={<Navigate to="/table" replace />} />
       <Route path="/winners" element={<WinnersPage />} />
       <Route path="/admin" element={<ProtectedAdminRoute />} />
       <Route path="/admin/login" element={<AdminPage />} />

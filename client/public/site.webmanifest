@@ -1,7 +1,7 @@
 {
-  "name": "The Pellegrino Classic",
-  "short_name": "Pellegrino",
-  "description": "Track the World Snooker Championship with fixtures, entrants, brackets, and pool updates.",
+  "name": "WorldCupPool",
+  "short_name": "WorldCupPool",
+  "description": "Track a World Cup pool with group tables, fixtures, bracket progression, and winners.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f7f1e3",

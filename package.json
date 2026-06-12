@@ -1,6 +1,7 @@
 {
   "type": "module",
   "scripts": {
+    "dev": "./scripts/dev.sh",
     "build": "npm --prefix server install && npm --prefix client install && npm --prefix client run build",
     "start": "node server/index.js"
   },
