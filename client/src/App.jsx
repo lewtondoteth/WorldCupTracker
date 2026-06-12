@@ -27,7 +27,6 @@ const MATCHES_ROUND_SESSION_KEY = "worldcup-public-fixtures-stage";
 const MATCHES_ENTRANT_FILTERS_SESSION_KEY = "worldcup-public-entrant-filters";
 const MATCHES_PLAYER_FILTERS_SESSION_KEY = "worldcup-public-team-filters";
 const MATCHES_COUNTRY_FILTERS_SESSION_KEY = "worldcup-public-country-filters";
-const ENTRANTS_SORT_SESSION_KEY = "worldcup-entrants-sort";
 const SITE_DESCRIPTION = "Track a World Cup pool with group tables, bracket progression, fixtures, and winners.";
 const SEED_LABEL = "Bucket A";
 const QUALIFIER_LABEL = "Bucket B";
@@ -74,9 +73,9 @@ const PAGE_METADATA = {
     title: `${BRAND_NAME} | FIFA World Cup Pool Tracker`,
     description: SITE_DESCRIPTION,
   },
-  "/teams": {
-    title: `Teams | ${BRAND_NAME}`,
-    description: "Browse assigned teams, entrant picks, and pool ownership at a glance.",
+  "/entrants": {
+    title: `Entrants | ${BRAND_NAME}`,
+    description: "Browse entrants and the teams assigned to each of them.",
   },
   "/structure": {
     title: `Structure | ${BRAND_NAME}`,
@@ -309,7 +308,7 @@ async function fetchPool(year, options = {}) {
 }
 
 async function fetchAdminPoolBuilder(year) {
-  const response = await fetch(`${API_BASE}/api/pool/${year}/admin`, NO_STORE_FETCH_OPTIONS);
+  const response = await fetch(`${API_BASE}/api/pool/${year}/admin?refresh=1`, NO_STORE_FETCH_OPTIONS);
   return readJsonResponse(response, "Failed to load admin builder");
 }
 
@@ -833,7 +832,7 @@ function SiteHeader({ mode = "home" }) {
             <>
               <a className="site-menu-link" href="#overview" onClick={closeMenu}>Overview</a>
               <Link className="site-menu-link" to="/structure" onClick={closeMenu}>Structure</Link>
-              <Link className="site-menu-link" to="/teams" onClick={closeMenu}>Teams</Link>
+              <Link className="site-menu-link" to="/entrants" onClick={closeMenu}>Entrants</Link>
               <Link className="site-menu-link" to="/fixtures" onClick={closeMenu}>Fixtures</Link>
               <Link className="site-menu-link" to="/table" onClick={closeMenu}>Table</Link>
               <Link className="site-menu-link" to="/winners" onClick={closeMenu}>Winners</Link>
@@ -842,7 +841,7 @@ function SiteHeader({ mode = "home" }) {
             <>
               <Link className="site-menu-link" to="/" onClick={closeMenu}>Tournament</Link>
               <Link className={`site-menu-link${mode === "structure" ? " current" : ""}`} to="/structure" onClick={closeMenu}>Structure</Link>
-              <Link className={`site-menu-link${mode === "teams" ? " current" : ""}`} to="/teams" onClick={closeMenu}>Teams</Link>
+              <Link className={`site-menu-link${mode === "entrants" ? " current" : ""}`} to="/entrants" onClick={closeMenu}>Entrants</Link>
               <Link className={`site-menu-link${mode === "fixtures" ? " current" : ""}`} to="/fixtures" onClick={closeMenu}>Fixtures</Link>
               <Link className={`site-menu-link${mode === "table" ? " current" : ""}`} to="/table" onClick={closeMenu}>Table</Link>
               <Link className={`site-menu-link${mode === "winners" ? " current" : ""}`} to="/winners" onClick={closeMenu}>Winners</Link>
@@ -2431,7 +2430,7 @@ function HomePage() {
               </label>
             </h1>
             <div className="hero-actions">
-              {poolConfigured ? <Link className="admin-pill-link" to="/teams">View teams</Link> : null}
+              {poolConfigured ? <Link className="admin-pill-link" to="/entrants">View entrants</Link> : null}
               <Link className="admin-pill-link subtle" to="/fixtures">Open fixtures</Link>
               <Link className="admin-pill-link subtle" to="/table">Open table</Link>
               <Link className="admin-pill-link subtle" to="/winners">Open winners</Link>
@@ -2514,18 +2513,17 @@ function EntrantsPage() {
   const [showPhotos, setShowPhotos] = usePublicShowPhotos();
   const { data, loading, error, derived, refresh, refreshing, lastUpdatedAt } = useTournamentOverview(selectedYear);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
-  const [sortBy, setSortBy] = useSessionState(ENTRANTS_SORT_SESSION_KEY, "entrant");
 
   if (loading && !data) {
-    return <PublicPageSkeleton mode="teams" showGrid gridCount={4} />;
+    return <PublicPageSkeleton mode="entrants" showGrid gridCount={4} />;
   }
 
   if (!data || !data.snapshot?.rounds?.length || !derived) {
     return (
       <PublicErrorState
-        mode="teams"
-        title="Team data is unavailable"
-        message={error || "The teams page could not be loaded right now."}
+        mode="entrants"
+        title="Entrant data is unavailable"
+        message={error || "The entrants page could not be loaded right now."}
         lastUpdatedAt={lastUpdatedAt}
       />
     );
@@ -2533,41 +2531,29 @@ function EntrantsPage() {
 
   const poolConfigured = data.poolConfigured !== false;
   const { decoratedCompetitors } = derived;
-  const availableTeams = ((data.snapshot.allTeams?.length ? data.snapshot.allTeams : data.snapshot.entrants) || [])
+  const tournamentTeams = ((data.snapshot.allTeams?.length ? data.snapshot.allTeams : data.snapshot.entrants) || [])
     .filter((team) => !isPlaceholderEntrant(team))
     .slice()
     .sort((left, right) => left.name.localeCompare(right.name));
-  const unifiedAssignments = decoratedCompetitors.flatMap((competitor) => (
-    competitor.teamAssignments.map((player, index) => ({
-      ...player,
-      entrantName: competitor.name,
-      winningYears: competitor.winningYears || [],
-      sortIndex: index,
+  const entrantGroups = decoratedCompetitors
+    .map((competitor) => ({
+      ...competitor,
+      teamAssignments: [...(competitor.teamAssignments || [])].sort((left, right) => left.name.localeCompare(right.name)),
     }))
-  )).sort((left, right) => {
-    if (sortBy === "team") {
-      return (
-        left.name.localeCompare(right.name)
-        || left.entrantName.localeCompare(right.entrantName)
-        || left.sortIndex - right.sortIndex
-      );
-    }
-
-    return (
-      left.entrantName.localeCompare(right.entrantName)
-      || left.name.localeCompare(right.name)
-      || left.sortIndex - right.sortIndex
-    );
-  });
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const assignedTeamIds = new Set(
+    entrantGroups.flatMap((competitor) => competitor.teamAssignments.map((team) => String(team.id))),
+  );
+  const unassignedTeams = tournamentTeams.filter((team) => !assignedTeamIds.has(String(team.id)));
 
   return (
     <main className="app-shell">
-      <SiteHeader mode="teams" />
+      <SiteHeader mode="entrants" />
 
       <section className="bracket-hero-card">
         <div className="bracket-hero-copy">
           <p className="hero-kicker">Entrants and assigned teams</p>
-          <h1>{BRAND_SHORT_NAME} Teams</h1>
+          <h1>{BRAND_SHORT_NAME} Entrants</h1>
         </div>
         <div className="entrants-hero-tools">
           <div className="matches-settings-shell entrants-settings-shell">
@@ -2578,8 +2564,8 @@ function EntrantsPage() {
               onClick={() => setSettingsMenuOpen((current) => !current)}
               aria-expanded={settingsMenuOpen}
               aria-controls="entrants-settings-panel"
-              aria-label="Open team display settings"
-              title="Team display settings"
+                  aria-label="Open entrant display settings"
+                  title="Entrant display settings"
             >
               <span className="matches-settings-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false">
@@ -2631,6 +2617,10 @@ function EntrantsPage() {
               <span className="bracket-inline-label">Pool entrants</span>
               <strong className="bracket-inline-value">{decoratedCompetitors.length}</strong>
             </div>
+            <div className="bracket-control">
+              <span className="bracket-inline-label">Tournament teams</span>
+              <strong className="bracket-inline-value">{tournamentTeams.length}</strong>
+            </div>
           </div>
         </div>
       </section>
@@ -2648,74 +2638,101 @@ function EntrantsPage() {
             <div>
               <p className="eyebrow">Entrants</p>
               <h2>{decoratedCompetitors.length} pool entrants</h2>
-              <p className="section-support-copy">One unified list of assignments, with entrant shown first and team alongside it.</p>
-            </div>
-            <div className="assignment-sort-control">
-              <p className="toolbar-label">Sort by</p>
-              <label className="toolbar-select-shell">
-                <select
-                  className="toolbar-select"
-                  value={sortBy}
-                  onChange={(event) => setSortBy(event.target.value)}
-                  aria-label="Sort assignments"
-                >
-                  <option value="entrant">Entrant</option>
-                  <option value="team">Team</option>
-                </select>
-              </label>
+              <p className="section-support-copy">All tournament teams are grouped by the entrant who currently holds them.</p>
             </div>
           </section>
-          <section className="assignment-list-card">
-            <ul className="assignment-list">
-              {unifiedAssignments.map((player) => (
-                <li key={player.id} className={player.eliminated ? "pick-row assignment-row eliminated" : "pick-row assignment-row"}>
-                  <div className="assignment-main">
-                    <div className={`assignment-line${player.eliminated ? " eliminated" : ""}`}>
-                      <span className="assignment-entrant">{player.entrantName}</span>
-                      {(player.winningYears || []).length ? (
-                        <span className="bracket-entrant-crowns" aria-label={`${player.winningYears.length} wins`}>
-                          {player.winningYears.map((year) => (
-                            <img
-                              key={`${player.id}-${year}`}
-                              className="competitor-crown"
-                              src={crownIcon}
-                              alt=""
-                              aria-hidden="true"
-                              title={`Winner ${year}`}
-                            />
-                          ))}
-                        </span>
-                      ) : null}
-                      <span className="assignment-separator" aria-hidden="true">/</span>
-                      {showPhotos ? (
-                        player.photo ? (
-                          <img className="assignment-flag" src={player.photo} alt="" loading="lazy" />
-                        ) : (
-                          <NationalityFlag nationality={player.nationality} className="assignment-flag" />
-                        )
-                      ) : null}
-                      <strong>{player.name}</strong>
-                    </div>
-                    <small>{TEAM_ASSIGNMENT_LABEL}</small>
+          <section className="entrant-groups-grid">
+            {entrantGroups.map((competitor) => (
+              <article key={competitor.entrantId || competitor.name} className="assignment-list-card entrant-group-card">
+                <div className="entrant-group-header">
+                  <div>
+                    <h3>{competitor.name}</h3>
+                    <p className="section-support-copy">{competitor.teamAssignments.length} team{competitor.teamAssignments.length === 1 ? "" : "s"}</p>
                   </div>
-                  <span className={`pick-status ${player.statusTone}`}>{player.roundStatusLabel}</span>
-                </li>
-              ))}
-            </ul>
+                  {(competitor.winningYears || []).length ? (
+                    <span className="bracket-entrant-crowns" aria-label={`${competitor.winningYears.length} wins`}>
+                      {competitor.winningYears.map((year) => (
+                        <img
+                          key={`${competitor.entrantId || competitor.name}-${year}`}
+                          className="competitor-crown"
+                          src={crownIcon}
+                          alt=""
+                          aria-hidden="true"
+                          title={`Winner ${year}`}
+                        />
+                      ))}
+                    </span>
+                  ) : null}
+                </div>
+                <ul className="assignment-list">
+                  {competitor.teamAssignments.map((player) => (
+                    <li key={player.id} className={player.eliminated ? "pick-row assignment-row eliminated" : "pick-row assignment-row"}>
+                      <div className="assignment-main">
+                        <div className={`assignment-line${player.eliminated ? " eliminated" : ""}`}>
+                          {showPhotos ? (
+                            player.photo ? (
+                              <img className="assignment-flag" src={player.photo} alt="" loading="lazy" />
+                            ) : (
+                              <NationalityFlag nationality={player.nationality} className="assignment-flag" />
+                            )
+                          ) : null}
+                          <strong>{player.name}</strong>
+                        </div>
+                        <small>{player.group ? `Group ${player.group}` : TEAM_ASSIGNMENT_LABEL}</small>
+                      </div>
+                      <span className={`pick-status ${player.statusTone}`}>{player.roundStatusLabel}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
           </section>
+          {unassignedTeams.length ? (
+            <>
+              <section className="section-heading">
+                <div>
+                  <p className="eyebrow">Unassigned</p>
+                  <h2>{unassignedTeams.length} teams still unassigned</h2>
+                  <p className="section-support-copy">These teams are in the 48-team field but do not yet belong to an entrant.</p>
+                </div>
+              </section>
+              <section className="assignment-list-card">
+                <ul className="assignment-list">
+                  {unassignedTeams.map((team) => (
+                    <li key={team.id} className="pick-row assignment-row">
+                      <div className="assignment-main">
+                        <div className="assignment-line">
+                          {showPhotos ? (
+                            team.photo ? (
+                              <img className="assignment-flag" src={team.photo} alt="" loading="lazy" />
+                            ) : (
+                              <NationalityFlag nationality={team.nationality} className="assignment-flag" />
+                            )
+                          ) : null}
+                          <strong>{team.name}</strong>
+                        </div>
+                        <small>{team.group ? `Group ${team.group}` : (team.confederation || TEAM_ASSIGNMENT_LABEL)}</small>
+                      </div>
+                      <span className={`pick-status ${team.statusTone || "neutral"}`}>{team.roundStatusLabel || TEAM_STATUS_LABEL}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </>
+          ) : null}
         </>
       ) : (
         <>
           <section className="section-heading">
             <div>
               <p className="eyebrow">Tournament field</p>
-              <h2>{availableTeams.length} available teams</h2>
-              <p className="section-support-copy">Live tournament teams are available now, even before pool assignments have been set up.</p>
+              <h2>{tournamentTeams.length} entrant teams</h2>
+              <p className="section-support-copy">The full 48-team field is available, but no entrant assignments have been configured yet.</p>
             </div>
           </section>
           <section className="assignment-list-card">
             <ul className="assignment-list">
-              {availableTeams.map((team) => (
+              {tournamentTeams.map((team) => (
                 <li key={team.id} className="pick-row assignment-row">
                   <div className="assignment-main">
                     <div className="assignment-line">
@@ -4856,12 +4873,12 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/structure" element={<TournamentStructurePage />} />
       <Route path="/groups" element={<Navigate to="/structure" replace />} />
-      <Route path="/teams" element={<EntrantsPage />} />
+      <Route path="/entrants" element={<EntrantsPage />} />
       <Route path="/fixtures" element={<MatchesPage />} />
       <Route path="/table" element={<BracketPage />} />
       <Route path="/knockout" element={<Navigate to="/table" replace />} />
       <Route path="/group-stage" element={<Navigate to="/structure" replace />} />
-      <Route path="/entrants" element={<Navigate to="/teams" replace />} />
+      <Route path="/teams" element={<Navigate to="/entrants" replace />} />
       <Route path="/matches" element={<Navigate to="/fixtures" replace />} />
       <Route path="/bracket" element={<Navigate to="/table" replace />} />
       <Route path="/winners" element={<WinnersPage />} />

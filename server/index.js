@@ -18,7 +18,7 @@ import { createFootballDataProvider } from "./football-data-provider.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_DIST_DIR = path.join(__dirname, "..", "client", "dist");
 const PORT = runtimeConfig.port;
-const PUBLIC_SITE_PATHS = ["/", "/structure", "/teams", "/fixtures", "/table", "/knockout", "/winners"];
+const PUBLIC_SITE_PATHS = ["/", "/structure", "/entrants", "/teams", "/fixtures", "/table", "/knockout", "/winners"];
 
 const app = express();
 let currentSiteSettings = { clacksNames: [] };

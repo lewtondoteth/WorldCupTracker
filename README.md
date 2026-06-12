@@ -6,15 +6,15 @@ This repo is the active FIFA World Cup pool site, rebuilt from the finished base
 
 - Keeps the polished pool/admin/entrant/winner workflow from the finished baseline
 - Uses World Cup teams, groups, fixtures, knockout rounds, standings, and winners throughout the product
-- Uses `football-data.org` for the 2022 World Cup tournament data
-- Keeps 2026 as an intentionally unpopulated upcoming-tournament shell until teams and fixtures are available
+- Uses `football-data.org` for live World Cup tournament data, including the 2026 competition
+- Keeps a static 2022 fallback snapshot available if live data is disabled
 
 ## Current Data Model
 
 - `Bucket A` and `Bucket B` are the two internal assignment buckets used for pool picks
 - Public pages cover:
   - `/structure` for group tables plus the compact knockout overview
-  - `/teams` for entrant picks and team ownership
+  - `/entrants` for entrant picks and team ownership
   - `/fixtures` for tournament stages, filters, and results
   - `/table` for the group-stage / knockout switcher
   - `/winners` for pool winners by year
